@@ -6,13 +6,19 @@ import java.util.regex.Pattern
 
 case class HttpResponse( firstLine: String,
                          headers: List[(String,String)],
-                         body: Seq[Byte]
+                         body: Seq[Byte],
+                         bodyError:Option[String] = None,
+                         bodyDecoded:Boolean = false
                        ) {
   lazy val dump:String = {
     val sb = new StringBuilder
     sb ++= "HttpResponse\n"
     sb ++= s"firstLine $firstLine\n"
     headers.foreach { case(k,v) => sb ++= s"header $k $v\n" }
+
+    bodyError.foreach(err => sb ++= s"bodyError $err")
+    sb ++= s"bodyDecoded ${bodyDecoded}"
+
     sb ++= s"body-size ${body.size}\n"
     sb ++= HexDump.toString(body, "body-data ") + "\n"
     sb.toString()
@@ -191,24 +197,25 @@ case class HttpResponse( firstLine: String,
     }
   }
 
-  lazy val text: Option[String] =
-    charset.flatMap { cs =>
-      (if( isTransferEncodingChunked ){
+  private lazy val decodedBody:Option[Seq[Byte]] =
+    if( bodyDecoded ){
+      Some(body)
+    } else {
+      if( isTransferEncodingChunked ){
         decodedChunks match {
-          case Left(err) => {
-            None
-          }
-          case Right(value) => {
-            Some(value)
-          }
+          case Left(err) => None
+          case Right(value) => Some(value)
         }
       }else{
-        Some(body.toArray)
-      }).map( bytes => {
-        val txt = new String(bytes, cs)
-        txt
-      })
+        Some(body)
+      }
     }
+
+  lazy val text: Option[String] = for {
+    cs <- charset
+    bytes <- decodedBody.map(_.toArray)
+    str = new String(bytes, cs)
+  } yield str
 }
 
 object HttpResponse {
@@ -222,9 +229,16 @@ object HttpResponse {
       var firstLine = None:Option[String]
       var headers = List[(String,String)]()
       val body = new ByteArrayOutputStream()
+      var bodyError = None:Option[String]
+      var bodyDecoded = false
+
       lines.foreach { case(line) =>
         if( line.startsWith("firstLine ")){
           firstLine = Some(line.substring("firstLine ".length))
+        }else if( line.startsWith("bodyError ")){
+          bodyError = Some(line.substring("bodyError ".length))
+        }else if( line.startsWith("bodyDecoded ")){
+          bodyDecoded = line.substring("bodyDecoded ".length).trim.toBoolean
         }else if( line.startsWith("header ")){
           val headerLine = line.substring("header ".length)
           val kv = headerLine.split("\\s+",2)
@@ -243,7 +257,9 @@ object HttpResponse {
           HttpResponse(
             firstLine.get,
             headers.reverse,
-            body.toByteArray
+            body.toByteArray,
+            bodyError = bodyError,
+            bodyDecoded = bodyDecoded,
           )
         )
       }

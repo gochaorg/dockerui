@@ -14,6 +14,7 @@ object SingleSupplier {
       string
         .split("\\r?\\n")
         .map(_.trim)
+        .filter(_.nonEmpty)
         .flatMap(_.split("\\s+"))
         .map { bstr =>
           if( bstr.length!=2 ){

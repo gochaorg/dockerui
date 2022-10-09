@@ -5,7 +5,7 @@ case class DecodeReader[I,O](source:()=>Option[I],
                              sourceTimeout:Long=0,
                              readTimeout:Long=0,
                              cpuThrottling:Long=1
-                            ){
+                            ) extends Function0[Option[O]] {
   var buffer: Seq[O] = Seq[O]()
   def read:Option[O] = {
     if( buffer.nonEmpty ){
@@ -51,4 +51,6 @@ case class DecodeReader[I,O](source:()=>Option[I],
       result
     }
   }
+
+  override def apply(): Option[O] = read
 }

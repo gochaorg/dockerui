@@ -2,6 +2,7 @@ package xyz.cofe.lima.docker.http
 
 import org.scalatest.funsuite.AnyFunSuite
 
+import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
 
 class HttpResponseTest extends AnyFunSuite {
@@ -329,6 +330,160 @@ class HttpResponseTest extends AnyFunSuite {
     }
   }
 
+  test("transfer encoding - chunk size") {
+    def fromHex(b: Byte): Option[Int] = {
+      b match {
+        case 48 => Some(0)
+        case 49 => Some(1)
+        case 50 => Some(2)
+        case 51 => Some(3)
+        case 52 => Some(4)
+        case 53 => Some(5)
+        case 54 => Some(6)
+        case 55 => Some(7)
+        case 56 => Some(8)
+        case 57 => Some(9)
+
+        case 65 => Some(10)
+        case 66 => Some(11)
+        case 67 => Some(12)
+        case 68 => Some(13)
+        case 69 => Some(14)
+        case 70 => Some(15)
+
+        case 97 => Some(10)
+        case 98 => Some(11)
+        case 99 => Some(12)
+        case 100 => Some(13)
+        case 101 => Some(14)
+        case 102 => Some(15)
+        case _ => None
+      }
+    }
+    def isCR(b: Byte) = b == 13
+    def isLF(b: Byte) = b == 10
+
+    val zeroChunk = SingleSupplier.fromHexDump(
+      """
+        |30 0d 0a 01 02 03
+        |""".stripMargin)
+
+    val _1234Chunk = SingleSupplier.fromHexDump(
+      """
+        |34 64 32 0d 0a 01 02 03
+        |""".stripMargin)
+
+    def read(bytes:SingleSupplier[Byte]):()=>Either[String,Int] = {
+      def readChunkSize:Either[String,List[Int]] =
+        for {
+          b0 <- bytes() match {
+            case Some(value) => Right(value)
+            case None => Left("no data")
+          }
+          digits <- fromHex(b0) match {
+            case Some(d) =>
+              for {
+                dig <- readChunkSize
+                res <- dig match {
+                  case Nil =>
+                    bytes() match {
+                      case None => Left("no data, expect LF (\\n)")
+                      case Some(b1) =>
+                        if( isLF(b1) ){
+                          Right( d :: dig )
+                        }else{
+                          Left("expect LF (\\n)")
+                        }
+                    }
+                  case _ => Right( d :: dig )
+                }
+              } yield res
+            case None => isCR(b0) match {
+              case true => Right( Nil )
+              case false => Left("expect CR (\\r)")
+            }
+          }
+        } yield digits
+
+      () => readChunkSize.map { digits =>
+        digits.reverse.zipWithIndex.foldLeft(0){ case(sum,(digit, pos)) =>
+          pos match {
+            case 0 => digit
+            case _ => sum + (digit * (16 << ((pos-1) * 4)))
+          }
+        }
+      }
+    }
+
+    read(_1234Chunk)() match {
+      case Left(err) => println(err)
+      case Right(digits) =>
+        println(digits)
+        println(_1234Chunk())
+        println(_1234Chunk())
+        println(_1234Chunk())
+        println(_1234Chunk())
+        println(_1234Chunk())
+    }
+
+    read(zeroChunk)() match {
+      case Left(err) => println(err)
+      case Right(digits) =>
+        println(digits)
+        println(zeroChunk())
+        println(zeroChunk())
+        println(zeroChunk())
+        println(zeroChunk())
+        println(zeroChunk())
+    }
+  }
+
+  test("transfer encoding - chunk data") {
+    def read(bytes:SingleSupplier[Byte]):(Int)=>Either[String,Array[Byte]] = {
+      def reader(expectSize:Int):Either[String,Array[Byte]] = {
+        val data = new ByteArrayOutputStream()
+        var reads = 0
+        var stop = false
+        val ba = new Array[Byte](1)
+        while(!stop && reads<expectSize) {
+          bytes.apply() match {
+            case Some(value) =>
+              ba(0) = value
+              data.write(ba)
+              reads += 1
+            case None =>
+              stop = true
+          }
+        }
+        val readsBytes = data.toByteArray
+
+        (bytes(), bytes()) match {
+          case (Some(13), Some(10)) =>
+            if( readsBytes.length < expectSize )
+              Left(s"reads ${readsBytes.length} less then expected ${expectSize}")
+            else
+              Right(readsBytes)
+          case (b0,b1) =>
+            Left(s"expect CRLF, but found ${b0}, ${b1}")
+        }
+      }
+      reader
+    }
+
+    val abcdChunk = SingleSupplier.fromHexDump(
+      """
+        |61 62 63 64 0d 0a
+        |""".stripMargin)
+
+    read(abcdChunk)(4) match {
+      case Left(err) =>
+        println(s"err $err")
+      case Right(bytes) =>
+        println("succ")
+        println(new String(bytes,0,bytes.length,StandardCharsets.UTF_8))
+    }
+  }
+
   val socketResponse_TransferEncodingChunked_Hex =
     """
       |  48 54 54 50 2f 31 2e 31 20 32 30 30 20 4f 4b 0d 0a 41 70 69 2d 56 65 72 73 69 6f 6e 3a 20 31 2e
@@ -636,4 +791,16 @@ class HttpResponseTest extends AnyFunSuite {
       |
       |""".stripMargin
 
+  test("transfer encoding: chunked, HttpResponseReader") {
+    val socketResponse = SingleSupplier.fromHexDump(socketResponse_TransferEncodingChunked_Hex)
+    val responseReader = HttpResponseReader(socketResponse)
+    responseReader.read match {
+      case Left(err) => println(err)
+      case Right(resp) =>
+        println(
+          s"""ok
+             |${new String(resp.body.toArray,StandardCharsets.UTF_8)}
+             |""".stripMargin)
+    }
+  }
 }
