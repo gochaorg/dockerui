@@ -2,6 +2,7 @@ package xyz.cofe.lima.docker
 
 import tethys.JsonReader
 import tethys.derivation.semiauto.jsonReader
+import xyz.cofe.lima.{Show, ShowDerivation}
 
 object model {
   case class ContainerStatus(
