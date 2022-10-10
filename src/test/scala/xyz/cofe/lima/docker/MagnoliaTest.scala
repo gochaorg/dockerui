@@ -12,7 +12,6 @@ class MagnoliaTest extends AnyFunSuite {
 
   import language.experimental.macros, magnolia1._
 
-
   test("magnolia test") {
     val show = ShowDerivation.gen[Tree[Int]]
     println( show.show(tree) )
@@ -47,13 +46,22 @@ class MagnoliaTest extends AnyFunSuite {
     val showTree = TreeShowDerivation.gen[model.ContainerInspect]
     showTree.show(collector,containerInspect)
 
-    println("roots")
-    println(collector.roots)
-
+    println("="*40)
+    collector.current.foreach(_.clear)
     println("current")
     println(collector.current)
 
-    println("stack")
-    println(collector.stack)
+    println("-"*40)
+    collector.current.foreach { root =>
+      val iter = root.leafNodes
+      iter.foreach { npath =>
+        println(
+          npath.map {
+            case TreeWriter.TreeLeaf(string) => string
+            case TreeWriter.TreeParent(string) => string
+          }
+        )
+      }
+    }
   }
 }

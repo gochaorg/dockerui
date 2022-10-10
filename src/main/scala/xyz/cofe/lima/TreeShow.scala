@@ -16,21 +16,69 @@ object TreeWriter {
   }
 
   sealed trait TreeNode {
+    def cloneNode():TreeNode
     def children:List[TreeNode] = List()
     def toString(indent:String):String
+    def iterator:Iterator[List[TreeNode]] = new Iterator[List[TreeNode]] {
+      private var workSet = List[List[TreeNode]](
+        List(TreeNode.this)
+      )
+      override def hasNext: Boolean = workSet.nonEmpty
+      override def next(): List[TreeNode] = {
+        val res = workSet.head
+        workSet = workSet.tail
+        res.headOption match {
+          case Some(headTreeNode) =>
+            workSet = headTreeNode.children.map { child =>
+              child :: res
+            } ::: workSet
+          case None =>
+        }
+        res
+      }
+    }
+    def leafNodes = iterator.filter { revPath => revPath.headOption.exists { n => n.children.isEmpty } }
+    def clear:TreeNode = {
+      var nodes = leafNodes.toList
+      while( nodes.nonEmpty ){
+        val revPath = nodes.head
+        revPath.headOption match {
+          case Some(leaf:TreeLeaf) =>
+            nodes = nodes.filterNot( p=> p==revPath )
+          case Some(leaf:TreeNode) => leaf.children.isEmpty match {
+            case false => nodes = nodes.filterNot( p=> p==revPath )
+            case true => revPath.tail.headOption match {
+              case Some(parent:TreeParent) =>
+                parent.remove(leaf)
+                nodes = nodes.filterNot( p=> p==revPath )
+              case Some(broken:TreeLeaf) => nodes = nodes.filterNot( p=> p==revPath )
+              case None => nodes = nodes.filterNot( p=> p==revPath )
+            }
+          }
+        }
+      }
+      this
+    }
   }
+
   case class TreeLeaf(string:String) extends TreeNode {
+    override def cloneNode():TreeNode = TreeLeaf(string)
     override def toString(indent: String): String =
       s"${indent}TreeLeaf($string)"
   }
   case class TreeParent(string:String) extends TreeNode {
     private var values = List[TreeNode]()
+    override def cloneNode():TreeNode = {
+      val prnt =  TreeParent(string)
+      prnt.values = values.map(_.cloneNode())
+      prnt
+    }
     override def children: List[TreeNode] = values
     def append(node:TreeNode):Unit = {
       values = node :: values
     }
     def remove(node:TreeNode):Unit = {
-      values = values.filterNot(n => n==node)
+      values = values.filterNot(n => n.eq(node))
     }
     override def toString: String = {
       toString("")

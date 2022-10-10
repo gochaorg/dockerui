@@ -14,7 +14,7 @@
       <content>
           <AnchorPane style="-fx-padding: 0;">
                <children>
-                  <TreeTableView fx:id="treeTable" prefHeight="200.0" prefWidth="200.0" showRoot="false" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+                  <TreeTableView fx:id="treeTable" prefHeight="200.0" prefWidth="200.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
                     <columns>
                       <TreeTableColumn prefWidth="75.0" text="C1" />
                       <TreeTableColumn prefWidth="75.0" text="C2" />
