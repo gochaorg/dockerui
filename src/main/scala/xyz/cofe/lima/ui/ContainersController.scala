@@ -1,5 +1,6 @@
 package xyz.cofe.lima.ui
 
+import javafx.application.Platform
 import javafx.beans.{InvalidationListener, Observable}
 import javafx.beans.property.SimpleStringProperty
 import javafx.collections.ListChangeListener
@@ -42,32 +43,27 @@ class ContainersController {
       if( table!=null ){
         table.getSelectionModel.getSelectedItems.addListener(new ListChangeListener[ContainerStatus] {
           override def onChanged(c: ListChangeListener.Change[_ <: ContainerStatus]): Unit = {
-            if( !refreshByTimerRunning ) {
-              while(c.next()){
-                if(c.wasPermutated()){
-                  println("wasPermutated")
-                  (c.getFrom until c.getTo).foreach { idx => }
-                }else if( c.wasUpdated() ){
-                  println("wasUpdated")
-                }else if( c.wasAdded() ){
-                  println("wasUpdated")
-                }else if( c.wasRemoved() ){
-                  println("wasUpdated")
-                }else if( c.wasReplaced() ){
-                  println("wasUpdated")
-                }else{
-                  c.getRemoved.asScala.foreach { c =>
-                    println(s"removed $c")
-                  }
-                  c.getAddedSubList.asScala.foreach { c =>
-                    println(s"added $c")
-                  }
+            if (!refreshByTimerRunning) {
+              while (c.next()) {
+                if (c.wasPermutated()
+                ||  c.wasAdded()
+                ||  c.wasUpdated()
+                ||  c.wasRemoved()
+                ||  c.wasReplaced()
+                ) {
+                  c.getList.asScala.headOption.foreach(ci=>onSelectContainer(ci.Id))
                 }
               }
             }
           }
         })
       }
+    }
+  }
+
+  private def onSelectContainer(id:String):Unit = {
+    if( containerController!=null ){
+      containerController.select(Some(id))
     }
   }
 

@@ -199,7 +199,7 @@ object model {
     Image: String,
     // Volumes
     WorkingDir: String,
-    Entrypoint: List[String],
+    Entrypoint: Option[List[String]],
     NetworkDisabled: Option[Boolean],
     MacAddress: Option[String],
     OnBuild: Option[List[String]],
