@@ -23,4 +23,6 @@ libraryDependencies ++= Seq(
 
 libraryDependencies += "com.tethys-json" %% "tethys-circe" % tethysVersion
 
+libraryDependencies += "com.softwaremill.magnolia1_2" %% "magnolia" % "1.1.2"
+
 resourceDirectory in Compile := baseDirectory.value / "src" / "main" / "resources"
