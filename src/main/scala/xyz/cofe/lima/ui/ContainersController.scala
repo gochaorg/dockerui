@@ -15,6 +15,47 @@ class ContainersController {
   @FXML
   private var table : TableView[ContainerStatus] = null
 
+  private lazy val idCol : TableColumn[ContainerStatus,String] = {
+    val tc = new TableColumn[ContainerStatus,String]("id")
+    tc.setCellValueFactory { param => new SimpleStringProperty( param.getValue.Id ) }
+    tc
+  }
+  private lazy val nameCol : TableColumn[ContainerStatus,String] = {
+    val tc = new TableColumn[ContainerStatus,String]("name")
+    tc.setCellValueFactory { param => new SimpleStringProperty(
+      param.getValue.Names.mkString(",")
+    )}
+    tc
+  }
+  private lazy val imageCol : TableColumn[ContainerStatus,String] = {
+    val tc = new TableColumn[ContainerStatus,String]("image")
+    tc.setCellValueFactory { param => new SimpleStringProperty(
+      param.getValue.Image
+    )}
+    tc
+  }
+  private lazy val stateCol : TableColumn[ContainerStatus,String] = {
+    val tc = new TableColumn[ContainerStatus,String]("state")
+    tc.setCellValueFactory { param => new SimpleStringProperty(
+      param.getValue.State
+    )}
+    tc
+  }
+  private lazy val statusCol : TableColumn[ContainerStatus,String] = {
+    val tc = new TableColumn[ContainerStatus,String]("status")
+    tc.setCellValueFactory { param => new SimpleStringProperty(
+      param.getValue.Status
+    )}
+    tc
+  }
+  private lazy val commandCol : TableColumn[ContainerStatus,String] = {
+    val tc = new TableColumn[ContainerStatus,String]("command")
+    tc.setCellValueFactory { param => new SimpleStringProperty(
+      param.getValue.Command
+    )}
+    tc
+  }
+
   @FXML
   private var containerController: ContainerController = null
 
@@ -35,6 +76,7 @@ class ContainersController {
       table.getColumns.add(imageCol)
       table.getColumns.add(stateCol)
       table.getColumns.add(statusCol)
+      table.getColumns.add(commandCol)
 
       table.getSelectionModel.setSelectionMode(SelectionMode.MULTIPLE)
     }
@@ -144,41 +186,6 @@ class ContainersController {
       }
     }
   }
-
-  private lazy val idCol : TableColumn[ContainerStatus,String] = {
-    val tc = new TableColumn[ContainerStatus,String]("id")
-    tc.setCellValueFactory { param => new SimpleStringProperty( param.getValue.Id ) }
-    tc
-  }
-  private lazy val nameCol : TableColumn[ContainerStatus,String] = {
-    val tc = new TableColumn[ContainerStatus,String]("name")
-    tc.setCellValueFactory { param => new SimpleStringProperty(
-      param.getValue.Names.mkString(",")
-    )}
-    tc
-  }
-  private lazy val imageCol : TableColumn[ContainerStatus,String] = {
-    val tc = new TableColumn[ContainerStatus,String]("image")
-    tc.setCellValueFactory { param => new SimpleStringProperty(
-      param.getValue.Image
-    )}
-    tc
-  }
-  private lazy val stateCol : TableColumn[ContainerStatus,String] = {
-    val tc = new TableColumn[ContainerStatus,String]("state")
-    tc.setCellValueFactory { param => new SimpleStringProperty(
-      param.getValue.State
-    )}
-    tc
-  }
-  private lazy val statusCol : TableColumn[ContainerStatus,String] = {
-    val tc = new TableColumn[ContainerStatus,String]("status")
-    tc.setCellValueFactory { param => new SimpleStringProperty(
-      param.getValue.Status
-    )}
-    tc
-  }
-
 
   def startSelected():Unit = {
     if( table!=null ){

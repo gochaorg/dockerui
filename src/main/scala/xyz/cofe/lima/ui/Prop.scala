@@ -1,7 +1,7 @@
 package xyz.cofe.lima.ui
 
 import javafx.scene.control.TreeItem
-import xyz.cofe.lima.TreeWriter
+import xyz.cofe.lima.{TreeShow, TreeShowDerivation, TreeWriter}
 import xyz.cofe.lima.TreeWriter.{TreeLeaf, TreeNode}
 
 case class Prop(name:String, value:String) {
@@ -38,5 +38,12 @@ object Prop {
         }
         tiNode
     }
+  }
+
+  def apply[T:TreeShow](obj:T): Option[TreeItem[Prop]] = {
+    val collector = TreeWriter.Writer()
+    val showTree = implicitly[TreeShow[T]]
+    showTree.show(collector,obj)
+    collector.current.map(tn => Prop.tree(tn))
   }
 }

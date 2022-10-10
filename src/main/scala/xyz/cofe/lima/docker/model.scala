@@ -2,7 +2,7 @@ package xyz.cofe.lima.docker
 
 import tethys.JsonReader
 import tethys.derivation.semiauto.jsonReader
-import xyz.cofe.lima.{Show, ShowDerivation}
+import xyz.cofe.lima.{Show, ShowDerivation, TreeShow, TreeShowDerivation}
 
 object model {
   case class ContainerStatus(
@@ -143,6 +143,7 @@ object model {
   )
   object ContainerInspect {
     implicit val reader: JsonReader[ContainerInspect] = jsonReader[ContainerInspect]
+    implicit val showTree: TreeShow[ContainerInspect] = TreeShowDerivation.gen[ContainerInspect]
   }
 
   case class Mounts(

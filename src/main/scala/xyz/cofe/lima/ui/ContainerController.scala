@@ -2,13 +2,19 @@ package xyz.cofe.lima.ui
 
 import javafx.fxml.FXML
 import javafx.scene.control.cell.TreeItemPropertyValueFactory
-import javafx.scene.control.{TreeItem, TreeTableColumn, TreeTableView}
-import xyz.cofe.lima.{TreeShowDerivation, TreeWriter}
+import javafx.scene.control.{TextArea, TreeTableColumn, TreeTableView}
 import xyz.cofe.lima.docker.{DockerClient, model}
+import xyz.cofe.lima.{TreeShowDerivation, TreeWriter}
 
 class ContainerController {
   @FXML
   private var treeTable : TreeTableView[Prop] = null
+
+  @FXML
+  private var logsStdOut: TextArea = null
+
+  @FXML
+  private var logsStdErr: TextArea = null
 
   @FXML
   def initialize():Unit = {
@@ -28,23 +34,56 @@ class ContainerController {
     dockerClient = Some(dc)
   }
 
-  def select(containerId:Option[String]):Unit = {
+  private var containerId:Option[String] = None
+
+  def select(cId:Option[String]):Unit = {
+    containerId = cId
     containerId.foreach(cid => {
       dockerClient.foreach(dc => {
         dc.inspectContainer(cid) match {
           case Left(err) =>
             println(err)
           case Right(ci) =>
-            val collector = TreeWriter.Writer()
+            Prop(ci).foreach(root => {
+              root.setExpanded(true)
+              treeTable.setRoot(root)
+            })
+        }
 
-            val showTree = TreeShowDerivation.gen[model.ContainerInspect]
-            showTree.show(collector,ci)
+        dc.logs(cid, stdout = Some(true)) match {
+          case Left(err) => println(err)
+          case Right(logs) =>
+            logsStdOut.setText(logs.mkString("\n"))
+        }
 
-            collector.current match {
-              case Some(tn) =>
-                treeTable.setRoot(Prop.tree(tn))
-              case None =>
-            }
+        dc.logs(cid, stderr = Some(true)) match {
+          case Left(err) => println(err)
+          case Right(logs) =>
+            logsStdErr.setText(logs.mkString("\n"))
+        }
+      })
+    })
+  }
+
+  def refreshLogsStdOut():Unit = {
+    containerId.foreach(cid => {
+      dockerClient.foreach(dc => {
+        dc.logs(cid, stdout = Some(true)) match {
+          case Left(err) => println(err)
+          case Right(logs) =>
+            logsStdOut.setText(logs.mkString("\n"))
+        }
+      })
+    })
+  }
+
+  def refreshLogsStdErr():Unit = {
+    containerId.foreach(cid => {
+      dockerClient.foreach(dc => {
+        dc.logs(cid, stderr = Some(true)) match {
+          case Left(err) => println(err)
+          case Right(logs) =>
+            logsStdErr.setText(logs.mkString("\n"))
         }
       })
     })

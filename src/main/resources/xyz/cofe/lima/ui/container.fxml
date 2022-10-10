@@ -2,11 +2,15 @@
 
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Accordion?>
+<?import javafx.scene.control.Button?>
 <?import javafx.scene.control.TextArea?>
 <?import javafx.scene.control.TitledPane?>
+<?import javafx.scene.control.ToolBar?>
 <?import javafx.scene.control.TreeTableColumn?>
 <?import javafx.scene.control.TreeTableView?>
 <?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.text.Font?>
 
 <Accordion maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="400.0" xmlns="http://javafx.com/javafx/18" xmlns:fx="http://javafx.com/fxml/1" fx:controller="xyz.cofe.lima.ui.ContainerController">
   <panes>
@@ -30,14 +34,46 @@
           </AnchorPane>
       </content>
     </TitledPane>
-    <TitledPane animated="false" text="logs">
+    <TitledPane animated="false" text="logs stdout">
       <content>
-        <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="180.0" prefWidth="200.0">
-               <children>
-                  <TextArea prefHeight="200.0" prefWidth="200.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0" />
-               </children></AnchorPane>
+            <BorderPane style="-fx-padding: 0;">
+               <center>
+                  <TextArea fx:id="logsStdOut" prefHeight="200.0" prefWidth="200.0">
+                     <font>
+                        <Font name="Monospaced Regular" size="13.0" />
+                     </font>
+                  </TextArea>
+               </center>
+               <top>
+                  <ToolBar prefHeight="40.0" prefWidth="200.0" BorderPane.alignment="CENTER">
+                    <items>
+                      <Button mnemonicParsing="false" onAction="#refreshLogsStdOut" text="refresh" />
+                    </items>
+                  </ToolBar>
+               </top>
+            </BorderPane>
       </content>
     </TitledPane>
+      <TitledPane prefHeight="200.0" prefWidth="200.0" text="logs stderr">
+         <content>
+            <BorderPane prefHeight="200.0" prefWidth="200.0" style="-fx-padding: 0;">
+               <center>
+                  <TextArea fx:id="logsStdErr" prefHeight="200.0" prefWidth="200.0" BorderPane.alignment="CENTER">
+                      <font>
+                          <Font name="Monospaced Regular" size="13.0" />
+                      </font>
+                  </TextArea>
+               </center>
+               <top>
+                  <ToolBar prefHeight="40.0" prefWidth="200.0" BorderPane.alignment="CENTER">
+                    <items>
+                      <Button mnemonicParsing="false" onAction="#refreshLogsStdErr" text="refresh" />
+                    </items>
+                  </ToolBar>
+               </top>
+            </BorderPane>
+         </content>
+      </TitledPane>
   </panes>
    <opaqueInsets>
       <Insets />
