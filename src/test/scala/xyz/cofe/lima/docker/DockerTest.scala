@@ -18,7 +18,7 @@ class DockerTest extends AnyFunSuite {
     //implicit val log = HttpLogger.stdout
     DockerClient
       .unixSocket("/Users/g.kamnev/.colima/docker.sock")
-      .inspectContainer("55d923dcdaab7bda9194b0963123e8c44d0b536db25ede1b25a1cd8d1dd29bbe") match {
+      .containerInspect("55d923dcdaab7bda9194b0963123e8c44d0b536db25ede1b25a1cd8d1dd29bbe") match {
       case Left(err) => println(s"error $err")
       case Right(ci) =>
         println(ci)
@@ -28,7 +28,7 @@ class DockerTest extends AnyFunSuite {
   test("processes inside") {
     DockerClient
       .unixSocket("/Users/g.kamnev/.colima/docker.sock")
-      .processesInside("55d923dcdaab7bda9194b0963123e8c44d0b536db25ede1b25a1cd8d1dd29bbe") match {
+      .containerProcesses("55d923dcdaab7bda9194b0963123e8c44d0b536db25ede1b25a1cd8d1dd29bbe") match {
       case Left(err) => println(s"error $err")
       case Right(ci) =>
         println(ci)
@@ -39,7 +39,7 @@ class DockerTest extends AnyFunSuite {
     //implicit val log = HttpLogger.stdout
     DockerClient
       .unixSocket("/Users/g.kamnev/.colima/docker.sock")
-      .logs("55d923dcdaab7bda9194b0963123e8c44d0b536db25ede1b25a1cd8d1dd29bbe") match {
+      .containerLogs("55d923dcdaab7bda9194b0963123e8c44d0b536db25ede1b25a1cd8d1dd29bbe") match {
       case Left(err) => println(s"error $err")
       case Right(log) =>
         log.foreach { case (line) =>
@@ -52,7 +52,7 @@ class DockerTest extends AnyFunSuite {
     implicit val log = HttpLogger.stdout
     DockerClient
       .unixSocket("/Users/g.kamnev/.colima/docker.sock")
-      .starting("55d923dcdaab7bda9194b0963123e8c44d0b536db25ede1b25a1cd8d1dd29bbe") match {
+      .containerStart("55d923dcdaab7bda9194b0963123e8c44d0b536db25ede1b25a1cd8d1dd29bbe") match {
       case Left(err) => println(s"error $err")
       case Right(_) => println(s"success")
     }
@@ -62,7 +62,7 @@ class DockerTest extends AnyFunSuite {
     implicit val log = HttpLogger.stdout
     DockerClient
       .unixSocket("/Users/g.kamnev/.colima/docker.sock")
-      .stopping("55d923dcdaab7bda9194b0963123e8c44d0b536db25ede1b25a1cd8d1dd29bbe") match {
+      .containerStop("55d923dcdaab7bda9194b0963123e8c44d0b536db25ede1b25a1cd8d1dd29bbe") match {
       case Left(err) => println(s"error $err")
       case Right(_) => println(s"success")
     }

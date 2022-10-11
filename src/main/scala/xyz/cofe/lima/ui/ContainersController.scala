@@ -191,7 +191,7 @@ class ContainersController {
     if( table!=null ){
       dockerClient.foreach { dc =>
         table.getSelectionModel.getSelectedItems.forEach(c => {
-          dc.starting(c.Id)
+          dc.containerStart(c.Id)
         })
       }
     }
@@ -200,7 +200,7 @@ class ContainersController {
     if( table!=null ){
       dockerClient.foreach { dc =>
         table.getSelectionModel.getSelectedItems.forEach(c => {
-          dc.stopping(c.Id)
+          dc.containerStop(c.Id)
         })
       }
     }

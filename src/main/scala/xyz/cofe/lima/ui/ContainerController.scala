@@ -40,7 +40,7 @@ class ContainerController {
     containerId = cId
     containerId.foreach(cid => {
       dockerClient.foreach(dc => {
-        dc.inspectContainer(cid) match {
+        dc.containerInspect(cid) match {
           case Left(err) =>
             println(err)
           case Right(ci) =>
@@ -50,13 +50,13 @@ class ContainerController {
             })
         }
 
-        dc.logs(cid, stdout = Some(true)) match {
+        dc.containerLogs(cid, stdout = Some(true)) match {
           case Left(err) => println(err)
           case Right(logs) =>
             logsStdOut.setText(logs.mkString("\n"))
         }
 
-        dc.logs(cid, stderr = Some(true)) match {
+        dc.containerLogs(cid, stderr = Some(true)) match {
           case Left(err) => println(err)
           case Right(logs) =>
             logsStdErr.setText(logs.mkString("\n"))
@@ -68,7 +68,7 @@ class ContainerController {
   def refreshLogsStdOut():Unit = {
     containerId.foreach(cid => {
       dockerClient.foreach(dc => {
-        dc.logs(cid, stdout = Some(true)) match {
+        dc.containerLogs(cid, stdout = Some(true)) match {
           case Left(err) => println(err)
           case Right(logs) =>
             logsStdOut.setText(logs.mkString("\n"))
@@ -80,7 +80,7 @@ class ContainerController {
   def refreshLogsStdErr():Unit = {
     containerId.foreach(cid => {
       dockerClient.foreach(dc => {
-        dc.logs(cid, stderr = Some(true)) match {
+        dc.containerLogs(cid, stderr = Some(true)) match {
           case Left(err) => println(err)
           case Right(logs) =>
             logsStdErr.setText(logs.mkString("\n"))

@@ -1,11 +1,15 @@
 package xyz.cofe.lima.docker.http
 
+import tethys.JsonWriter
+
 import java.net.{URL, URLEncoder}
-import java.nio.charset.StandardCharsets
+import java.nio.charset.{Charset, StandardCharsets}
+import tethys._
+import tethys.jackson._
 
 case class HttpRequest(
-  method:String = "GET",
   path:String,
+  method:String = "GET",
   proto:String = "HTTP/1.1",
   host:String = "dummy",
   Accept:String = "*/*",
@@ -13,6 +17,14 @@ case class HttpRequest(
   otherHeaders:List[(String,String)] = List(),
   body:Seq[Byte] = List()
 ) {
+  def get():HttpRequest = copy(method="GET")
+  def post():HttpRequest = copy(method="POST")
+  def delete():HttpRequest = copy(method="DELETE")
+  def head():HttpRequest = copy(method="HEAD")
+  def put():HttpRequest = copy(method="PUT")
+  def options():HttpRequest = copy(method="OPTIONS")
+  def patch():HttpRequest = copy(method="PATCH")
+
   def queryString(map:Map[String,String]):HttpRequest = {
     val qs = map.foldLeft(""){ case (str, (key,value)) =>
       val pair =
@@ -40,6 +52,44 @@ case class HttpRequest(
       copy(path = pathWithoutQuery + "?" + qs)
     }
   }
+  def queryString(args:(String,Option[String])*):HttpRequest = {
+    queryString(
+      args
+        .filter { case(_,v) => v.nonEmpty }
+        .map { case(k,v) => (k,v.get) }
+        .toMap
+    )
+  }
+
+  def header(name:String, value:String):HttpRequest = {
+    if( name.equalsIgnoreCase("Accept") ){
+      copy(Accept=value)
+    }else if( name.equalsIgnoreCase("User-Agent") ){
+      copy(`User-Agent`=value)
+    }else{
+      copy(
+        otherHeaders =
+          otherHeaders
+            .filterNot { case (hname,_) => hname.equalsIgnoreCase(name) } ++
+            List((name, value))
+      )
+    }
+  }
+
+  def bodyText(string: String, charset:Option[Charset]=None):HttpRequest = {
+    val cs = charset.getOrElse(StandardCharsets.UTF_8)
+    val bytes = string.getBytes(cs)
+    copy(
+      body = bytes
+    )
+  }
+
+  def json(string: String):HttpRequest =
+    bodyText(string).header("Content-type","application/json")
+
+  def json[A:JsonWriter](jsonObj:A):HttpRequest =
+    bodyText(jsonObj.asJson).header("Content-type","application/json")
+
   lazy val dump:String = {
     val sb = new StringBuilder
     sb ++= "HttpRequest\n"
