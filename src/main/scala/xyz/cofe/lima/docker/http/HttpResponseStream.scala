@@ -2,6 +2,7 @@ package xyz.cofe.lima.docker.http
 
 import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
+import java.util.regex.Pattern
 
 case class HttpResponseStream(source:()=>Option[Byte],
                               sourceTimeout:Long=1000L*10L,
@@ -32,29 +33,30 @@ case class HttpResponseStream(source:()=>Option[Byte],
       case Behavior.Continue =>
         var headers = List[(String,String)]()
         var stop = false
-        var continue = false
+        var hasError = false
         while( !stop ){
           (readHeader {
             case Event.Error(string) =>
               consumer(Event.Error(string))
+              hasError = true
               Behavior.Stop
             case Event.Header(name, value) =>
               headers = (name -> value) :: headers
               consumer(Event.Header(name,value))
-            case Event.HeaderEnd =>
               Behavior.Continue
+            case Event.HeaderEnd =>
+              Behavior.Stop
             case _ =>
+              hasError = true
+              consumer(Event.Error(s"undefined Behavior"))
               Behavior.Stop
           }) match {
             case Behavior.Continue =>
-              stop = true
-              continue = true
             case Behavior.Stop =>
-              stop = false
-              continue = false
+              stop = true
           }
         }
-        if( continue ){
+        if( !hasError ){
           headers = headers.reverse
           contentLength(headers) match {
             case Some(length) => readWithDefinedContentLength(consumer,length)
@@ -326,7 +328,27 @@ object HttpResponseStream {
   sealed trait Event
   object Event {
     case class Error(string: String) extends Event
-    case class FirstLine(string:String) extends Event
+    case class FirstLine(string:String) extends Event {
+      lazy val firstLineDecoded: Option[(String, String, Option[String])] = {
+        val ptrn = Pattern.compile(
+          "(?is)(?<proto>HTTPS?/\\d(\\.\\d))\\s+(?<code>\\d+)(\\s+(?<msg>.+))?")
+        val m = ptrn.matcher(string)
+
+        if(m.matches()) {
+          val proto = m.group("proto")
+          val code = m.group("code")
+          val msg = m.group("msg")
+          Some((proto, code, Option(msg)))
+        }else{
+          None
+        }
+      }
+
+      lazy val proto: Option[String] = firstLineDecoded.map( _._1 )
+      lazy val code: Option[Int] = firstLineDecoded.map( _._2.toInt )
+      lazy val message: Option[String] = firstLineDecoded.flatMap( _._3 )
+      lazy val isOk: Boolean = code.contains(200)
+    }
     case class Header(name:String,value:String) extends Event
     case object HeaderEnd extends Event
     case class Data(bytes:Array[Byte]) extends Event
