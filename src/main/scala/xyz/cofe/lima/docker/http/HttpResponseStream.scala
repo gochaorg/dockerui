@@ -3,12 +3,14 @@ package xyz.cofe.lima.docker.http
 import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
 
-case class HttpResponseReader( source:()=>Option[Byte],
-                               sourceTimeout:Long=1000L*10L,
-                               readTimeout:  Long=1000L*60L,
-                               cpuThrottling:Long=1
+case class HttpResponseStream(source:()=>Option[Byte],
+                              sourceTimeout:Long=1000L*10L,
+                              readTimeout:  Long=1000L*60L,
+                              cpuThrottling:Long=1
                              )
 {
+  import HttpResponseStream._
+
   lazy val byte2charDecoder: Decoder.Byte2Char = Decoder.Byte2Char(StandardCharsets.UTF_8.newDecoder())
   lazy val lineDecoder: Decoder[Byte, String, String] = Decoder.Char2Line().compose( byte2charDecoder )
   lazy val lineReader: DecodeReader[Byte, String] = DecodeReader[Byte,String](
@@ -22,66 +24,81 @@ case class HttpResponseReader( source:()=>Option[Byte],
     readTimeout=readTimeout, sourceTimeout=sourceTimeout, cpuThrottling=cpuThrottling
   )
 
-  def read:Either[String,HttpResponse] = {
-    readFirstLine.flatMap( firstLine => {
-      var headers = List[(String,String)]()
-      var stop = false
-      var err:Option[String] = None
-      while( !stop && err.isEmpty ){
-        readHeader match {
-          case Left(errorMessage) => err = Some(errorMessage)
-          case Right(None) => stop = true
-          case Right(Some((k,v))) =>
-            headers = (k,v) :: headers
-        }
-      }
-      err match {
-        case Some(errMsg) => Left(errMsg)
-        case None => Right( (firstLine,headers.reverse) )
-      }
-    }).flatMap { headerBlock =>
-      val result = contentLength(headerBlock._2).map { contentLength =>
-        // val body = readWithDefinedContentLength(contentLength)
-        ( headerBlock._1, headerBlock._2, readWithDefinedContentLength(contentLength))
-      }.getOrElse {
-        // contentLength not defined
-        ( headerBlock._1, headerBlock._2, readWithUndefinedContentLength(headerBlock._2))
-      }
+  type Consumer = HttpResponseStream.Event=>HttpResponseStream.Behavior
 
-      val (firstLine, headers, bodyEt) = result
-      (for {
-        body <- bodyEt
-      } yield HttpResponse(firstLine, headers, body, bodyDecoded = true))
-        .left.map { case(str,_) => str }
+  def read(consumer:Consumer):Unit = {
+    readFirstLine(consumer) match {
+      case Behavior.Stop => ()
+      case Behavior.Continue =>
+        var headers = List[(String,String)]()
+        var stop = false
+        var continue = false
+        while( !stop ){
+          (readHeader {
+            case Event.Error(string) =>
+              consumer(Event.Error(string))
+              Behavior.Stop
+            case Event.Header(name, value) =>
+              headers = (name -> value) :: headers
+              consumer(Event.Header(name,value))
+            case Event.HeaderEnd =>
+              Behavior.Continue
+            case _ =>
+              Behavior.Stop
+          }) match {
+            case Behavior.Continue =>
+              stop = true
+              continue = true
+            case Behavior.Stop =>
+              stop = false
+              continue = false
+          }
+        }
+        if( continue ){
+          headers = headers.reverse
+          contentLength(headers) match {
+            case Some(length) => readWithDefinedContentLength(consumer,length)
+            case None => readWithUndefinedContentLength(consumer,headers)
+          }
+        }
     }
   }
 
   private val firstLineRegex = "(?is)HTTPS?/\\d(\\.\\d)?\\s+\\d+(\\s+.*)?"
-  def readFirstLine:Either[String,String] =
-    (lineReader.read match {
-      case Some(line) => Right(line)
-      case None => Left("No response: first line not read")
-    }).flatMap( line => line.matches(firstLineRegex) match {
-      case true => Right(line)
-      case false => Left(s"first line ($line) not match $firstLineRegex")
-    })
-  def readHeader:Either[String,Option[(String,String)]] = {
-    (lineReader.read match {
+  def readFirstLine(consumer: Consumer):Behavior =
+    lineReader.read match {
       case Some(line) =>
-        if( line.isEmpty ){
-          Right(None)
+        if (line.matches(firstLineRegex)) {
+          consumer(Event.FirstLine(line))
         } else {
+          consumer(Event.Error(s"first line ($line) not match $firstLineRegex"))
+          Behavior.Stop
+        }
+      case None =>
+        consumer(Event.Error("No response: first line not read"))
+        Behavior.Stop
+    }
+
+  def readHeader(consumer: Consumer):Behavior = {
+    lineReader.read match {
+      case Some(line) =>
+        if(line.isEmpty){
+          consumer(Event.HeaderEnd)
+        }else{
           val idx = line.indexOf(":")
           if( idx<1 || idx>=line.length ){
-            Left(s"expect header, line with: name \":\" value, but accept $line")
+            consumer(Event.Error(s"expect header, line with: name \":\" value, but accept $line"))
+            Behavior.Stop
           }else{
             val name = line.substring(0,idx).trim
             val value = line.substring(idx+1).trim
-            Right(Some((name,value)))
+            consumer(Event.Header(name,value))
           }
         }
-      case None => Left(s"No response: header not readed")
-    })
+      case None =>
+        consumer(Event.Error(s"No response: header not readed"))
+        Behavior.Stop
+    }
   }
 
   private def contentLength(headers:List[(String,String)]):Option[Long] =
@@ -90,55 +107,65 @@ case class HttpResponseReader( source:()=>Option[Byte],
       .map { _._2 }
       .filter { str => str.matches("\\d+") }
       .map { str => str.toLong }
-
-  private def readWithDefinedContentLength(contentLength:Long): Either[(String,Array[Byte]),Array[Byte]] = {
-    val bytes = new ByteArrayOutputStream()
+  private def readWithDefinedContentLength(consumer: Consumer, contentLength:Long):Unit = {
     var reads = 0L
     var stop = false
+    var err:Option[String] = None
     val ba = new Array[Byte](1)
     while( !stop && reads<contentLength ){
       byteReader.read match {
         case Some(b) =>
           ba(0) = b
-          bytes.write(ba)
           reads += 1
+          consumer(Event.Data(ba)) match {
+            case Behavior.Stop =>
+              stop = true
+            case _ => ()
+          }
         case None =>
           stop = true
+          err = Some(s"no data, reads $reads bytes, expect $contentLength")
       }
     }
-    Right(bytes.toByteArray)
+
+    err match {
+      case Some(value) => consumer(Event.Error(value))
+      case None => consumer(Event.DataEnd)
+    }
   }
 
   private def transferEncoding(headers:List[(String,String)]):Option[String] =
     headers
       .find { case(name,_) => name.equalsIgnoreCase("Transfer-Encoding") }
       .map { _._2 }
-
   private def isTransferEncodingChunked(headers:List[(String,String)]):Boolean =
     transferEncoding(headers).exists(_.equalsIgnoreCase("chunked"))
 
-  private def readWithUndefinedContentLength(headers: List[(String,String)]): Either[(String,Array[Byte]),Array[Byte]] = {
+  private def readWithUndefinedContentLength(consumer: Consumer,headers: List[(String,String)]):Unit = {
     if( isTransferEncodingChunked(headers) ){
-      readChunked()
+      readChunked(consumer)
     }else{
-      readWhileHasData()
+      readWhileHasData(consumer)
     }
   }
 
-  private def readWhileHasData():Either[(String,Array[Byte]),Array[Byte]] = {
-    val bytes = new ByteArrayOutputStream()
+  private def readWhileHasData(consumer: Consumer):Unit = {
     var stop = false
     val ba = new Array[Byte](1)
     while( !stop ){
       byteReader.read match {
         case Some(b) =>
           ba(0) = b
-          bytes.write(ba)
+          consumer(Event.Data(ba)) match {
+            case Behavior.Continue => ()
+            case Behavior.Stop =>
+              stop = true
+          }
         case None =>
           stop = true
       }
     }
-    Right(bytes.toByteArray)
+    consumer(Event.DataEnd)
   }
 
   private def fromHex(b: Byte): Option[Int] = {
@@ -259,8 +286,7 @@ case class HttpResponseReader( source:()=>Option[Byte],
    * chunk_data      ::= { byte } #(repeat chunk_size) 0x0d 0x0a
    * </pre>
    */
-  private def readChunked():Either[(String,Array[Byte]),Array[Byte]] = {
-    val bytes = new ByteArrayOutputStream()
+  private def readChunked(consumer: Consumer):Unit = {
     val chunkSizeReader = readChunkSize(byteReader)
     val chunkDataReader = readChunkData(byteReader)
     def reader():Either[String,Unit] = for {
@@ -272,14 +298,38 @@ case class HttpResponseReader( source:()=>Option[Byte],
       _ = chunkSize match {
         case 0 => Right(())
         case _ =>
-          bytes.write(chunkData)
-          reader()
+          consumer(Event.Data(chunkData)) match {
+            case Behavior.Stop => Right(())
+            case Behavior.Continue =>
+              reader()
+          }
       }
     } yield ()
 
-    reader().map { _ =>
-      bytes.toByteArray
-    }.left.map( err => (err, bytes.toByteArray) )
+    reader() match {
+      case Left(errMessage) =>
+        consumer(Event.Error(errMessage))
+      case Right(_) =>
+        consumer(Event.DataEnd)
+    }
   }
 
+}
+
+object HttpResponseStream {
+  sealed trait Behavior
+  object Behavior {
+    case object Continue extends Behavior
+    case object Stop extends Behavior
+  }
+
+  sealed trait Event
+  object Event {
+    case class Error(string: String) extends Event
+    case class FirstLine(string:String) extends Event
+    case class Header(name:String,value:String) extends Event
+    case object HeaderEnd extends Event
+    case class Data(bytes:Array[Byte]) extends Event
+    case object DataEnd extends Event
+  }
 }
