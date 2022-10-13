@@ -7,6 +7,16 @@ import java.nio.charset.{Charset, StandardCharsets}
 import tethys._
 import tethys.jackson._
 
+trait HttpParamValue[V] {
+  def httpParamValue(v:V):String
+}
+object HttpParamValue {
+  implicit val string:HttpParamValue[String] = value => value
+  implicit val bool:HttpParamValue[Boolean] = value => value.toString
+  implicit val int:HttpParamValue[Int] = value => value.toString
+  implicit val long:HttpParamValue[Long] = value => value.toString
+}
+
 case class HttpRequest(
   path:String,
   method:String = "GET",
@@ -52,11 +62,20 @@ case class HttpRequest(
       copy(path = pathWithoutQuery + "?" + qs)
     }
   }
-  def queryString(args:(String,Option[String])*):HttpRequest = {
+//  def queryString(args:(String,Option[String])*):HttpRequest = {
+//    queryString(
+//      args
+//        .filter { case(_,v) => v.nonEmpty }
+//        .map { case(k,v) => (k,v.get) }
+//        .toMap
+//    )
+//  }
+  def queryString[V:HttpParamValue](args:(String,Option[V])*):HttpRequest = {
     queryString(
       args
         .filter { case(_,v) => v.nonEmpty }
         .map { case(k,v) => (k,v.get) }
+        .map { case(k,v) => (k,implicitly[HttpParamValue[V]].httpParamValue(v)) }
         .toMap
     )
   }

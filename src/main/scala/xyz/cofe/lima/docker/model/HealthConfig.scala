@@ -1,7 +1,7 @@
 package xyz.cofe.lima.docker.model
 
-import tethys.JsonReader
-import tethys.derivation.semiauto.jsonReader
+import tethys.{JsonReader, JsonWriter}
+import tethys.derivation.semiauto.{jsonReader, jsonWriter}
 
 case class HealthConfig(
                          Test: List[String],
@@ -12,4 +12,5 @@ case class HealthConfig(
                        )
 object HealthConfig{
   implicit val reader: JsonReader[HealthConfig] = jsonReader[HealthConfig]
+  implicit val writer: JsonWriter[HealthConfig] = jsonWriter[HealthConfig]
 }
