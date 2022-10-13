@@ -4,8 +4,10 @@ import javafx.application.Platform
 import javafx.beans.{InvalidationListener, Observable}
 import javafx.beans.property.SimpleStringProperty
 import javafx.collections.ListChangeListener
-import javafx.fxml.FXML
+import javafx.fxml.{FXML, FXMLLoader}
+import javafx.scene.{Parent, Scene}
 import javafx.scene.control.{SelectionMode, TableColumn, TableView}
+import javafx.stage.Stage
 import xyz.cofe.lima.docker.DockerClient
 import xyz.cofe.lima.docker.model.ContainerStatus
 
@@ -205,5 +207,17 @@ class ContainersController {
       }
     }
   }
-
+  def createContainer():Unit = {
+    val loader = new FXMLLoader()
+    loader.setLocation(this.getClass.getResource("/xyz/cofe/lima/ui/create-container.fxml"))
+    val parent = loader.load[Parent]()
+    val controller = loader.getController[CreateContainerController]
+    val stage = new Stage()
+    stage.setTitle("Create container")
+    val scene = new Scene(parent)
+    stage.setScene(scene)
+    stage.show()
+    controller.prepareEdit()
+    dockerClient.foreach(dc => controller.setDockerClient(dc))
+  }
 }
