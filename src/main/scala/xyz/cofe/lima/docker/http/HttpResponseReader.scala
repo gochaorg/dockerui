@@ -60,7 +60,7 @@ case class HttpResponseReader( source:()=>Option[Byte],
   def readFirstLine:Either[String,String] =
     (lineReader.read match {
       case Some(line) => Right(line)
-      case None => Left("No response: first line not read")
+      case None => Left(HttpResponse.NO_RESPONSE)
     }).flatMap( line => line.matches(firstLineRegex) match {
       case true => Right(line)
       case false => Left(s"first line ($line) not match $firstLineRegex")

@@ -2,7 +2,6 @@ package xyz.cofe.lima.docker.model
 
 import tethys.JsonReader
 import tethys.derivation.semiauto.jsonReader
-import xyz.cofe.lima.{Show, ShowDerivation, TreeShow, TreeShowDerivation}
 
 case class LogConfig(
                       Type: String,

@@ -77,7 +77,7 @@ case class HttpResponseStream(source:()=>Option[Byte],
           Behavior.Stop
         }
       case None =>
-        consumer(Event.Error("No response: first line not read"))
+        consumer(Event.Error(HttpResponse.NO_RESPONSE))
         Behavior.Stop
     }
 

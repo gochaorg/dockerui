@@ -219,6 +219,7 @@ case class HttpResponse( firstLine: String,
 }
 
 object HttpResponse {
+  val NO_RESPONSE = "No response: first line not read"
   def fromDump(dump: String):Either[String,HttpResponse] = {
     val lines = dump.split("\r?\n")
     if( lines.size < 1 ) {
