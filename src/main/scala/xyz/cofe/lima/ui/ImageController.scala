@@ -7,5 +7,4 @@ class ImageController {
   def setDockerClient( dc: DockerClient ):Unit = {
     dockerClient = Some(dc)
   }
-
 }

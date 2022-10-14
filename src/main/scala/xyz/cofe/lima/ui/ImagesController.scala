@@ -19,6 +19,14 @@ class ImagesController {
   @FXML def initialize():Unit = {
     table.getColumns.clear()
 
+    val repoTagsCol : TableColumn[Image,String] = {
+      val tc = new TableColumn[Image,String]("RepoTags")
+      tc.setCellValueFactory { param => new SimpleStringProperty(
+        param.getValue.RepoTags.map(_.mkString(",")).getOrElse(""))}
+      tc
+    }
+    table.getColumns.add(repoTagsCol)
+
     val idCol : TableColumn[Image,String] = {
       val tc = new TableColumn[Image,String]("Id")
       tc.setCellValueFactory { param => new SimpleStringProperty(param.getValue.Id)}
@@ -33,16 +41,11 @@ class ImagesController {
     }
     table.getColumns.add(parentIdCol)
 
-    val repoTagsCol : TableColumn[Image,String] = {
-      val tc = new TableColumn[Image,String]("RepoTags")
-      tc.setCellValueFactory { param => new SimpleStringProperty(param.getValue.RepoTags.mkString(","))}
-      tc
-    }
-    table.getColumns.add(repoTagsCol)
-
     val repoDigestsCol : TableColumn[Image,String] = {
       val tc = new TableColumn[Image,String]("RepoDigests")
-      tc.setCellValueFactory { param => new SimpleStringProperty(param.getValue.RepoDigests.mkString(","))}
+      tc.setCellValueFactory { param => new SimpleStringProperty(
+        param.getValue.RepoDigests.map(_.mkString(",")).getOrElse("")
+      )}
       tc
     }
     table.getColumns.add(repoDigestsCol)
@@ -91,6 +94,25 @@ class ImagesController {
         case Right(images) =>
           images.foreach(table.getItems.add)
       }
+    }
+  }
+  def pullImage():Unit = {
+    dockerClient.foreach { dc =>
+      PullImageController.show(dc)
+    }
+  }
+  def deleteSelected():Unit={
+    DeleteImageController.show() match {
+      case None =>
+      case Some(params) =>
+        dockerClient.foreach { dc =>
+          table.getSelectionModel.getSelectedItems.forEach(img => {
+            dc.imageRemove(img.Id, Some(params.force), Some(params.noprune)) match {
+              case Left(err) => println(err)
+              case Right(_) =>
+            }
+          })
+        }
     }
   }
 }

@@ -51,7 +51,7 @@ class Main extends Application {
         timer.schedule(new TimerTask {
           override def run(): Unit = {
             Platform.runLater(()=>{
-              controller.refreshByTimer()
+//              controller.refreshByTimer()
             })
           }
         },1000, 1000)
