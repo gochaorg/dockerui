@@ -8,9 +8,12 @@ import java.nio.charset.StandardCharsets
 import tethys._
 import tethys.jackson._
 import xyz.cofe.lima.docker.http.HttpResponseStream.Event
+import xyz.cofe.lima.docker.log.Logger
+import xyz.cofe.lima.docker.log.Logger._
 import xyz.cofe.lima.docker.model.{ContainerFileChanges, CreateContainerRequest, CreateContainerResponse, Image, ImageHistory, ImageInspect, ImagePullStatusEntry, ImageRemove}
 
 import java.net.UnixDomainSocketAddress
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.{Lock, ReentrantLock}
 
 case class DockerClient( socketChannel: SocketChannel,
@@ -20,12 +23,13 @@ case class DockerClient( socketChannel: SocketChannel,
                          cpuThrottling:Long=1,
                          streamReadTimeout:Long=(-1),
                          streamSourceTimeout:Long=1000L*30L,
-                         socketLock: Lock = new ReentrantLock()
+                         socketLock: Lock = new ReentrantLock(),
+                         clientId:Int = DockerClient.idSeq.incrementAndGet(),
                        )
                        (implicit
                         httpLogger: HttpLogger,
                         socketLogger: SocketLogger,
-                        logger: DockerClientLogger
+                        logger: Logger
                        )
 {
   def newClient:DockerClient =
@@ -70,6 +74,10 @@ case class DockerClient( socketChannel: SocketChannel,
         socketLock.unlock()
       }
     }
+  }
+
+  implicit val clientIdProvide = new Logger.ClientId {
+    override def clientId: Int = clientId
   }
 
   //#region http tasks
@@ -193,13 +201,15 @@ case class DockerClient( socketChannel: SocketChannel,
    */
   def containers(all:Boolean=false, limit:Option[Int]=None, size:Boolean=false)
   : Either[String, List[model.ContainerStatus]] = {
-    val q = Map("all"->all.toString) ++
-      (limit.map(l=>Map("limit" -> l.toString)).getOrElse(Map())) ++
-      (if(size)Map("size"->size.toString)else(Map()))
+    logger(Containers(all,limit,size)) {
+      val q = Map("all" -> all.toString) ++
+        (limit.map(l => Map("limit" -> l.toString)).getOrElse(Map())) ++
+        (if (size) Map("size" -> size.toString) else (Map()))
 
-    sendForJson[List[model.ContainerStatus]](
-      HttpRequest(path = "/containers/json").queryString(q)
-    )
+      sendForJson[List[model.ContainerStatus]](
+        HttpRequest(path = "/containers/json").queryString(q)
+      )
+    }
   }
 
   /**
@@ -208,9 +218,11 @@ case class DockerClient( socketChannel: SocketChannel,
    * @return инфа
    */
   def containerInspect(id:String): Either[String, model.ContainerInspect] =
-    sendForJson[model.ContainerInspect](
-      HttpRequest(path = s"/containers/${id}/json")
-    )
+    logger(ContainerInspect(id)) {
+      sendForJson[model.ContainerInspect](
+        HttpRequest(path = s"/containers/${id}/json")
+      )
+    }
 
   /**
    * Получение информации о процессах внутри контейнера
@@ -218,9 +230,11 @@ case class DockerClient( socketChannel: SocketChannel,
    * @return процессы
    */
   def containerProcesses(id:String): Either[String, model.Top] =
-    sendForJson[model.Top](
-      HttpRequest(path = s"/containers/${id}/top")
-    )
+    logger(ContainerProcesses(id)) {
+      sendForJson[model.Top](
+        HttpRequest(path = s"/containers/${id}/top")
+      )
+    }
 
   /**
    * Получение логов контейнера
@@ -270,74 +284,81 @@ case class DockerClient( socketChannel: SocketChannel,
                     timestamps:Option[Boolean]=Some(true),
                     tail:Option[String]=None
           ): Either[String, Array[String]] = {
-    sendForText(
-      HttpRequest(path = s"/containers/${id}/logs")
-        .queryString(
-          Map(
-            "follow"->follow.map(_.toString),
-            "stdout"->stdout.map(_.toString),
-            "stderr"->stderr.map(_.toString),
-            "since"->since.map(_.toString),
-            "timestamps"->timestamps.map(_.toString),
-            "tail"->tail.map(_.toString),
-          ).filter { case (k,v) => v.isDefined }.map { case (k,v) => (k,v.get) }
-        ),
-      responseWrapper = resp =>
-        resp.copy(
-          headers = resp.headers ::: List(("Content-type","text/plain"))
-        )
-    ).map( rawText =>
-      rawText
-        .split("\\r?\\n")
-        .map { line =>
-          // [1,0,0,0,0,0,0,109,50,48,50,50,45,49,48]      m
-          if( line.length>=8 && line.charAt(0).toInt == 1 ){
-            line.substring(8)
-          }else{
-            line
+    logger(ContainerLogs(id, follow, stdout, stderr, since, timestamps, tail)) {
+      sendForText(
+        HttpRequest(path = s"/containers/${id}/logs")
+          .queryString(
+            Map(
+              "follow" -> follow.map(_.toString),
+              "stdout" -> stdout.map(_.toString),
+              "stderr" -> stderr.map(_.toString),
+              "since" -> since.map(_.toString),
+              "timestamps" -> timestamps.map(_.toString),
+              "tail" -> tail.map(_.toString),
+            ).filter { case (k, v) => v.isDefined }.map { case (k, v) => (k, v.get) }
+          ),
+        responseWrapper = resp =>
+          resp.copy(
+            headers = resp.headers ::: List(("Content-type", "text/plain"))
+          )
+      ).map(rawText =>
+        rawText
+          .split("\\r?\\n")
+          .map { line =>
+            // [1,0,0,0,0,0,0,109,50,48,50,50,45,49,48]      m
+            if (line.length >= 8 && line.charAt(0).toInt == 1) {
+              line.substring(8)
+            } else {
+              line
+            }
           }
-        }
-    )
+      )
+    }
   }
 
   def containerStart(containerId:String): Either[String, Unit] = {
-    sendForHttp(
-      HttpRequest(path = s"/containers/${containerId}/start", method = "POST")
-    ) match {
-      case Left(errMessage) =>
-        errMessage match {
-          case HttpResponse.NO_RESPONSE =>
-            Right(())
-          case _ =>
-            Left(errMessage)
-        }
-      case Right(response) =>
-        response.code match {
-          case Some(200) => Right(())
-          case Some(304) => Right(()) // already started
-          case Some(code) => Left(s"code = $code")
-          case None => Left(s"some wrong\n$response")
-        }
+    logger(ContainerStart(containerId)) {
+      sendForHttp(
+        HttpRequest(path = s"/containers/${containerId}/start", method = "POST")
+      ) match {
+        case Left(errMessage) =>
+          errMessage match {
+            case HttpResponse.NO_RESPONSE =>
+              Right(())
+            case _ =>
+              Left(errMessage)
+          }
+        case Right(response) =>
+          response.code match {
+            case Some(200) => Right(())
+            case Some(304) => Right(()) // already started
+            case Some(code) => Left(s"code = $code")
+            case None => Left(s"some wrong\n$response")
+          }
+      }
     }
   }
+
   def containerStop(containerId:String): Either[String, Unit] = {
-    sendForHttp(
-      HttpRequest(path = s"/containers/${containerId}/stop", method = "POST")
-    ) match {
-      case Left(errMessage) =>
-        errMessage match {
-          case HttpResponse.NO_RESPONSE =>
-            Right(())
-          case _ =>
-            Left(errMessage)
-        }
-      case Right(response) =>
-        response.code match {
-          case Some(200) => Right(())
-          case Some(304) => Right(()) // already started
-          case Some(code) => Left(s"code = $code")
-          case None => Left(s"some wrong\n$response")
-        }
+    logger(ContainerStart(containerId)) {
+      sendForHttp(
+        HttpRequest(path = s"/containers/${containerId}/stop", method = "POST")
+      ) match {
+        case Left(errMessage) =>
+          errMessage match {
+            case HttpResponse.NO_RESPONSE =>
+              Right(())
+            case _ =>
+              Left(errMessage)
+          }
+        case Right(response) =>
+          response.code match {
+            case Some(200) => Right(())
+            case Some(304) => Right(()) // already started
+            case Some(code) => Left(s"code = $code")
+            case None => Left(s"some wrong\n$response")
+          }
+      }
     }
   }
 
@@ -346,92 +367,108 @@ case class DockerClient( socketChannel: SocketChannel,
                        name:Option[String]=None,
                        platform:Option[String]=None
                      ): Either[String, CreateContainerResponse] = {
-    sendForJson[CreateContainerResponse](
-      HttpRequest(method = "POST", path = "containers/create")
-        .json(createContainerRequest)
-        .queryString("name"->name,"platform"->platform)
-    )
+    logger(ContainerCreate(createContainerRequest,name, platform)) {
+      sendForJson[CreateContainerResponse](
+        HttpRequest(method = "POST", path = "containers/create")
+          .json(createContainerRequest)
+          .queryString("name" -> name, "platform" -> platform)
+      )
+    }
   }
 
   def containerKill(containerId:String): Either[String, Unit] = {
-    sendForHttp(HttpRequest(s"/containers/$containerId/kill").post()) match {
-      case Left(errMessage) =>
-        errMessage match {
-          case HttpResponse.NO_RESPONSE =>
-            Right(())
-          case _ =>
-            Left(errMessage)
-        }
-      case Right(response) =>
-        response.code match {
-          case Some(200) => Right(())
-          case Some(304) => Right(()) // already started
-          case Some(code) => Left(s"code = $code")
-          case None => Left(s"some wrong\n$response")
-        }
+    logger(ContainerKill(containerId)) {
+      sendForHttp(HttpRequest(s"/containers/$containerId/kill").post()) match {
+        case Left(errMessage) =>
+          errMessage match {
+            case HttpResponse.NO_RESPONSE =>
+              Right(())
+            case _ =>
+              Left(errMessage)
+          }
+        case Right(response) =>
+          response.code match {
+            case Some(200) => Right(())
+            case Some(304) => Right(()) // already started
+            case Some(code) => Left(s"code = $code")
+            case None => Left(s"some wrong\n$response")
+          }
+      }
     }
   }
 
   def containerRemove(containerId:String, anonVolumesRemove:Option[Boolean]=None, force:Option[Boolean]=None, link:Option[Boolean]=None ): Either[String, Unit] = {
-    sendForHttp(
-      HttpRequest(s"/containers/$containerId")
-        .delete()
-        .queryString( "v"->anonVolumesRemove, "force"->force, "link"->link )
-    ) match {
-      case Left(errMessage) =>
-        errMessage match {
-          case HttpResponse.NO_RESPONSE =>
-            Right(())
-          case _ =>
-            Left(errMessage)
-        }
-      case Right(response) =>
-        response.code match {
-          case Some(200) => Right(())
-          case Some(304) => Right(()) // already started
-          case Some(code) => Left(s"code = $code")
-          case None => Left(s"some wrong\n$response")
-        }
+    logger(ContainerRemove(containerId, anonVolumesRemove, force, link)) {
+      sendForHttp(
+        HttpRequest(s"/containers/$containerId")
+          .delete()
+          .queryString("v" -> anonVolumesRemove, "force" -> force, "link" -> link)
+      ) match {
+        case Left(errMessage) =>
+          errMessage match {
+            case HttpResponse.NO_RESPONSE =>
+              Right(())
+            case _ =>
+              Left(errMessage)
+          }
+        case Right(response) =>
+          response.code match {
+            case Some(200) => Right(())
+            case Some(304) => Right(()) // already started
+            case Some(code) => Left(s"code = $code")
+            case None => Left(s"some wrong\n$response")
+          }
+      }
     }
   }
 
   def containerFsChanges(containerId:String): Either[String, List[ContainerFileChanges]] =
-    sendForJson[List[model.ContainerFileChanges]](
-      HttpRequest(s"/containers/$containerId/changes").get()
-    )
+    logger(ContainerFsChanges(containerId)) {
+      sendForJson[List[model.ContainerFileChanges]](
+        HttpRequest(s"/containers/$containerId/changes").get()
+      )
+    }
 
   def containerRename(containerId:String, newName:String): Either[String, Unit] =
-    sendForHttp(
-      HttpRequest(s"/containers/$containerId/rename")
-        .delete()
-        .queryString( "id"->containerId, "name"->newName )
-    ) match {
-      case Left(errMessage) =>
-        errMessage match {
-          case HttpResponse.NO_RESPONSE =>
-            Right(())
-          case _ =>
-            Left(errMessage)
-        }
-      case Right(response) =>
-        response.code match {
-          case Some(200) => Right(())
-          case Some(304) => Right(()) // already started
-          case Some(code) => Left(s"code = $code")
-          case None => Left(s"some wrong\n$response")
-        }
+    logger(ContainerRename(containerId,newName)) {
+      sendForHttp(
+        HttpRequest(s"/containers/$containerId/rename")
+          .delete()
+          .queryString("id" -> containerId, "name" -> newName)
+      ) match {
+        case Left(errMessage) =>
+          errMessage match {
+            case HttpResponse.NO_RESPONSE =>
+              Right(())
+            case _ =>
+              Left(errMessage)
+          }
+        case Right(response) =>
+          response.code match {
+            case Some(200) => Right(())
+            case Some(304) => Right(()) // already started
+            case Some(code) => Left(s"code = $code")
+            case None => Left(s"some wrong\n$response")
+          }
+      }
     }
 
   //#endregion
   //#region image task
 
-  def images(): Either[String, List[Image]] = sendForJson[List[model.Image]](
-    HttpRequest("/images/json").get()
-  )
+  def images(): Either[String, List[Image]] =
+    logger(Images()) {
+      sendForJson[List[model.Image]](
+        HttpRequest("/images/json").get()
+      )
+    }
 
-  def imageInspect(imageId:String): Either[String, ImageInspect] = sendForJson[model.ImageInspect](
-    HttpRequest(s"/images/${imageId}/json").get()
-  )
+  def imageInspect(imageId:String): Either[String, model.ImageInspect] =
+    logger(Logger.ImageInspect(imageId)) {
+      sendForJson[model.ImageInspect](
+        HttpRequest(s"/images/${imageId}/json").get()
+      )
+    }
 
   def imageCreate( fromImage:Option[String] = None,
                    fromSrc:Option[String] = None,
@@ -481,40 +518,49 @@ case class DockerClient( socketChannel: SocketChannel,
    * @param force Remove the image even if it is being used by stopped containers or has other tags
    * @param noprune Do not delete untagged parent images
    */
-  def imageRemove(nameOrId:String,force:Option[Boolean]=None,noprune:Option[Boolean]=None): Either[String, List[ImageRemove]] =
-    sendForJson[List[model.ImageRemove]](
-      HttpRequest(s"/images/${nameOrId}").delete().queryString("force"->force,"noprune"->noprune)
-    )
+  def imageRemove(nameOrId:String,force:Option[Boolean]=None,noprune:Option[Boolean]=None): Either[String, List[model.ImageRemove]] =
+    logger(Logger.ImageRemove(nameOrId, force, noprune)) {
+      sendForJson[List[model.ImageRemove]](
+        HttpRequest(s"/images/${nameOrId}").delete().queryString("force" -> force, "noprune" -> noprune)
+      )
+    }
 
-  def imageTag(nameOrId:String,repo:Option[String]=None,tag:Option[String]=None): Either[String, Unit] = {
-    sendForHttp(
-      HttpRequest(path = s"/images/${nameOrId}/tag")
-        .post()
-        .queryString("repo"->repo,"tag"->tag)
-    ) match {
-      case Left(errMessage) =>
-        errMessage match {
-          case HttpResponse.NO_RESPONSE =>
-            Right(())
-          case _ =>
-            Left(errMessage)
-        }
-      case Right(response) =>
-        response.code match {
-          case Some(200) => Right(())
-          case Some(204) => Right(())
-          case Some(code) => Left(s"code = $code\n${response.text}")
-          case None => Left(s"some wrong\n$response")
-        }
+  def imageTag(nameOrId:String,repo:Option[String]=None,tag:Option[String]=None): Either[String, Unit] =
+    logger(Logger.ImageTag(nameOrId, repo, tag)) {
+      sendForHttp(
+        HttpRequest(path = s"/images/${nameOrId}/tag")
+          .post()
+          .queryString("repo" -> repo, "tag" -> tag)
+      ) match {
+        case Left(errMessage) =>
+          errMessage match {
+            case HttpResponse.NO_RESPONSE =>
+              Right(())
+            case _ =>
+              Left(errMessage)
+          }
+        case Right(response) =>
+          response.code match {
+            case Some(200) => Right(())
+            case Some(204) => Right(())
+            case Some(code) => Left(s"code = $code\n${response.text}")
+            case None => Left(s"some wrong\n$response")
+          }
+      }
+    }
+
+
+  def imageHistory(nameOrId:String): Either[String, List[ImageHistory]] = {
+    logger(Logger.ImageHistory(nameOrId)) {
+      sendForJson[List[model.ImageHistory]](HttpRequest(s"/images/$nameOrId/history"))
     }
   }
-
-  def imageHistory(nameOrId:String): Either[String, List[ImageHistory]] =
-    sendForJson[List[model.ImageHistory]](HttpRequest(s"/images/$nameOrId/history"))
   //#endregion
 }
 
 object DockerClient {
+  lazy val idSeq = new AtomicInteger(0)
+
   def unixSocket(path:String)(implicit
                               httpLogger: HttpLogger,
                               socketLogger: SocketLogger
