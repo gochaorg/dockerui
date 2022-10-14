@@ -2,7 +2,7 @@ package xyz.cofe.lima.ui
 
 import javafx.beans.property.SimpleStringProperty
 import javafx.fxml.FXML
-import javafx.scene.control.{TableColumn, TableView}
+import javafx.scene.control.{SelectionMode, TableColumn, TableView}
 import xyz.cofe.lima.docker.DockerClient
 import xyz.cofe.lima.docker.model.{ContainerStatus, Image}
 
@@ -17,6 +17,7 @@ class ImagesController {
   }
 
   @FXML def initialize():Unit = {
+    table.getSelectionModel.setSelectionMode(SelectionMode.MULTIPLE)
     table.getColumns.clear()
 
     val repoTagsCol : TableColumn[Image,String] = {
@@ -86,16 +87,20 @@ class ImagesController {
     table.getColumns.add(containersCol)
   }
 
+  lazy val syncTable = SyncTable[Image,String](table, im=>im.Id, (a,b)=>a==b)
   def refresh():Unit = {
-    table.getItems.clear()
     dockerClient.foreach { dc =>
       dc.images() match {
         case Left(err) => println(err)
         case Right(images) =>
-          images.foreach(table.getItems.add)
+          syncTable.sync(images)
       }
     }
   }
+  def refreshByTimer():Unit = {
+    refresh()
+  }
+
   def pullImage():Unit = {
     dockerClient.foreach { dc =>
       PullImageController.show(dc)

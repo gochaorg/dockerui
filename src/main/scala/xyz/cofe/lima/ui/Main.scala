@@ -46,21 +46,41 @@ class Main extends Application {
         primaryStage.setWidth(800)
         primaryStage.show()
 
-        val timer = new Timer()
-        timer.schedule(new TimerTask {
-          override def run(): Unit = {
-            Platform.runLater(()=>{
-              controller.refreshByTimer()
-            })
-          }
-        },1000, 1000)
+        controller.changeTimerPeriodCallback { period =>
+          runTimer(period, ()=>{
+            controller.refreshByTimer()
+          })
+          controller.onTimerPeriod(period)
+        }
+
+        val initialTimerPeriodSeconds = 3
+        runTimer(initialTimerPeriodSeconds,()=>{
+          controller.refreshByTimer()
+        })
+        controller.onTimerPeriod(initialTimerPeriodSeconds)
 
         primaryStage.setOnCloseRequest { _ => timer.cancel() }
       case None =>
     }
   }
+
+  private lazy val timer = new Timer()
+  private var timerTasks = List[TimerTask]()
+
+  def runTimer(periodInSeconds:Int, runner:()=>Unit):Unit = {
+    timerTasks.foreach { tt => tt.cancel() }
+    timerTasks = List()
+    if( periodInSeconds>0 ){
+      val tt = new TimerTask {
+        override def run(): Unit = {
+          Platform.runLater(()=>{
+            runner()
+          })
+        }
+      }
+      timerTasks = tt :: timerTasks
+      timer.schedule(tt,500, periodInSeconds*1000)
+    }
+  }
 }
 
-object Main {
-
-}

@@ -14,18 +14,40 @@ import java.net.UnixDomainSocketAddress
 import java.util.concurrent.locks.{Lock, ReentrantLock}
 
 case class DockerClient( socketChannel: SocketChannel,
+                         openSocket: ()=>SocketChannel,
                          sourceTimeout:Long=1000L,
                          readTimeout:  Long=1000L*30L,
                          cpuThrottling:Long=1,
                          streamReadTimeout:Long=(-1),
-                         streamSourceTimeout:Long=1000L*30L
+                         streamSourceTimeout:Long=1000L*30L,
+                         socketLock: Lock = new ReentrantLock()
                        )
                        (implicit
                         httpLogger: HttpLogger,
-                        socketLogger: SocketLogger
+                        socketLogger: SocketLogger,
+                        logger: DockerClientLogger
                        )
 {
-  val socketLock : Lock = new ReentrantLock()
+  def newClient:DockerClient =
+    DockerClient(
+      openSocket(),
+      openSocket,
+      sourceTimeout,
+      readTimeout,
+      cpuThrottling,
+      streamReadTimeout,
+      streamSourceTimeout,
+      new ReentrantLock()
+    )(httpLogger,socketLogger,logger)
+
+  def withLogger(httpLogger: HttpLogger):DockerClient =
+    DockerClient(
+      socketChannel,
+      openSocket,
+      sourceTimeout, readTimeout, cpuThrottling, streamReadTimeout, streamSourceTimeout,
+      socketLock
+    )(httpLogger,socketLogger,logger)
+
   def lockAndRun[R]( code: => R ):R = {
     try {
       socketLock.lock()
@@ -79,6 +101,7 @@ case class DockerClient( socketChannel: SocketChannel,
 
   def stream(request:HttpRequest)(consumer:HttpResponseStream.Event=>HttpResponseStream.Behavior):Unit = {
     lockAndRun {
+      httpLogger.send(request)
       sendRequest(request)
       HttpResponseStream(
         SocketChannelSupplier(socketChannel),
@@ -91,6 +114,7 @@ case class DockerClient( socketChannel: SocketChannel,
 
   def sendForHttp(request:HttpRequest):Either[String,HttpResponse] = {
     lockAndRun {
+      httpLogger.send(request)
       sendRequest(request)
       val socketChannelSupplier = SocketChannelSupplier(socketChannel)
       HttpResponseReader(
@@ -98,7 +122,13 @@ case class DockerClient( socketChannel: SocketChannel,
         sourceTimeout = sourceTimeout,
         readTimeout = readTimeout,
         cpuThrottling = cpuThrottling
-      ).read
+      ).read.left.map(err => {
+        httpLogger.error(err)
+        err
+      }).map(resp => {
+        httpLogger.receive(resp)
+        resp
+      })
     }
   }
 
@@ -489,5 +519,8 @@ object DockerClient {
                               httpLogger: HttpLogger,
                               socketLogger: SocketLogger
   ):DockerClient =
-    DockerClient(SocketChannel.open(UnixDomainSocketAddress.of(path)))
+    DockerClient(
+      SocketChannel.open(UnixDomainSocketAddress.of(path)),
+      ()=>SocketChannel.open(UnixDomainSocketAddress.of(path))
+    )
 }

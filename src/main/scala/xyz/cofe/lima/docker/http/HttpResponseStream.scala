@@ -8,7 +8,7 @@ case class HttpResponseStream(source:()=>Option[Byte],
                               sourceTimeout:Long=1000L*10L,
                               readTimeout:  Long=1000L*60L,
                               cpuThrottling:Long=1
-                             )
+                             )(implicit httpLogger: HttpLogger)
 {
   import HttpResponseStream._
 
@@ -71,9 +71,9 @@ case class HttpResponseStream(source:()=>Option[Byte],
     lineReader.read match {
       case Some(line) =>
         if (line.matches(firstLineRegex)) {
-          consumer(Event.FirstLine(line))
+          consumer(httpLogger.event(Event.FirstLine(line)))
         } else {
-          consumer(Event.Error(s"first line ($line) not match $firstLineRegex"))
+          consumer(httpLogger.event(Event.Error(s"first line ($line) not match $firstLineRegex")))
           Behavior.Stop
         }
       case None =>
@@ -85,20 +85,20 @@ case class HttpResponseStream(source:()=>Option[Byte],
     lineReader.read match {
       case Some(line) =>
         if(line.isEmpty){
-          consumer(Event.HeaderEnd)
+          consumer(httpLogger.event(Event.HeaderEnd))
         }else{
           val idx = line.indexOf(":")
           if( idx<1 || idx>=line.length ){
-            consumer(Event.Error(s"expect header, line with: name \":\" value, but accept $line"))
+            consumer(httpLogger.event(Event.Error(s"expect header, line with: name \":\" value, but accept $line")))
             Behavior.Stop
           }else{
             val name = line.substring(0,idx).trim
             val value = line.substring(idx+1).trim
-            consumer(Event.Header(name,value))
+            consumer(httpLogger.event(Event.Header(name,value)))
           }
         }
       case None =>
-        consumer(Event.Error(s"No response: header not readed"))
+        consumer(httpLogger.event(Event.Error(s"No response: header not readed")))
         Behavior.Stop
     }
   }
@@ -119,7 +119,7 @@ case class HttpResponseStream(source:()=>Option[Byte],
         case Some(b) =>
           ba(0) = b
           reads += 1
-          consumer(Event.Data(ba)) match {
+          consumer(httpLogger.event(Event.Data(ba))) match {
             case Behavior.Stop =>
               stop = true
             case _ => ()
@@ -131,8 +131,8 @@ case class HttpResponseStream(source:()=>Option[Byte],
     }
 
     err match {
-      case Some(value) => consumer(Event.Error(value))
-      case None => consumer(Event.DataEnd)
+      case Some(value) => consumer(httpLogger.event(Event.Error(value)))
+      case None => consumer(httpLogger.event(Event.DataEnd))
     }
   }
 
@@ -158,7 +158,7 @@ case class HttpResponseStream(source:()=>Option[Byte],
       byteReader.read match {
         case Some(b) =>
           ba(0) = b
-          consumer(Event.Data(ba)) match {
+          consumer(httpLogger.event(Event.Data(ba))) match {
             case Behavior.Continue => ()
             case Behavior.Stop =>
               stop = true
@@ -167,7 +167,7 @@ case class HttpResponseStream(source:()=>Option[Byte],
           stop = true
       }
     }
-    consumer(Event.DataEnd)
+    consumer(httpLogger.event(Event.DataEnd))
   }
 
   private def fromHex(b: Byte): Option[Int] = {
@@ -300,7 +300,7 @@ case class HttpResponseStream(source:()=>Option[Byte],
       _ = chunkSize match {
         case 0 => Right(())
         case _ =>
-          consumer(Event.Data(chunkData)) match {
+          consumer(httpLogger.event(Event.Data(chunkData))) match {
             case Behavior.Stop => Right(())
             case Behavior.Continue =>
               reader()
@@ -310,9 +310,9 @@ case class HttpResponseStream(source:()=>Option[Byte],
 
     reader() match {
       case Left(errMessage) =>
-        consumer(Event.Error(errMessage))
+        consumer(httpLogger.event(Event.Error(errMessage)))
       case Right(_) =>
-        consumer(Event.DataEnd)
+        consumer(httpLogger.event(Event.DataEnd))
     }
   }
 

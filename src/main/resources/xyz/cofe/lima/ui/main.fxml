@@ -1,9 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
+<?import javafx.scene.control.Menu?>
+<?import javafx.scene.control.MenuBar?>
+<?import javafx.scene.control.RadioMenuItem?>
 <?import javafx.scene.control.Tab?>
 <?import javafx.scene.control.TabPane?>
 <?import javafx.scene.layout.AnchorPane?>
 <?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.control.ToggleGroup?>
 
 <BorderPane xmlns="http://javafx.com/javafx/18" xmlns:fx="http://javafx.com/fxml/1" fx:controller="xyz.cofe.lima.ui.MainController">
    <center>
@@ -26,4 +30,26 @@
         </tabs>
       </TabPane>
    </center>
+   <top>
+      <MenuBar BorderPane.alignment="CENTER">
+        <menus>
+          <Menu mnemonicParsing="false" text="View">
+            <items>
+                  <Menu mnemonicParsing="false" text="Refresh">
+                      <fx:define>
+                          <ToggleGroup fx:id="toggleGroup1" />
+                      </fx:define>
+                    <items>
+                        <RadioMenuItem toggleGroup="$toggleGroup1" onAction="#setNoRefresh" fx:id="noRefresh" mnemonicParsing="false" text="No refresh" />
+                        <RadioMenuItem toggleGroup="$toggleGroup1" onAction="#setRefreshEach1Sec" fx:id="refreshEach1Sec" mnemonicParsing="false" text="each 1 second" />
+                        <RadioMenuItem toggleGroup="$toggleGroup1" onAction="#setRefreshEach3Sec" fx:id="refreshEach3Sec" mnemonicParsing="false" text="each 3 seconds" />
+                        <RadioMenuItem toggleGroup="$toggleGroup1" onAction="#setRefreshEach10Sec" fx:id="refreshEach10Sec" mnemonicParsing="false" text="each 10 seconds" />
+                        <RadioMenuItem toggleGroup="$toggleGroup1" onAction="#setRefreshEach60Sec" fx:id="refreshEach60Sec" mnemonicParsing="false" text="each 60 seconds" />
+                    </items>
+                  </Menu>
+            </items>
+          </Menu>
+        </menus>
+      </MenuBar>
+   </top>
 </BorderPane>
