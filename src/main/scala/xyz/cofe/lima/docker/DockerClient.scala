@@ -11,6 +11,7 @@ import xyz.cofe.lima.docker.http.HttpResponseStream.Event
 import xyz.cofe.lima.docker.model.{ContainerFileChanges, CreateContainerRequest, CreateContainerResponse, Image, ImageHistory, ImageInspect, ImagePullStatusEntry, ImageRemove}
 
 import java.net.UnixDomainSocketAddress
+import java.util.concurrent.locks.{Lock, ReentrantLock}
 
 case class DockerClient( socketChannel: SocketChannel,
                          sourceTimeout:Long=1000L,
@@ -24,12 +25,37 @@ case class DockerClient( socketChannel: SocketChannel,
                         socketLogger: SocketLogger
                        )
 {
+  val socketLock : Lock = new ReentrantLock()
+  def lockAndRun[R]( code: => R ):R = {
+    try {
+      socketLock.lock()
+      code
+    }finally {
+      socketLock.unlock()
+    }
+  }
+  def tryLockAndRun[R]( code: =>R ):Option[R] = {
+    var succLock = false
+    try {
+      if( socketLock.tryLock() ) {
+        succLock = true
+        Some(code)
+      }else{
+        None
+      }
+    }finally {
+      if( succLock ) {
+        socketLock.unlock()
+      }
+    }
+  }
+
   //#region http tasks
 
   socketChannel.configureBlocking(false)
 
   private def sendRequest(request:HttpRequest):Unit = {
-    socketChannel.synchronized {
+    lockAndRun {
       val headerBlock =
         ((request.method + " " + request.path + " " + request.proto + "\n") +
           ("HOST: " + request.host + "\n") +
@@ -52,7 +78,7 @@ case class DockerClient( socketChannel: SocketChannel,
   }
 
   def stream(request:HttpRequest)(consumer:HttpResponseStream.Event=>HttpResponseStream.Behavior):Unit = {
-    socketChannel.synchronized {
+    lockAndRun {
       sendRequest(request)
       HttpResponseStream(
         SocketChannelSupplier(socketChannel),
@@ -64,7 +90,7 @@ case class DockerClient( socketChannel: SocketChannel,
   }
 
   def sendForHttp(request:HttpRequest):Either[String,HttpResponse] = {
-    socketChannel.synchronized {
+    lockAndRun {
       sendRequest(request)
       val socketChannelSupplier = SocketChannelSupplier(socketChannel)
       HttpResponseReader(
@@ -80,7 +106,7 @@ case class DockerClient( socketChannel: SocketChannel,
     request:HttpRequest,
     responseWrapper:HttpResponse=>HttpResponse = r=>r
   ):Either[String,String] = {
-    socketChannel.synchronized {
+    lockAndRun {
       for {
         _ <- Right(httpLogger.send(request))
         response0 <- sendForHttp(request)
@@ -104,7 +130,7 @@ case class DockerClient( socketChannel: SocketChannel,
                           request:HttpRequest,
                           responseWrapper:HttpResponse=>HttpResponse = r=>r
                         ):Either[String,A] = {
-    socketChannel.synchronized {
+    lockAndRun {
       for {
         _ <- Right(httpLogger.send(request))
         response0 <- sendForHttp(request)

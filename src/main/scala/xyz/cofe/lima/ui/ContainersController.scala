@@ -123,16 +123,18 @@ class ContainersController {
   def refreshByTimer():Unit = {
     if( table!=null ){
       dockerClient.foreach { dc =>
-        dc.containers(all = true) match {
-          case Left(err) => println(err)
-          case Right(newContainers) => {
-            try {
-              refreshByTimerRunning = true
-              val selected = selectedContainersId()
-              sync(newContainers)
-              setSelectedContainersId(selected)
-            } finally {
-              refreshByTimerRunning = false
+        dc.tryLockAndRun {
+          dc.containers(all = true) match {
+            case Left(err) => println(err)
+            case Right(newContainers) => {
+              try {
+                refreshByTimerRunning = true
+                val selected = selectedContainersId()
+                sync(newContainers)
+                setSelectedContainersId(selected)
+              } finally {
+                refreshByTimerRunning = false
+              }
             }
           }
         }

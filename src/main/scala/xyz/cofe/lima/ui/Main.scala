@@ -36,9 +36,8 @@ class Main extends Application {
         val prnt = loader.load[Parent]()
         val controller = loader.getController[MainController]
 
-        controller.setDockerClient(
-          DockerClient.unixSocket(str)
-        )
+        val dc = DockerClient.unixSocket(str)
+        controller.setDockerClient(dc)
 
         val scene1 = new Scene(prnt)
         primaryStage.setScene(scene1)
@@ -51,7 +50,7 @@ class Main extends Application {
         timer.schedule(new TimerTask {
           override def run(): Unit = {
             Platform.runLater(()=>{
-//              controller.refreshByTimer()
+              controller.refreshByTimer()
             })
           }
         },1000, 1000)
