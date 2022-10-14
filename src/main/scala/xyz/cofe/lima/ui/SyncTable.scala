@@ -43,7 +43,7 @@ case class SyncTable[A,I](table:TableView[A], identify:A=>I, equ:(A,A)=>Boolean)
   }
   def setSelectedItems(selection:Set[I]):Unit = {
     val (mustSelected,mustUnSelected) = table.getItems.asScala.partition(itm => selection.contains(identify(itm)))
-    table.getSelectionModel.getSelectedItems.removeAll(mustUnSelected.asJava)
+    table.getSelectionModel.clearSelection()
     mustSelected.foreach { itm => table.getSelectionModel.select(itm) }
   }
 

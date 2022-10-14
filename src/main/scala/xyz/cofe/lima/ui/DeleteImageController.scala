@@ -2,11 +2,12 @@ package xyz.cofe.lima.ui
 
 import javafx.fxml.{FXML, FXMLLoader}
 import javafx.scene.{Parent, Scene}
-import javafx.scene.control.CheckBox
+import javafx.scene.control.{CheckBox, Label}
 import javafx.stage.Stage
 import xyz.cofe.lima.docker.DockerClient
 
 class DeleteImageController {
+  @FXML private var message : Label = null
   @FXML private var force : CheckBox = null
   @FXML private var noprune : CheckBox = null
   private var okClicked = false
@@ -19,6 +20,10 @@ class DeleteImageController {
     okClicked = false
     stage.foreach { s => s.close() }
   }
+  def message(msg:String):Unit = {
+    message.setText(msg)
+    message.setVisible(msg.nonEmpty)
+  }
   def setStage(newStage:Stage):Unit = { stage=Some(newStage) }
   def isOk = okClicked
   def isForce = force.isSelected
@@ -27,7 +32,7 @@ class DeleteImageController {
 
 object DeleteImageController {
   case class DeleteParams(force:Boolean, noprune:Boolean)
-  def show():Option[DeleteParams] = {
+  def show(message:String=""):Option[DeleteParams] = {
     val loader = new FXMLLoader()
     loader.setLocation(this.getClass.getResource("/xyz/cofe/lima/ui/delete-image.fxml"))
 
@@ -36,6 +41,7 @@ object DeleteImageController {
 
     val stage = new Stage()
     controller.setStage(stage)
+    controller.message(message)
 
     stage.setTitle("Delete image")
 

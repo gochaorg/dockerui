@@ -5,6 +5,7 @@ import javafx.fxml.FXML
 import javafx.scene.control.{SelectionMode, TableColumn, TableView}
 import xyz.cofe.lima.docker.DockerClient
 import xyz.cofe.lima.docker.model.{ContainerStatus, Image}
+import scala.collection.JavaConverters._
 
 class ImagesController {
   @FXML private var table:TableView[Image] = null
@@ -109,7 +110,17 @@ class ImagesController {
     }
   }
   def deleteSelected():Unit={
-    DeleteImageController.show() match {
+    val tags = table.getSelectionModel.getSelectedItems.asScala.map(img => {
+      img.RepoTags.map(_.mkString(",")).getOrElse("")
+    }).filter(_.nonEmpty).toList
+
+    val msg = if (tags.nonEmpty) {
+      s"Delete images:\n" + tags.mkString("\n")
+    } else {
+      ""
+    }
+
+    DeleteImageController.show(msg) match {
       case None =>
       case Some(params) =>
         dockerClient.foreach { dc =>

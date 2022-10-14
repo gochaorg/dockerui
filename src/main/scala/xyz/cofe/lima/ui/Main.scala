@@ -2,9 +2,8 @@ package xyz.cofe.lima.ui
 
 import javafx.application.{Application, Platform}
 import javafx.fxml.FXMLLoader
+import javafx.scene.control.TextInputDialog
 import javafx.scene.{Parent, Scene}
-import javafx.scene.control.{Button, TextInputDialog}
-import javafx.scene.layout.StackPane
 import javafx.stage.Stage
 import xyz.cofe.lima.docker.DockerClient
 

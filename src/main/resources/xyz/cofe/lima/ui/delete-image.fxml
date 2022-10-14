@@ -3,43 +3,46 @@
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.CheckBox?>
+<?import javafx.scene.control.Label?>
 <?import javafx.scene.layout.ColumnConstraints?>
 <?import javafx.scene.layout.GridPane?>
 <?import javafx.scene.layout.RowConstraints?>
 
-<GridPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefWidth="200.0" xmlns="http://javafx.com/javafx/18" xmlns:fx="http://javafx.com/fxml/1" fx:controller="xyz.cofe.lima.ui.DeleteImageController">
+<GridPane maxHeight="-Infinity" maxWidth="-Infinity" xmlns="http://javafx.com/javafx/18" xmlns:fx="http://javafx.com/fxml/1" fx:controller="xyz.cofe.lima.ui.DeleteImageController">
   <columnConstraints>
     <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="100.0" />
-    <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="100.0" />
+    <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" />
   </columnConstraints>
   <rowConstraints>
+    <RowConstraints />
     <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
     <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
-    <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
+      <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
   </rowConstraints>
    <children>
-      <CheckBox fx:id="force" mnemonicParsing="false" text="force" GridPane.columnSpan="2">
+      <CheckBox fx:id="force" mnemonicParsing="false" text="force" GridPane.columnSpan="2" GridPane.rowIndex="1">
          <GridPane.margin>
-            <Insets left="5.0" />
+            <Insets />
          </GridPane.margin>
       </CheckBox>
-      <CheckBox fx:id="noprune" mnemonicParsing="false" text="noprune" GridPane.columnSpan="2" GridPane.rowIndex="1">
+      <CheckBox fx:id="noprune" mnemonicParsing="false" text="noprune" GridPane.columnSpan="2" GridPane.rowIndex="2">
          <GridPane.margin>
-            <Insets left="5.0" />
+            <Insets />
          </GridPane.margin>
       </CheckBox>
-      <Button mnemonicParsing="false" onAction="#cancel" text="Cancel" GridPane.rowIndex="2">
+      <Button mnemonicParsing="false" onAction="#cancel" text="Cancel" GridPane.rowIndex="3">
          <GridPane.margin>
-            <Insets left="5.0" />
+            <Insets />
          </GridPane.margin>
       </Button>
-      <Button mnemonicParsing="false" onAction="#ok" text="Ok" GridPane.columnIndex="1" GridPane.halignment="RIGHT" GridPane.rowIndex="2">
+      <Button mnemonicParsing="false" onAction="#ok" text="Ok" GridPane.columnIndex="1" GridPane.halignment="RIGHT" GridPane.rowIndex="3">
          <GridPane.margin>
-            <Insets right="5.0" />
+            <Insets />
          </GridPane.margin>
       </Button>
+      <Label fx:id="message" text="Label" GridPane.columnSpan="2" />
    </children>
    <padding>
-      <Insets bottom="4.0" />
+      <Insets bottom="6.0" left="4.0" right="4.0" top="4.0" />
    </padding>
 </GridPane>

@@ -503,7 +503,7 @@ case class DockerClient( socketChannel: SocketChannel,
         response.code match {
           case Some(200) => Right(())
           case Some(204) => Right(())
-          case Some(code) => Left(s"code = $code")
+          case Some(code) => Left(s"code = $code\n${response.text}")
           case None => Left(s"some wrong\n$response")
         }
     }
