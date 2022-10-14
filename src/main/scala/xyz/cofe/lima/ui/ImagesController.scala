@@ -94,7 +94,7 @@ class ImagesController {
   def refresh():Unit = {
     dockerClient.foreach { dc =>
       dc.images() match {
-        case Left(err) => println(err)
+        case Left(err) =>
         case Right(images) =>
           syncTable.sync(images)
       }
@@ -125,10 +125,7 @@ class ImagesController {
       case Some(params) =>
         dockerClient.foreach { dc =>
           table.getSelectionModel.getSelectedItems.forEach(img => {
-            dc.imageRemove(img.Id, Some(params.force), Some(params.noprune)) match {
-              case Left(err) => println(err)
-              case Right(_) =>
-            }
+            dc.imageRemove(img.Id, Some(params.force), Some(params.noprune))
           })
         }
     }

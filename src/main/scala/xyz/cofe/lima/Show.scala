@@ -14,7 +14,6 @@ object ShowDerivation {
       s"${p.label}=${p.typeclass.show(p.dereference(value))}"
     }.mkString("{", ",", "}")
   }
-
   def split[T](ctx: SealedTrait[Show, T]): Show[T] =
     new Show[T] {
       def show(value: T): String = ctx.split(value) { sub =>

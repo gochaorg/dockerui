@@ -6,6 +6,7 @@ import javafx.scene.control.TextInputDialog
 import javafx.scene.{Parent, Scene}
 import javafx.stage.Stage
 import xyz.cofe.lima.docker.DockerClient
+import xyz.cofe.lima.docker.log.Logger
 
 import java.util.{Timer, TimerTask}
 
@@ -36,6 +37,14 @@ class Main extends Application {
         val controller = loader.getController[MainController]
 
         val dc = DockerClient.unixSocket(str)
+          .withLogger(Logger.errorCapture(e => {
+            println(
+              s"""error: ${e.errorMessage}
+                 |method: ${e.method}
+                 |${e.params.split("\\r?\\n").map("param > "+_).mkString("\n")}
+                 |""".stripMargin.trim)
+          }))
+
         controller.setDockerClient(dc)
 
         val scene1 = new Scene(prnt)

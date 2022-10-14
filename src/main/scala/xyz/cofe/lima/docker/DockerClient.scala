@@ -52,6 +52,14 @@ case class DockerClient( socketChannel: SocketChannel,
       socketLock
     )(httpLogger,socketLogger,logger)
 
+  def withLogger(logger: Logger):DockerClient =
+    DockerClient(
+      socketChannel,
+      openSocket,
+      sourceTimeout, readTimeout, cpuThrottling, streamReadTimeout, streamSourceTimeout,
+      socketLock
+    )(httpLogger,socketLogger,logger)
+
   def lockAndRun[R]( code: => R ):R = {
     try {
       socketLock.lock()
@@ -542,6 +550,7 @@ case class DockerClient( socketChannel: SocketChannel,
         case Right(response) =>
           response.code match {
             case Some(200) => Right(())
+            case Some(201) => Right(())
             case Some(204) => Right(())
             case Some(code) => Left(s"code = $code\n${response.text}")
             case None => Left(s"some wrong\n$response")

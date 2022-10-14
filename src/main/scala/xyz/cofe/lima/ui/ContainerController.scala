@@ -43,7 +43,6 @@ class ContainerController {
       dockerClient.foreach(dc => {
         dc.containerInspect(cid) match {
           case Left(err) =>
-            println(err)
           case Right(ci) =>
             Prop(ci).foreach(root => {
               root.setExpanded(true)
@@ -52,13 +51,13 @@ class ContainerController {
         }
 
         dc.containerLogs(cid, stdout = Some(true)) match {
-          case Left(err) => println(err)
+          case Left(err) =>
           case Right(logs) =>
             logsStdOut.setText(logs.mkString("\n"))
         }
 
         dc.containerLogs(cid, stderr = Some(true)) match {
-          case Left(err) => println(err)
+          case Left(err) =>
           case Right(logs) =>
             logsStdErr.setText(logs.mkString("\n"))
         }
@@ -70,7 +69,7 @@ class ContainerController {
     containerId.foreach(cid => {
       dockerClient.foreach(dc => {
         dc.containerLogs(cid, stdout = Some(true)) match {
-          case Left(err) => println(err)
+          case Left(err) =>
           case Right(logs) =>
             logsStdOut.setText(logs.mkString("\n"))
         }
@@ -82,7 +81,7 @@ class ContainerController {
     containerId.foreach(cid => {
       dockerClient.foreach(dc => {
         dc.containerLogs(cid, stderr = Some(true)) match {
-          case Left(err) => println(err)
+          case Left(err) =>
           case Right(logs) =>
             logsStdErr.setText(logs.mkString("\n"))
         }
@@ -108,11 +107,7 @@ class ContainerController {
       containerId.foreach { cId =>
         RemoveContainerController.show() match {
           case Some(deleteParams) =>
-            dc.containerRemove(cId, Some(deleteParams.removeAnonVolumes), Some(deleteParams.force), Some(deleteParams.link)) match {
-              case Left(err) =>
-                println(err)
-              case Right(_) => ()
-            }
+            dc.containerRemove(cId, Some(deleteParams.removeAnonVolumes), Some(deleteParams.force), Some(deleteParams.link))
           case None =>
         }
       }

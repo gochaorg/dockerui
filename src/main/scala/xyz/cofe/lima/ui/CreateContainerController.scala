@@ -107,7 +107,7 @@ class CreateContainerController {
   def createContainer():Unit = {
     dockerClient.foreach { dc =>
       dc.containerCreate(request, name, platform) match {
-        case Left(err) => println(err)
+        case Left(err) =>
         case Right(resp) => println(resp)
       }
     }

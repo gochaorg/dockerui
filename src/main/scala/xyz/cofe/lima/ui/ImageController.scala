@@ -59,10 +59,7 @@ class ImageController {
           } else {
             None
           }
-        ) match {
-          case Left(value) => println(value)
-          case Right(value) =>
-        }
+        )
       }
     }
   }
