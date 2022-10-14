@@ -94,6 +94,8 @@ class PullImageController() {
         ()=>platform.getOrElse(""),
         v=>{platform = if(v.trim.nonEmpty)Some(v.trim)else None }
       ))
+
+    accordion.setExpandedPane(paramsTitledPane)
   }
 
   private var dockerClient: Option[DockerClient] = None
