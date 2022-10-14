@@ -1,7 +1,7 @@
 package xyz.cofe.lima.docker.model
 
-import tethys.JsonReader
-import tethys.derivation.semiauto.jsonReader
+import tethys.{JsonReader, JsonWriter}
+import tethys.derivation.semiauto.{jsonReader, jsonWriter}
 
 case class Image( Id:String,
                   ParentId:String,
@@ -16,4 +16,5 @@ case class Image( Id:String,
                 )
 object Image {
   implicit val reader: JsonReader[Image] = jsonReader[Image]
+  implicit val writer: JsonWriter[Image] = jsonWriter[Image]
 }

@@ -1,7 +1,7 @@
 package xyz.cofe.lima.docker.model
 
-import tethys.JsonReader
-import tethys.derivation.semiauto.jsonReader
+import tethys.{JsonReader, JsonWriter}
+import tethys.derivation.semiauto.{jsonReader, jsonWriter}
 import xyz.cofe.lima.{Show, ShowDerivation, TreeShow, TreeShowDerivation}
 
 case class ContainerInspect(
@@ -45,5 +45,6 @@ case class ContainerInspect(
                            )
 object ContainerInspect {
   implicit val reader: JsonReader[ContainerInspect] = jsonReader[ContainerInspect]
+  implicit val writer: JsonWriter[ContainerInspect] = jsonWriter[ContainerInspect]
   implicit val showTree: TreeShow[ContainerInspect] = TreeShowDerivation.gen[ContainerInspect]
 }

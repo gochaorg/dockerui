@@ -1,10 +1,9 @@
 package xyz.cofe.lima.docker.log
 
 import tethys.JsonWriter
-import tethys.derivation.semiauto.{jsonReader, jsonWriter}
 import tethys.writers.tokens.TokenWriter
 import xyz.cofe.lima.docker.model
-import xyz.cofe.lima.docker.model.{CreateContainerRequest, CreateContainerResponse, Image}
+import xyz.cofe.lima.docker.model.{CreateContainerRequest, Image}
 
 trait Logger {
   import Logger._
@@ -33,16 +32,19 @@ object Logger {
 
   case class CapturedError(errorMessage:String, method:String, params:String)
   def errorCapture( capturedError: CapturedError=>Unit ):Logger = new Logger {
-    case class ResultCapture[R,M <: MethodCall]( params:M ) extends ResultCall[String,R] {
+    case class ResultCapture[R,M <: MethodCall](methodWithParams:M) extends ResultCall[String,R] {
       override def success(result: R): R = result
       override def error(error: String): String = {
-        import tethys._
-        import tethys.jackson._
+
+        val (methodName,params) = methodWithParams.parameters
+
         capturedError(
           CapturedError(
             errorMessage = error,
-            params=(params:MethodCall).asJson,
-            method=params.getClass.getSimpleName
+            method=methodName,
+            params=params.productElementNames.zip(params.productIterator)
+              .map {case(name,value)=>s"$name=$value"}
+              .mkString("\n"),
           )
         )
         error
@@ -74,29 +76,8 @@ object Logger {
 
   sealed trait MethodCall {
     type RESULT
-  }
-
-  implicit def methodCallJsonWriter: JsonWriter[MethodCall] = new JsonWriter[MethodCall] {
-    override def write(value: MethodCall, tokenWriter: TokenWriter): Unit = {
-      value match {
-        case c:Containers => Containers.writer.write(c,tokenWriter)
-        case c:ContainerInspect => ContainerInspect.writer.write(c,tokenWriter)
-        case c:ContainerProcesses => ContainerProcesses.writer.write(c,tokenWriter)
-        case c:ContainerLogs => ContainerLogs.writer.write(c,tokenWriter)
-        case c:ContainerStart => ContainerStart.writer.write(c,tokenWriter)
-        case c:ContainerStop => ContainerStop.writer.write(c,tokenWriter)
-        case c:ContainerCreate => ContainerCreate.writer.write(c,tokenWriter)
-        case c:ContainerKill => ContainerKill.writer.write(c,tokenWriter)
-        case c:ContainerRemove => ContainerRemove.writer.write(c,tokenWriter)
-        case c:ContainerFsChanges => ContainerFsChanges.writer.write(c,tokenWriter)
-        case c:ContainerRename => ContainerRename.writer.write(c,tokenWriter)
-        case c:Images => Images.writer.write(c,tokenWriter)
-        case c:ImageRemove => ImageRemove.writer.write(c,tokenWriter)
-        case c:ImageTag => ImageTag.writer.write(c,tokenWriter)
-        case c:ImageHistory => ImageHistory.writer.write(c,tokenWriter)
-        case c:ImageInspect => ImageInspect.writer.write(c,tokenWriter)
-      }
-    }
+    def parameters:(String,Product)
+    def resultToJson(result:RESULT):String
   }
 
   sealed trait ResultCall[E,R] {
@@ -106,34 +87,30 @@ object Logger {
       code.left.map(error).map(success)
     }
   }
-  case class DummyResult[E,R]() extends ResultCall[E,R] {
-  }
+  case class DummyResult[E,R]() extends ResultCall[E,R]
 
   //#region Method and result
 
-  case class Containers(all:Boolean=false, limit:Option[Int]=None, size:Boolean=false) extends MethodCall {
-    override type RESULT = List[model.ContainerStatus]
-  }
-  object Containers {
-    implicit val reader = jsonReader[Containers]
-    implicit val writer = jsonWriter[Containers]
-  }
-
-  case class ContainerInspect(id:String) extends MethodCall {
-    override type RESULT = model.ContainerInspect
-  }
-  object ContainerInspect {
-    implicit val reader = jsonReader[ContainerInspect]
-    implicit val writer = jsonWriter[ContainerInspect]
+  abstract class MethodWithParams[A:JsonWriter] extends Product with MethodCall {
+    import tethys._
+    import tethys.jackson._
+    override type RESULT = A
+    override def parameters: (String, Product) = (this.getClass.getSimpleName,this)
+    override def resultToJson(result:RESULT):String = result.asJson
   }
 
-  case class ContainerProcesses(id:String) extends MethodCall {
-    override type RESULT = model.Top
+  case class Containers(all:Boolean=false, limit:Option[Int]=None, size:Boolean=false) extends MethodWithParams[List[model.ContainerStatus]]
+  case class ContainerInspect(id:String) extends MethodWithParams[model.ContainerInspect]
+  case class ContainerProcesses(id:String) extends MethodWithParams[model.Top]
+
+  implicit def arrayOfString2Json:JsonWriter[Array[String]] = (value: Array[String], tokenWriter: TokenWriter) => {
+    tokenWriter.writeArrayStart()
+    value.foreach(itm => {
+      tokenWriter.writeString(itm)
+    })
+    tokenWriter.writeArrayEnd()
   }
-  object ContainerProcesses {
-    implicit val reader = jsonReader[ContainerProcesses]
-    implicit val writer = jsonWriter[ContainerProcesses]
-  }
+  implicit def unit2Json:JsonWriter[Unit] = (_: Unit, _: TokenWriter) => {}
 
   case class ContainerLogs(id:String,
                            follow:Option[Boolean]=None,
@@ -141,112 +118,29 @@ object Logger {
                            stderr:Option[Boolean]=None,
                            since:Option[Long]=None,
                            timestamps:Option[Boolean]=Some(true),
-                           tail:Option[String]=None) extends MethodCall{
-    override type RESULT = Array[String]
-  }
-  object ContainerLogs {
-    implicit val reader = jsonReader[ContainerLogs]
-    implicit val writer = jsonWriter[ContainerLogs]
-  }
-
-  case class ContainerStart(containerId:String) extends MethodCall {
-    override type RESULT = Unit
-  }
-  object ContainerStart {
-    implicit val reader = jsonReader[ContainerStart]
-    implicit val writer = jsonWriter[ContainerStart]
-  }
-
-  case class ContainerStop(containerId:String) extends MethodCall {
-    override type RESULT = Unit
-  }
-  object ContainerStop {
-    implicit val reader = jsonReader[ContainerStop]
-    implicit val writer = jsonWriter[ContainerStop]
-  }
-
+                           tail:Option[String]=None) extends MethodWithParams[Array[String]]
+  case class ContainerStart(containerId:String) extends MethodWithParams[Unit]
+  case class ContainerStop(containerId:String) extends MethodWithParams[Unit]
   case class ContainerCreate(
                               createContainerRequest: CreateContainerRequest,
                               name:Option[String]=None,
                               platform:Option[String]=None
-                            )extends MethodCall {
-    override type RESULT = CreateContainerResponse
-  }
-  object ContainerCreate {
-    implicit val reader = jsonReader[ContainerCreate]
-    implicit val writer = jsonWriter[ContainerCreate]
-  }
-
-  case class ContainerKill(containerId:String) extends MethodCall {
-    override type RESULT = Unit
-  }
-  object ContainerKill {
-    implicit val reader = jsonReader[ContainerKill]
-    implicit val writer = jsonWriter[ContainerKill]
-  }
-
-  case class ContainerRemove(containerId:String, anonVolumesRemove:Option[Boolean]=None, force:Option[Boolean]=None, link:Option[Boolean]=None ) extends MethodCall {
-    override type RESULT = Unit
-  }
-  object ContainerRemove {
-    implicit val reader = jsonReader[ContainerRemove]
-    implicit val writer = jsonWriter[ContainerRemove]
-  }
-
-  case class ContainerFsChanges(containerId:String) extends MethodCall {
-    override type RESULT = List[model.ContainerFileChanges]
-  }
-  object ContainerFsChanges {
-    implicit val reader = jsonReader[ContainerFsChanges]
-    implicit val writer = jsonWriter[ContainerFsChanges]
-  }
-
-  case class ContainerRename(containerId:String, newName:String) extends MethodCall {
-    override type RESULT = Unit
-  }
-  object ContainerRename {
-    implicit val reader = jsonReader[ContainerRename]
-    implicit val writer = jsonWriter[ContainerRename]
-  }
-
-  case class Images() extends MethodCall {
-    override type RESULT = List[Image]
-  }
-  object Images {
-    implicit val reader = jsonReader[Images]
-    implicit val writer = jsonWriter[Images]
-  }
-
-  case class ImageRemove(nameOrId:String,force:Option[Boolean]=None,noprune:Option[Boolean]=None) extends MethodCall {
-    override type RESULT = List[model.ImageRemove]
-  }
-  object ImageRemove {
-    implicit val reader = jsonReader[ImageRemove]
-    implicit val writer = jsonWriter[ImageRemove]
-  }
-
-  case class ImageTag(nameOrId:String,repo:Option[String]=None,tag:Option[String]=None) extends MethodCall {
-    override type RESULT = Unit
-  }
-  object ImageTag {
-    implicit val reader = jsonReader[ImageTag]
-    implicit val writer = jsonWriter[ImageTag]
-  }
-
-  case class ImageHistory(nameOrId:String) extends MethodCall {
-    override type RESULT = List[model.ImageHistory]
-  }
-  object ImageHistory {
-    implicit val reader = jsonReader[ImageHistory]
-    implicit val writer = jsonWriter[ImageHistory]
-  }
-
-  case class ImageInspect(nameOrId:String) extends MethodCall {
-    override type RESULT = model.ImageInspect
-  }
-  object ImageInspect {
-    implicit val reader = jsonReader[ImageInspect]
-    implicit val writer = jsonWriter[ImageInspect]
-  }
+                            )extends MethodWithParams[model.CreateContainerResponse]
+  case class ContainerKill(containerId:String) extends MethodWithParams[Unit]
+  case class ContainerRemove(containerId:String,
+                             anonVolumesRemove:Option[Boolean]=None,
+                             force:Option[Boolean]=None,
+                             link:Option[Boolean]=None ) extends MethodWithParams[Unit]
+  case class ContainerFsChanges(containerId:String) extends MethodWithParams[List[model.ContainerFileChanges]]
+  case class ContainerRename(containerId:String, newName:String) extends MethodWithParams[Unit]
+  case class Images() extends MethodWithParams[List[Image]]
+  case class ImageRemove(nameOrId:String,
+                         force:Option[Boolean]=None,
+                         noprune:Option[Boolean]=None) extends MethodWithParams[List[model.ImageRemove]]
+  case class ImageTag(nameOrId:String,
+                      repo:Option[String]=None,
+                      tag:Option[String]=None) extends MethodWithParams[Unit]
+  case class ImageHistory(nameOrId:String) extends MethodWithParams[List[model.ImageHistory]]
+  case class ImageInspect(nameOrId:String) extends MethodWithParams[model.ImageInspect]
   //#endregion
 }

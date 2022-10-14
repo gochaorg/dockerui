@@ -1,7 +1,7 @@
 package xyz.cofe.lima.docker.model
 
-import tethys.JsonReader
-import tethys.derivation.semiauto.jsonReader
+import tethys.{JsonReader, JsonWriter}
+import tethys.derivation.semiauto.{jsonReader, jsonWriter}
 
 case class ContainerFileChanges(Path:String, Kind:Int) {
   import ContainerFileChanges._
@@ -19,4 +19,5 @@ object ContainerFileChanges {
   case class Deleted(path:String) extends Changes
 
   implicit val reader: JsonReader[ContainerFileChanges] = jsonReader[ContainerFileChanges]
+  implicit val writer: JsonWriter[ContainerFileChanges] = jsonWriter[ContainerFileChanges]
 }
