@@ -29,92 +29,101 @@ case class DockerClient( socketChannel: SocketChannel,
   socketChannel.configureBlocking(false)
 
   private def sendRequest(request:HttpRequest):Unit = {
-    val headerBlock =
-      ((request.method + " " + request.path + " " + request.proto + "\n") +
-        ("HOST: "+request.host+"\n")+
-        ("User-Agent: "+request.`User-Agent`+"\n")+
-        ("Accept: "+request.Accept+"\n")+
-        (request.otherHeaders.map { case (k,v) => k+": "+v }.mkString("\n"))+
-        "\n"
-        ).getBytes(StandardCharsets.UTF_8)
+    socketChannel.synchronized {
+      val headerBlock =
+        ((request.method + " " + request.path + " " + request.proto + "\n") +
+          ("HOST: " + request.host + "\n") +
+          ("User-Agent: " + request.`User-Agent` + "\n") +
+          ("Accept: " + request.Accept + "\n") +
+          (request.otherHeaders.map { case (k, v) => k + ": " + v }.mkString("\n")) +
+          "\n"
+          ).getBytes(StandardCharsets.UTF_8)
 
-    val sendBB = ByteBuffer.allocate(headerBlock.size + request.body.size)
-    sendBB.put(headerBlock)
+      val sendBB = ByteBuffer.allocate(headerBlock.size + request.body.size)
+      sendBB.put(headerBlock)
 
-    val bodyArr = request.body.toArray
-    sendBB.put(bodyArr)
-    sendBB.flip()
+      val bodyArr = request.body.toArray
+      sendBB.put(bodyArr)
+      sendBB.flip()
 
-    socketLogger.send(sendBB)
-    socketChannel.write(sendBB)
+      socketLogger.send(sendBB)
+      socketChannel.write(sendBB)
+    }
   }
 
   def stream(request:HttpRequest)(consumer:HttpResponseStream.Event=>HttpResponseStream.Behavior):Unit = {
-    sendRequest(request)
-    HttpResponseStream(
-      SocketChannelSupplier(socketChannel),
-      sourceTimeout = streamSourceTimeout,
-      readTimeout = streamReadTimeout,
-      cpuThrottling = cpuThrottling
-    ).read(consumer)
+    socketChannel.synchronized {
+      sendRequest(request)
+      HttpResponseStream(
+        SocketChannelSupplier(socketChannel),
+        sourceTimeout = streamSourceTimeout,
+        readTimeout = streamReadTimeout,
+        cpuThrottling = cpuThrottling
+      ).read(consumer)
+    }
   }
 
   def sendForHttp(request:HttpRequest):Either[String,HttpResponse] = {
-    sendRequest(request)
-
-    val socketChannelSupplier = SocketChannelSupplier(socketChannel)
-    HttpResponseReader(
-      socketChannelSupplier,
-      sourceTimeout = sourceTimeout,
-      readTimeout = readTimeout,
-      cpuThrottling = cpuThrottling
-    ).read
+    socketChannel.synchronized {
+      sendRequest(request)
+      val socketChannelSupplier = SocketChannelSupplier(socketChannel)
+      HttpResponseReader(
+        socketChannelSupplier,
+        sourceTimeout = sourceTimeout,
+        readTimeout = readTimeout,
+        cpuThrottling = cpuThrottling
+      ).read
+    }
   }
 
   def sendForText(
     request:HttpRequest,
     responseWrapper:HttpResponse=>HttpResponse = r=>r
   ):Either[String,String] = {
-    for {
-      _ <- Right(httpLogger.send(request))
-      response0 <- sendForHttp(request)
-      response = responseWrapper(response0)
-      _ <- Right(httpLogger.receive(response))
-      _ <- if (response.isOk) {
-        Right(response)
-      } else {
-        Left(s"response not ok\ncode = ${response.code}\ntext = ${response.text}")
-      }
-      text <- response.text.map(
-        s => Right(s)
-      ).getOrElse(
-        Left("text response not available")
-      )
-    } yield text
+    socketChannel.synchronized {
+      for {
+        _ <- Right(httpLogger.send(request))
+        response0 <- sendForHttp(request)
+        response = responseWrapper(response0)
+        _ <- Right(httpLogger.receive(response))
+        _ <- if (response.isOk) {
+          Right(response)
+        } else {
+          Left(s"response not ok\ncode = ${response.code}\ntext = ${response.text}")
+        }
+        text <- response.text.map(
+          s => Right(s)
+        ).getOrElse(
+          Left("text response not available")
+        )
+      } yield text
+    }
   }
 
   def sendForJson[A:JsonReader](
                           request:HttpRequest,
                           responseWrapper:HttpResponse=>HttpResponse = r=>r
                         ):Either[String,A] = {
-    for {
-      _ <- Right(httpLogger.send(request))
-      response0 <- sendForHttp(request)
-      response = responseWrapper(response0)
-      _ <- Right(httpLogger.receive(response))
+    socketChannel.synchronized {
+      for {
+        _ <- Right(httpLogger.send(request))
+        response0 <- sendForHttp(request)
+        response = responseWrapper(response0)
+        _ <- Right(httpLogger.receive(response))
 
-      _ <- if (response.isOk) {
-        Right(response)
-      } else {
-        Left(s"response not ok\ncode = ${response.code}\ntext = ${response.text}")
-      }
-      text <- response.text.map(
-        s => Right(s)
-      ).getOrElse(
-        Left("text response not available")
-      )
-      res <- text.jsonAs[A].left.map( err => err.getMessage )
-    } yield res
+        _ <- if (response.isOk) {
+          Right(response)
+        } else {
+          Left(s"response not ok\ncode = ${response.code}\ntext = ${response.text}")
+        }
+        text <- response.text.map(
+          s => Right(s)
+        ).getOrElse(
+          Left("text response not available")
+        )
+        res <- text.jsonAs[A].left.map(err => err.getMessage)
+      } yield res
+    }
   }
   //#endregion
   //#region containers tasks
