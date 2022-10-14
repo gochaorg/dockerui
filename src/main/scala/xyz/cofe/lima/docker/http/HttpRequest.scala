@@ -52,12 +52,12 @@ case class HttpRequest(
       copy(path = pathWithoutQuery + "?" + qs)
     }
   }
-  def queryString[V:HttpParamValue](args:(String,Option[V])*):HttpRequest = {
+  def queryString[V:HttpParamValue](args:(String,V)*):HttpRequest = {
     queryString(
       args
+        .map { case(k,v) => (k,implicitly[HttpParamValue[V]].httpParamValue(v)) }
         .filter { case(_,v) => v.nonEmpty }
         .map { case(k,v) => (k,v.get) }
-        .map { case(k,v) => (k,implicitly[HttpParamValue[V]].httpParamValue(v)) }
         .toMap
     )
   }
