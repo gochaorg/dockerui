@@ -2,7 +2,6 @@ package xyz.cofe.lima.docker.model
 
 import tethys.JsonReader
 import tethys.derivation.semiauto.jsonReader
-import xyz.cofe.lima.{Show, ShowDerivation, TreeShow, TreeShowDerivation}
 
 case class ContainerConfig(
                             Image: String,
@@ -15,7 +14,7 @@ case class ContainerConfig(
                             Hostname: Option[String],
                             Domainname: Option[String],
                             User: Option[String],
-                            ExposedPorts: Map[String,Map[String,String]]=Map(),
+                            ExposedPorts: Option[Map[String,Map[String,String]]]=None,
                             Env: Option[List[String]]=None,
                             Cmd: Option[List[String]]=None,
                             Healthcheck: Option[HealthConfig]=None,
@@ -26,7 +25,7 @@ case class ContainerConfig(
                             NetworkDisabled: Option[Boolean]=None,
                             MacAddress: Option[String]=None,
                             OnBuild: Option[List[String]]=None,
-                            Labels: Map[String,String]=Map(),
+                            Labels: Option[Map[String,String]]=None,
                             StopSignal: Option[String]=None,
                             StopTimeout: Option[String]=None,
                             Shell: Option[List[String]]=None,

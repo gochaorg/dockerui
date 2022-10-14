@@ -106,7 +106,7 @@ class PullImageController() {
   private var threads = List[Thread]()
 
   def pull():Unit = {
-    dockerClient.foreach { dc =>
+    dockerClient.map(_.newClient).foreach { dc =>
       val p_fromImage = fromImage
       val p_fromSrc = fromSrc
       val p_repo = repo

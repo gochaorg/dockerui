@@ -2,6 +2,7 @@ package xyz.cofe.lima.docker.model
 
 import tethys.JsonReader
 import tethys.derivation.semiauto.jsonReader
+import xyz.cofe.lima.{TreeShow, TreeShowDerivation}
 
 case class ImageInspect( Id:String,
                          RepoTags:List[String],
@@ -10,20 +11,21 @@ case class ImageInspect( Id:String,
                          Comment:String,
                          Created:String,
                          Container:String,
-                         ContainerConfig:ContainerConfig,
-                         DockerVersion:String,
-                         Author:String,
-                         Config:ContainerConfig,
-                         Architecture:String,
+                         ContainerConfig:Option[ContainerConfig],
+                         DockerVersion:Option[String],
+                         Author:Option[String],
+                         Config:Option[ContainerConfig],
+                         Architecture:Option[String],
                          Variant:Option[String],
-                         Os:String,
+                         Os:Option[String],
                          OsVersion:Option[String],
-                         Size:Long,
-                         VirtualSize:Long,
-                         GraphDriver:GraphDriver,
-                         RootFs:RootFs,
+                         Size:Option[Long],
+                         VirtualSize:Option[Long],
+                         GraphDriver:Option[GraphDriver],
+                         RootFs:Option[RootFs],
                          Metadata:Map[String,String] )
 object ImageInspect {
   implicit val reader: JsonReader[ImageInspect] = jsonReader[ImageInspect]
+  implicit val showTree: TreeShow[ImageInspect] = TreeShowDerivation.gen[ImageInspect]
 }
 

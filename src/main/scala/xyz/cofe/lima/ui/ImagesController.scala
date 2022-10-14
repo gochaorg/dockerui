@@ -87,7 +87,9 @@ class ImagesController {
     table.getColumns.add(containersCol)
   }
 
-  lazy val syncTable = SyncTable[Image,String](table, im=>im.Id, (a,b)=>a==b)
+  private lazy val syncTable = SyncTable[Image,String](table, im=>im.Id, (a,b)=>a==b)
+    .trackFocused(imageController.onSelect)
+
   def refresh():Unit = {
     dockerClient.foreach { dc =>
       dc.images() match {
