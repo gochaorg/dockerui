@@ -5,13 +5,13 @@ import tethys.derivation.semiauto.jsonReader
 
 case class Image( Id:String,
                   ParentId:String,
-                  RepoTags:List[String],
-                  RepoDigests:List[String],
+                  RepoTags:Option[List[String]],
+                  RepoDigests:Option[List[String]],
                   Created:Int,
                   Size:Long,
                   SharedSize:Int,
                   VirtualSize:Long,
-                  Labels: Map[String,String],
+                  Labels: Option[Map[String,String]],
                   Containers: Int
                 )
 object Image {

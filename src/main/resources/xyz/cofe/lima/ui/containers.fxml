@@ -11,17 +11,17 @@
 
 <BorderPane xmlns="http://javafx.com/javafx/18" xmlns:fx="http://javafx.com/fxml/1" fx:controller="xyz.cofe.lima.ui.ContainersController">
    <center>
-      <AnchorPane prefHeight="400.0" prefWidth="600.0">
+      <AnchorPane>
          <children>
-            <SplitPane dividerPositions="0.5" prefHeight="160.0" prefWidth="200.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+            <SplitPane dividerPositions="0.5" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
               <items>
-                  <TableView fx:id="table" prefHeight="200.0" prefWidth="200.0">
+                  <TableView fx:id="table">
                     <columns>
                       <TableColumn prefWidth="75.0" text="C1" />
                       <TableColumn prefWidth="75.0" text="C2" />
                     </columns>
                   </TableView>
-                  <AnchorPane prefHeight="200.0" prefWidth="100.0">
+                  <AnchorPane>
                       <fx:include fx:id="container" source="container.fxml" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0" />
                   </AnchorPane>
               </items>
@@ -30,11 +30,12 @@
       </AnchorPane>
    </center>
    <top>
-      <ToolBar prefHeight="40.0" prefWidth="200.0" BorderPane.alignment="CENTER">
+      <ToolBar prefWidth="200.0" BorderPane.alignment="CENTER">
         <items>
             <Button mnemonicParsing="false" onAction="#createContainer" text="Create" />
             <Button mnemonicParsing="false" onAction="#startSelected" text="Start" />
             <Button mnemonicParsing="false" onAction="#stopSelected" text="Stop" />
+            <Button mnemonicParsing="false" onAction="#deleteSelected" text="Remove" textFill="#860000" />
             <Separator orientation="VERTICAL" />
           <Button mnemonicParsing="false" onAction="#refresh" text="Refresh" />
         </items>

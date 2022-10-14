@@ -20,7 +20,7 @@ case class ContainerConfig(
                             Cmd: Option[List[String]]=None,
                             Healthcheck: Option[HealthConfig]=None,
                             ArgsEscaped: Option[Boolean]=None,
-                            Volumes: Map[String,Map[String,String]]=Map(),
+                            Volumes: Option[Map[String,Map[String,String]]]=None,
                             WorkingDir: Option[String]=None,
                             Entrypoint: Option[List[String]]=None,
                             NetworkDisabled: Option[Boolean]=None,

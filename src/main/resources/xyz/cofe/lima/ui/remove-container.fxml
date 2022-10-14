@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.CheckBox?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.RowConstraints?>
+
+
+<GridPane fx:controller="xyz.cofe.lima.ui.RemoveContainerController" xmlns="http://javafx.com/javafx/18" xmlns:fx="http://javafx.com/fxml/1">
+   <columnConstraints>
+      <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" />
+      <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" />
+   </columnConstraints>
+   <rowConstraints>
+      <RowConstraints minHeight="10.0" vgrow="SOMETIMES" />
+      <RowConstraints minHeight="10.0" vgrow="SOMETIMES" />
+      <RowConstraints minHeight="10.0" vgrow="SOMETIMES" />
+      <RowConstraints minHeight="10.0" vgrow="SOMETIMES" />
+   </rowConstraints>
+   <children>
+      <CheckBox fx:id="force" mnemonicParsing="false" text="Force" GridPane.columnSpan="2">
+         <GridPane.margin>
+            <Insets left="4.0" right="4.0" top="4.0" />
+         </GridPane.margin>
+      </CheckBox>
+      <CheckBox fx:id="removeAnonVolumes" mnemonicParsing="false" text="Remove anon volumes" GridPane.columnSpan="2" GridPane.rowIndex="1">
+         <GridPane.margin>
+            <Insets left="4.0" right="4.0" top="4.0" />
+         </GridPane.margin>
+      </CheckBox>
+      <CheckBox fx:id="link" mnemonicParsing="false" text="Link" GridPane.columnSpan="2" GridPane.rowIndex="2">
+         <GridPane.margin>
+            <Insets left="4.0" right="4.0" top="4.0" />
+         </GridPane.margin>
+      </CheckBox>
+      <Button onAction="#cancel" mnemonicParsing="false" text="Cancel" GridPane.rowIndex="3">
+         <GridPane.margin>
+            <Insets left="4.0" />
+         </GridPane.margin>
+      </Button>
+      <Button onAction="#ok" mnemonicParsing="false" text="Ok" GridPane.columnIndex="1" GridPane.halignment="RIGHT" GridPane.rowIndex="3">
+         <GridPane.margin>
+            <Insets bottom="7.0" right="4.0" top="4.0" />
+         </GridPane.margin>
+      </Button>
+   </children>
+</GridPane>

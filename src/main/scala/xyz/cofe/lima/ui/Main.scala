@@ -32,9 +32,9 @@ class Main extends Application {
       case Some(str) =>
         val loader = new FXMLLoader()
 
-        loader.setLocation(this.getClass.getResource("/xyz/cofe/lima/ui/containers.fxml"))
+        loader.setLocation(this.getClass.getResource("/xyz/cofe/lima/ui/main.fxml"))
         val prnt = loader.load[Parent]()
-        val controller = loader.getController[ContainersController]
+        val controller = loader.getController[MainController]
 
         controller.setDockerClient(
           DockerClient.unixSocket(str)
@@ -43,6 +43,8 @@ class Main extends Application {
         val scene1 = new Scene(prnt)
         primaryStage.setScene(scene1)
         primaryStage.setTitle("docker ui")
+        primaryStage.setHeight(600)
+        primaryStage.setWidth(800)
         primaryStage.show()
 
         val timer = new Timer()
@@ -52,12 +54,9 @@ class Main extends Application {
               controller.refreshByTimer()
             })
           }
-        },1000, 1000
-        )
+        },1000, 1000)
 
-        primaryStage.setOnCloseRequest { ev =>
-          timer.cancel()
-        }
+        primaryStage.setOnCloseRequest { _ => timer.cancel() }
       case None =>
     }
   }

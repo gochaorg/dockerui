@@ -64,9 +64,7 @@ class ContainersController {
   private var dockerClient: Option[DockerClient] = None
   def setDockerClient( dc: DockerClient ):Unit = {
     dockerClient = Some(dc)
-    if( containerController!=null ){
-      containerController.setDockerClient(dc)
-    }
+    if( containerController!=null ) containerController.setDockerClient(dc)
   }
 
   @FXML
@@ -210,14 +208,34 @@ class ContainersController {
   def createContainer():Unit = {
     val loader = new FXMLLoader()
     loader.setLocation(this.getClass.getResource("/xyz/cofe/lima/ui/create-container.fxml"))
+
     val parent = loader.load[Parent]()
     val controller = loader.getController[CreateContainerController]
+
     val stage = new Stage()
     stage.setTitle("Create container")
+
     val scene = new Scene(parent)
     stage.setScene(scene)
     stage.show()
     controller.prepareEdit()
     dockerClient.foreach(dc => controller.setDockerClient(dc))
+  }
+
+  def deleteSelected():Unit = {
+    RemoveContainerController.show() match {
+      case None =>
+      case Some(deleteParams) =>
+        if( table!=null ){
+          dockerClient.foreach { dc =>
+            table.getSelectionModel.getSelectedItems.forEach(c => {
+              dc.containerRemove(c.Id, Some(deleteParams.removeAnonVolumes), Some(deleteParams.force), Some(deleteParams.link)) match {
+                case Left(err) => println(err)
+                case Right(value) => ()
+              }
+            })
+          }
+        }
+    }
   }
 }

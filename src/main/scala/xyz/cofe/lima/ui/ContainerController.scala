@@ -1,8 +1,9 @@
 package xyz.cofe.lima.ui
 
 import javafx.fxml.FXML
+import javafx.scene.control
 import javafx.scene.control.cell.TreeItemPropertyValueFactory
-import javafx.scene.control.{TextArea, TreeTableColumn, TreeTableView}
+import javafx.scene.control.{TextArea, TextField, TreeTableColumn, TreeTableView}
 import xyz.cofe.lima.docker.{DockerClient, model}
 import xyz.cofe.lima.{TreeShowDerivation, TreeWriter}
 
@@ -87,5 +88,34 @@ class ContainerController {
         }
       })
     })
+  }
+
+  @FXML
+  private var newName : TextField = null
+
+  def rename():Unit = {
+    if( newName!=null && newName.getText.trim.nonEmpty ) {
+      dockerClient.foreach { dc =>
+        containerId.foreach { cId =>
+          dc.containerRename(cId, newName.getText.trim)
+        }
+      }
+    }
+  }
+
+  def delete():Unit = {
+    dockerClient.foreach { dc =>
+      containerId.foreach { cId =>
+        RemoveContainerController.show() match {
+          case Some(deleteParams) =>
+            dc.containerRemove(cId, Some(deleteParams.removeAnonVolumes), Some(deleteParams.force), Some(deleteParams.link)) match {
+              case Left(err) =>
+                println(err)
+              case Right(_) => ()
+            }
+          case None =>
+        }
+      }
+    }
   }
 }
