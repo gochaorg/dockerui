@@ -1,8 +1,7 @@
 package xyz.cofe.lima.docker.model
 
-import tethys.JsonReader
-import tethys.derivation.semiauto.jsonReader
-import xyz.cofe.lima.{Show, ShowDerivation, TreeShow, TreeShowDerivation}
+import tethys.derivation.semiauto.{jsonReader, jsonWriter}
+import tethys.{JsonReader, JsonWriter}
 
 case class BlkioWeightDevice(
                               Path: String,
@@ -10,4 +9,5 @@ case class BlkioWeightDevice(
                             )
 object BlkioWeightDevice {
   implicit val reader: JsonReader[BlkioWeightDevice] = jsonReader[BlkioWeightDevice]
+  implicit val writer: JsonWriter[BlkioWeightDevice] = jsonWriter[BlkioWeightDevice]
 }

@@ -1,7 +1,7 @@
 package xyz.cofe.lima.docker.model
 
-import tethys.JsonReader
-import tethys.derivation.semiauto.jsonReader
+import tethys.{JsonReader, JsonWriter}
+import tethys.derivation.semiauto.{jsonReader, jsonWriter}
 
 case class ContainerConfig(
                             Image: String,
@@ -32,4 +32,5 @@ case class ContainerConfig(
                           )
 object ContainerConfig {
   implicit val reader: JsonReader[ContainerConfig] = jsonReader[ContainerConfig]
+  implicit val writer: JsonWriter[ContainerConfig] = jsonWriter[ContainerConfig]
 }

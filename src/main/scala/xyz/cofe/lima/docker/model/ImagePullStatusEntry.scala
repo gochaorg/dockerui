@@ -1,7 +1,7 @@
 package xyz.cofe.lima.docker.model
 
-import tethys.JsonReader
-import tethys.derivation.semiauto.jsonReader
+import tethys.{JsonReader, JsonWriter}
+import tethys.derivation.semiauto.{jsonReader, jsonWriter}
 
 case class ImagePullStatusEntry(
   status:String,
@@ -39,6 +39,7 @@ case class ImagePullStatusEntry(
 
 object ImagePullStatusEntry {
   implicit val reader: JsonReader[ImagePullStatusEntry] = jsonReader[ImagePullStatusEntry]
+  implicit val writer: JsonWriter[ImagePullStatusEntry] = jsonWriter[ImagePullStatusEntry]
 
   sealed trait Status
   case class PullingFrom(from:String) extends Status
@@ -59,5 +60,6 @@ case class ImagePullStatusEntryProgress(
 )
 object ImagePullStatusEntryProgress {
   implicit val reader: JsonReader[ImagePullStatusEntryProgress] = jsonReader[ImagePullStatusEntryProgress]
+  implicit val writer: JsonWriter[ImagePullStatusEntryProgress] = jsonWriter[ImagePullStatusEntryProgress]
 }
 

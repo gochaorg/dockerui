@@ -1,8 +1,7 @@
 package xyz.cofe.lima.docker.model
 
-import tethys.JsonReader
-import tethys.derivation.semiauto.jsonReader
-import xyz.cofe.lima.{Show, ShowDerivation, TreeShow, TreeShowDerivation}
+import tethys.derivation.semiauto.{jsonReader, jsonWriter}
+import tethys.{JsonReader, JsonWriter}
 
 
 case class IPAMConfig(
@@ -12,4 +11,5 @@ case class IPAMConfig(
                      )
 object IPAMConfig {
   implicit val reader: JsonReader[IPAMConfig] = jsonReader[IPAMConfig]
+  implicit val writer: JsonWriter[IPAMConfig] = jsonWriter[IPAMConfig]
 }

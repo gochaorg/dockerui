@@ -1,8 +1,7 @@
 package xyz.cofe.lima.docker.model
 
-import tethys.JsonReader
-import tethys.derivation.semiauto.jsonReader
-import xyz.cofe.lima.{Show, ShowDerivation, TreeShow, TreeShowDerivation}
+import tethys.derivation.semiauto.{jsonReader, jsonWriter}
+import tethys.{JsonReader, JsonWriter}
 
 case class ThrottleDevice(
                            Path: String,
@@ -10,4 +9,5 @@ case class ThrottleDevice(
                          )
 object ThrottleDevice{
   implicit val reader: JsonReader[ThrottleDevice] = jsonReader[ThrottleDevice]
+  implicit val writer: JsonWriter[ThrottleDevice] = jsonWriter[ThrottleDevice]
 }

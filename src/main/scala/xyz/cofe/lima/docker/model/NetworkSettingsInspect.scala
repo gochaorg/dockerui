@@ -1,8 +1,7 @@
 package xyz.cofe.lima.docker.model
 
-import tethys.JsonReader
-import tethys.derivation.semiauto.jsonReader
-import xyz.cofe.lima.{Show, ShowDerivation, TreeShow, TreeShowDerivation}
+import tethys.derivation.semiauto.{jsonReader, jsonWriter}
+import tethys.{JsonReader, JsonWriter}
 
 case class NetworkSettingsInspect(
                                    Bridge: String,
@@ -26,4 +25,6 @@ case class NetworkSettingsInspect(
                                  )
 object NetworkSettingsInspect {
   implicit val reader: JsonReader[NetworkSettingsInspect] = jsonReader[NetworkSettingsInspect]
+  implicit val writer: JsonWriter[NetworkSettingsInspect] = jsonWriter[NetworkSettingsInspect]
+
 }

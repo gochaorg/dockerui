@@ -1,8 +1,7 @@
 package xyz.cofe.lima.docker.model
 
-import tethys.JsonReader
-import tethys.derivation.semiauto.jsonReader
-import xyz.cofe.lima.{Show, ShowDerivation, TreeShow, TreeShowDerivation}
+import tethys.derivation.semiauto.{jsonReader, jsonWriter}
+import tethys.{JsonReader, JsonWriter}
 
 case class ContainerState(
                            /** "created" "running" "paused" "restarting" "removing" "exited" "dead" */
@@ -26,4 +25,5 @@ case class ContainerState(
                          )
 object ContainerState {
   implicit val reader: JsonReader[ContainerState] = jsonReader[ContainerState]
+  implicit val writer: JsonWriter[ContainerState] = jsonWriter[ContainerState]
 }

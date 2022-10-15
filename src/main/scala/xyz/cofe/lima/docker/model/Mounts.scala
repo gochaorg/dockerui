@@ -1,8 +1,7 @@
 package xyz.cofe.lima.docker.model
 
-import tethys.JsonReader
-import tethys.derivation.semiauto.jsonReader
-import xyz.cofe.lima.{Show, ShowDerivation, TreeShow, TreeShowDerivation}
+import tethys.derivation.semiauto.{jsonReader, jsonWriter}
+import tethys.{JsonReader, JsonWriter}
 
 case class Mounts(
                    Name: String,
@@ -15,4 +14,5 @@ case class Mounts(
                  )
 object Mounts {
   implicit val reader: JsonReader[Mounts] = jsonReader[Mounts]
+  implicit val writer: JsonWriter[Mounts] = jsonWriter[Mounts]
 }

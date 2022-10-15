@@ -1,8 +1,7 @@
 package xyz.cofe.lima.docker.model
 
-import tethys.JsonReader
-import tethys.derivation.semiauto.jsonReader
-import xyz.cofe.lima.{Show, ShowDerivation, TreeShow, TreeShowDerivation}
+import tethys.derivation.semiauto.{jsonReader, jsonWriter}
+import tethys.{JsonReader, JsonWriter}
 
 case class Network(
                     IPAMConfig: Option[IPAMConfig],
@@ -20,4 +19,5 @@ case class Network(
                   )
 object Network {
   implicit val reader: JsonReader[Network] = jsonReader[Network]
+  implicit val writer: JsonWriter[Network] = jsonWriter[Network]
 }

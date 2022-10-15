@@ -1,8 +1,7 @@
 package xyz.cofe.lima.docker.model
 
-import tethys.JsonReader
-import tethys.derivation.semiauto.jsonReader
-import xyz.cofe.lima.{Show, ShowDerivation, TreeShow, TreeShowDerivation}
+import tethys.derivation.semiauto.{jsonReader, jsonWriter}
+import tethys.{JsonReader, JsonWriter}
 
 case class Health(
                    /** "none" "starting" "healthy" "unhealthy" */
@@ -16,4 +15,5 @@ case class Health(
                  )
 object Health {
   implicit val reader: JsonReader[Health] = jsonReader[Health]
+  implicit val writer: JsonWriter[Health] = jsonWriter[Health]
 }
