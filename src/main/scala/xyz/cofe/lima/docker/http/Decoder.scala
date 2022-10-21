@@ -22,6 +22,14 @@ trait Decoder[I,O,T] {
 }
 
 object Decoder {
+  case class Position(pos:Long) extends AnyVal with Ordered[Position]{
+    def + (off:Int):Position = Position(pos+off)
+    def - (off:Int):Position = Position(pos-off)
+    def + (off:Long):Position = Position(pos+off)
+    def - (off:Long):Position = Position(pos-off)
+    override def compare(that: Position): Int = pos.compareTo(that.pos)
+  }
+
   case class Byte2Char(charsetDecoder: CharsetDecoder) extends Decoder[Byte,Char,String] {
     val sb = new StringBuilder
     val bb: ByteBuffer = ByteBuffer.allocate(128)
@@ -94,7 +102,11 @@ object Decoder {
     }
     override def tail: Unit = ()
   }
-  case class Char2JsonEntry() extends Decoder[Char,String,String] {
+
+  object Char2JsonEntry {
+    def apply():Char2JsonEntry = new Char2JsonEntry()
+  }
+  class Char2JsonEntry() extends Decoder[Char,String,String] {
     sealed trait State
     case object Init extends State
     case object Undef extends State
@@ -108,6 +120,13 @@ object Decoder {
     var state:State = Init
     var bracketLevel = 0
 
+    var currentPos:Position = Position(0)
+    var currentStartPos:Position = Position(0)
+
+    def onGot(value:String,from:Position,to:Position):Unit = {
+
+    }
+
     override def fetch: Seq[String] = {
       val res = collected
       collected = List[String]()
@@ -120,70 +139,92 @@ object Decoder {
           case Init => chr match {
             case _ if chr.isWhitespace =>
               current.append(chr)
+              currentPos += 1
             case '{' =>
               current.append(chr)
+              currentPos += 1
               bracketLevel += 1
             case '}' =>
               current.append(chr)
+              currentPos += 1
               bracketLevel -= 1
               if( bracketLevel==0 ){
                 collected = current.toString() :: collected
+                onGot(current.toString(),currentStartPos,currentPos+1)
                 current.clear()
+                currentStartPos = currentPos
               }
             case '"' =>
               current.append(chr)
+              currentPos += 1
               state = JsStr('"')
             case '\'' =>
               current.append(chr)
+              currentPos += 1
               state = JsStr('\'')
             case _ =>
               current.append(chr)
+              currentPos += 1
           }
           case s@JsStr(quote) => chr match {
             case _ if chr==quote =>
               current.append(chr)
+              currentPos += 1
               state = Init
             case '\\' =>
               current.append(chr)
+              currentPos += 1
               state = JsStrEsc(str = s)
             case _ =>
               current.append(chr)
+              currentPos += 1
           }
           case esc:JsStrEsc => chr match {
             case '0' =>
               current.append(chr)
+              currentPos += 1
               state = esc.str
             case '"' =>
               current.append(chr)
+              currentPos += 1
               state = esc.str
             case '\'' =>
               current.append(chr)
+              currentPos += 1
               state = esc.str
             case 'x' =>
               current.append(chr)
+              currentPos += 1
               state = JsSkipEsc(str = esc.str,2)
             case 'u' =>
               current.append(chr)
+              currentPos += 1
               state = JsUnicodeEsc(str = esc.str)
             case _ if chr.isDigit =>
               current.append(chr)
+              currentPos += 1
               state = JsSkipEsc(str = esc.str,2)
             case _ =>
               current.append(chr)
+              currentPos += 1
               state = esc.str
           }
           case esc@JsSkipEsc(str,cnt) if cnt>0 =>
             current.append(chr)
+            currentPos += 1
             state = esc.copy(cnt=cnt-1)
           case JsSkipEsc(str,0) =>
             current.append(chr)
+            currentPos += 1
             state = str
           case esc@JsUnicodeEsc(str) => chr match {
             case '{' =>
               current.append(chr)
+              currentPos += 1
               state = JsSkipEsc(str,6)
             case _ =>
               current.append(chr)
+              currentPos += 1
               state = JsSkipEsc(str,4)
           }
         }
