@@ -3,16 +3,45 @@ package xyz.cofe.lima.docker
 import org.scalatest.funsuite.AnyFunSuite
 import xyz.cofe.lima.docker.http.HttpResponseStream.Event
 import xyz.cofe.lima.docker.http.{DecodeReader, Decoder, HttpLogger, HttpRequest, HttpResponseStream, SocketLogger}
+import xyz.cofe.lima.docker.model.CreateContainerRequest
 
 import java.nio.charset.StandardCharsets
 
 class DockerTest extends AnyFunSuite {
+  val socket = "/var/run/docker.sock"
+  test("create container") {
+    implicit val httpLog = HttpLogger.stdout()
+    //implicit val socketLog = SocketLogger.stdout
+    DockerClient.unixSocket(
+      socket
+    ).copy(sourceTimeout = 1000L*30L, readTimeout = 1000L*30L).containerCreate(
+      CreateContainerRequest(
+        Image = "alpine",
+        Cmd = Some(List("echo", "hello"))
+      )
+    ) match {
+      case Left(err) => println(s"error $err")
+      case Right(value) =>
+        println(s"${value.Id}\n${value.Warnings}")
+    }
+  }
+
   test("containers") {
     //implicit val log = HttpLogger.stdout
-    DockerClient.unixSocket("/Users/g.kamnev/.colima/docker.sock").containers(all = true) match {
+    DockerClient.unixSocket(socket).containers(all = true) match {
       case Left(err) => println(s"error $err")
       case Right(value) => value.foreach { c =>
         println(s"${c.Names} ${c.State}")
+      }
+    }
+  }
+
+  test("images") {
+    implicit val log = HttpLogger.stdout()
+    DockerClient.unixSocket(socket).images() match {
+      case Left(err) => println(s"error $err")
+      case Right(value) => value.foreach { c =>
+        println(s"${c}")
       }
     }
   }

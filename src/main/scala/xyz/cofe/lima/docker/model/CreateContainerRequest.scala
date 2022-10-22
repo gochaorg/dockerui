@@ -35,7 +35,7 @@ case class CreateContainerRequest(
                             NetworkDisabled: Option[Boolean]=None,
                             MacAddress: Option[Boolean]=None,
                             OnBuild: Option[List[String]]=None,
-                            Labels: Map[String,String]=Map(),
+                            Labels: Option[Map[String,String]]=None,
                             StopSignal: Option[String]=None,
                             StopTimeout: Option[Int]=None,
                             Shell: Option[String]=None,

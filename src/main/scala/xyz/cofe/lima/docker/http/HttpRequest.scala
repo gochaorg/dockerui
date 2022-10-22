@@ -7,6 +7,8 @@ import java.nio.charset.{Charset, StandardCharsets}
 import tethys._
 import tethys.jackson._
 
+import java.io.ByteArrayOutputStream
+
 case class HttpRequest(
   path:String,
   method:String = "GET",
@@ -77,12 +79,18 @@ case class HttpRequest(
     }
   }
 
-  def bodyText(string: String, charset:Option[Charset]=None):HttpRequest = {
+  def bodyText(string: String, charset:Option[Charset]=None, computeContentLength:Boolean=true):HttpRequest = {
     val cs = charset.getOrElse(StandardCharsets.UTF_8)
     val bytes = string.getBytes(cs)
-    copy(
-      body = bytes
-    )
+    if( computeContentLength ){
+      copy(
+        body = bytes
+      ).header("Content-Length", bytes.length.toString)
+    }else{
+      copy(
+        body = bytes
+      )
+    }
   }
 
   def json(string: String):HttpRequest =
@@ -98,9 +106,9 @@ case class HttpRequest(
     sb ++= s"path $path\n"
     sb ++= s"proto $proto\n"
     sb ++= s"host $host\n"
-    sb ++= s"Accept $Accept\n"
-    sb ++= s"User-Agent ${`User-Agent`}"
-    otherHeaders.foreach { case(k,v) => sb ++= s"otherHeader $k $v\n" }
+    sb ++= s"header: Accept: $Accept\n"
+    sb ++= s"header: User-Agent: ${`User-Agent`}\n"
+    otherHeaders.foreach { case(k,v) => sb ++= s"header: $k: $v\n" }
     sb ++= s"body-size ${body.size}\n"
     val digits = "0123456789abcdef"
     sb ++= body.grouped(32).map { block =>
@@ -111,5 +119,23 @@ case class HttpRequest(
       }.mkString(" ")
     }.mkString("\n")
     sb.toString()
+  }
+
+  def toBytes:Array[Byte] = {
+    val ba = new ByteArrayOutputStream();
+
+    val headerBlock =
+      ((method + " " + path + " " + proto + "\n") +
+        ("HOST: " + host + "\n") +
+        ("User-Agent: " + `User-Agent` + "\n") +
+        ("Accept: " + Accept + "\n") +
+        (otherHeaders.map { case (k, v) => k + ": " + v }.mkString("\n"))
+        +"\n\n"
+        ).getBytes(StandardCharsets.UTF_8)
+
+    ba.write(headerBlock)
+    ba.write(body.toArray)
+
+    ba.toByteArray
   }
 }

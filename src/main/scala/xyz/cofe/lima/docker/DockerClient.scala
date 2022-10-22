@@ -100,7 +100,7 @@ case class DockerClient( socketChannel: SocketChannel,
           ("User-Agent: " + request.`User-Agent` + "\n") +
           ("Accept: " + request.Accept + "\n") +
           (request.otherHeaders.map { case (k, v) => k + ": " + v }.mkString("\n")) +
-          "\n"
+          "\n\n"
           ).getBytes(StandardCharsets.UTF_8)
 
       val sendBB = ByteBuffer.allocate(headerBlock.size + request.body.size)
@@ -174,16 +174,17 @@ case class DockerClient( socketChannel: SocketChannel,
 
   def sendForJson[A:JsonReader](
                           request:HttpRequest,
-                          responseWrapper:HttpResponse=>HttpResponse = r=>r
+                          responseWrapper:HttpResponse=>HttpResponse = r=>r,
+                          successHttpCode:HttpResponse=>Boolean = r=>r.isOk
                         ):Either[String,A] = {
     lockAndRun {
       for {
-        _ <- Right(httpLogger.send(request))
+        //_ <- Right(httpLogger.send(request))
         response0 <- sendForHttp(request)
         response = responseWrapper(response0)
-        _ <- Right(httpLogger.receive(response))
+        //_ <- Right(httpLogger.receive(response))
 
-        _ <- if (response.isOk) {
+        _ <- if (successHttpCode(response)) {
           Right(response)
         } else {
           Left(s"response not ok\ncode = ${response.code}\ntext = ${response.text}")
@@ -377,9 +378,11 @@ case class DockerClient( socketChannel: SocketChannel,
                      ): Either[String, CreateContainerResponse] = {
     logger(ContainerCreate(createContainerRequest,name, platform)) {
       sendForJson[CreateContainerResponse](
-        HttpRequest(method = "POST", path = "containers/create")
+        HttpRequest("/containers/create")
+          .post()
           .json(createContainerRequest)
-          .queryString("name" -> name, "platform" -> platform)
+          .queryString("name" -> name, "platform" -> platform),
+        successHttpCode = r => r.code.exists(c => c >= 200 && c < 300)
       )
     }
   }

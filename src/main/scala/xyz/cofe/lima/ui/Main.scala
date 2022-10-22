@@ -43,14 +43,17 @@ class Main extends Application {
         val prnt = loader.load[Parent]()
         val controller = loader.getController[MainController]
 
+
+
         val dc = DockerClient.unixSocket(str)
-          .withLogger(Logger.errorCapture(e => {
-            println(
-              s"""error: ${e.errorMessage}
-                 |method: ${e.method}
-                 |${e.params.split("\\r?\\n").map("param > "+_).mkString("\n")}
-                 |""".stripMargin.trim)
-          }))
+//          .withLogger(Logger.errorCapture(e => {
+//            println(
+//              s"""error: ${e.errorMessage}
+//                 |method: ${e.method}
+//                 |${e.params.split("\\r?\\n").map("param > "+_).mkString("\n")}
+//                 |""".stripMargin.trim)
+//          }))
+          .withLogger(Logger.stdout)
 
         controller.setDockerClient(dc)
 
