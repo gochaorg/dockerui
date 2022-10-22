@@ -1,6 +1,7 @@
 package xyz.cofe.lima.docker.log
 
-import tethys.JsonWriter
+import tethys.derivation.semiauto.{jsonReader, jsonWriter}
+import tethys.{JsonReader, JsonWriter}
 import tethys.writers.tokens.TokenWriter
 import xyz.cofe.lima.docker.model
 import xyz.cofe.lima.docker.model.{CreateContainerRequest, Image}
@@ -121,11 +122,17 @@ object Logger {
                            tail:Option[String]=None) extends MethodWithParams[Array[String]]
   case class ContainerStart(containerId:String) extends MethodWithParams[Unit]
   case class ContainerStop(containerId:String) extends MethodWithParams[Unit]
+
   case class ContainerCreate(
                               createContainerRequest: CreateContainerRequest,
                               name:Option[String]=None,
                               platform:Option[String]=None
-                            )extends MethodWithParams[model.CreateContainerResponse]
+                            ) extends MethodWithParams[model.CreateContainerResponse]
+  object ContainerCreate {
+    implicit val reader: JsonReader[ContainerCreate] = jsonReader[ContainerCreate]
+    implicit val writer: JsonWriter[ContainerCreate] = jsonWriter[ContainerCreate]
+  }
+
   case class ContainerKill(containerId:String) extends MethodWithParams[Unit]
   case class ContainerRemove(containerId:String,
                              anonVolumesRemove:Option[Boolean]=None,
@@ -142,5 +149,16 @@ object Logger {
                       tag:Option[String]=None) extends MethodWithParams[Unit]
   case class ImageHistory(nameOrId:String) extends MethodWithParams[List[model.ImageHistory]]
   case class ImageInspect(nameOrId:String) extends MethodWithParams[model.ImageInspect]
+
+  case class ImageCreate(fromImage: Option[String] = None,
+                         fromSrc: Option[String] = None,
+                         repo: Option[String] = None,
+                         tag: Option[String] = None,
+                         message: Option[String] = None,
+                         platform: Option[String] = None) extends MethodWithParams[List[model.ImagePullStatusEntry]]
+  object ImageCreate {
+    implicit val reader: JsonReader[ImageCreate] = jsonReader[ImageCreate]
+    implicit val writer: JsonWriter[ImageCreate] = jsonWriter[ImageCreate]
+  }
   //#endregion
 }

@@ -4,9 +4,11 @@ import tethys.derivation.semiauto.{jsonReader, jsonWriter}
 import tethys.{JsonReader, JsonWriter}
 import tethys._
 import tethys.jackson._
+import xyz.cofe.lima.fs.JavaNioTracer
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path}
+import xyz.cofe.lima.fs.syntax._
 
 trait History[A] {
   def add(item:A):Unit
@@ -14,7 +16,12 @@ trait History[A] {
   def size:Int
 }
 
-class HistoryImpl[A:JsonWriter:JsonReader](path:Path,limit:Int) extends History[A] {
+class HistoryImpl[A:JsonWriter:JsonReader]
+  (path:Path,limit:Int)
+  (implicit trace: JavaNioTracer)
+extends History[A]
+{
+
   case class Entry[B:JsonWriter:JsonReader](value:B)
   object Entry {
     implicit val entryReader:JsonReader[Entry[A]] = jsonReader[Entry[A]]
@@ -22,16 +29,29 @@ class HistoryImpl[A:JsonWriter:JsonReader](path:Path,limit:Int) extends History[
   }
 
   private def readFile():Either[String,List[Entry[A]]] = {
-    Files.readString(path,StandardCharsets.UTF_8).jsonAs[List[Entry[A]]].left.map(e => e.getMessage)
-  }
-  private def writeFile(values:List[Entry[A]]) = {
-    Files.writeString(path,values.asJson,StandardCharsets.UTF_8)
+    for {
+      exists <- path.isFile.left.map(err => err.getMessage)
+      entries <- if (exists) {
+        path.json.read[List[Entry[A]]].left.map(err => err.getMessage)
+      } else {
+        Right(List[Entry[A]]()): Either[String, List[Entry[A]]]
+      }
+    } yield entries
   }
 
   private var entries : List[Entry[A]] = readFile().getOrElse(List())
 
   def add(item:A):Unit = {
     entries = (entries ++ List(Entry(item))).takeRight(limit)
+    val pdir = path.parent.map(_.canonical)
+    pdir match {
+      case None => ()
+      case Some(dir) => dir.isDir.map {
+        case true =>
+        case _ => dir.createDirectories
+      }
+    }
+    path.json.write(entries)
   }
 
   def get(index:Int):Option[A] = entries.lift(index).map(_.value)
@@ -40,6 +60,12 @@ class HistoryImpl[A:JsonWriter:JsonReader](path:Path,limit:Int) extends History[
 }
 
 object History {
-  def apply[A:JsonWriter:JsonReader](path:Path,limit:Int):History[A] =
+  def apply[A:JsonWriter:JsonReader](path:Path,limit:Int)(implicit trace: JavaNioTracer):History[A] =
     new HistoryImpl[A](path, limit)
+
+  def dummy[A:JsonWriter:JsonReader]():History[A] = new History[A] {
+    override def add(item: A): Unit = ()
+    override def get(index: Int): Option[A] = None
+    override def size: Int = 0
+  }
 }

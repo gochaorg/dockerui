@@ -9,7 +9,9 @@ import javafx.scene.control.{Accordion, TableColumn, TableView, TextArea, Titled
 import javafx.stage.Stage
 import javafx.util.StringConverter
 import xyz.cofe.lima.docker.DockerClient
+import xyz.cofe.lima.docker.log.Logger
 import xyz.cofe.lima.docker.model.Image
+import xyz.cofe.lima.store.AppConfig
 
 import java.util.concurrent.ConcurrentLinkedQueue
 
@@ -115,6 +117,7 @@ class PullImageController() {
       val p_platform = platform
       val th = new Thread("pull image") {
         override def run(): Unit = {
+          AppConfig.imageCreateHistory.add(Logger.ImageCreate(p_fromImage,p_fromSrc,p_repo,p_tag,p_message,p_platform))
           dc.imageCreate(p_fromImage,p_fromSrc,p_repo,p_tag,p_message,p_platform) { ev =>
             import xyz.cofe.lima.docker.model.ImagePullStatusEntry._
             ev.statusInfo match {

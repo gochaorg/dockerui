@@ -7,12 +7,14 @@ import javafx.scene.{Parent, Scene}
 import javafx.stage.Stage
 import xyz.cofe.lima.docker.DockerClient
 import xyz.cofe.lima.docker.log.Logger
+import xyz.cofe.lima.store.AppHome
 
+import java.nio.file.Path
 import java.util.{Timer, TimerTask}
 
 class Main extends Application {
   override def start(primaryStage: Stage): Unit = {
-    val unixSocketPath = getParameters.getNamed.get("unixSocket") match {
+    val unixSocket_arg = getParameters.getNamed.get("unixSocket") match {
       case null =>
         val input = new TextInputDialog("enter path to docker.sock")
         input.setTitle("--unixSocket=??? arg is absent")
@@ -28,7 +30,12 @@ class Main extends Application {
         Some(arg)
     }
 
-    unixSocketPath match {
+    getParameters.getNamed.get("appHome") match {
+      case null => ()
+      case arg => AppHome.setSystemParam(Path.of(arg))
+    }
+
+    unixSocket_arg match {
       case Some(str) =>
         val loader = new FXMLLoader()
 

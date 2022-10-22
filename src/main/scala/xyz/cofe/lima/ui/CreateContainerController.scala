@@ -11,7 +11,9 @@ import javafx.scene.control.cell.TextFieldTreeTableCell
 import javafx.scene.control.{TreeItem, TreeTableColumn, TreeTableRow, TreeTableView}
 import javafx.util.{Callback, StringConverter}
 import xyz.cofe.lima.docker.DockerClient
+import xyz.cofe.lima.docker.log.Logger.ContainerCreate
 import xyz.cofe.lima.docker.model.CreateContainerRequest
+import xyz.cofe.lima.store.AppConfig
 
 class CreateContainerController {
   @FXML
@@ -190,6 +192,7 @@ class CreateContainerController {
 
   def createContainer():Unit = {
     dockerClient.foreach { dc =>
+      AppConfig.createContainerHistory.add(ContainerCreate(request, name, platform))
       dc.containerCreate(request, name, platform) match {
         case Left(err) =>
         case Right(resp) => println(resp)
