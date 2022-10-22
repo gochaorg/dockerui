@@ -9,28 +9,12 @@
   <panes>
     <TitledPane animated="false" text="inspect">
       <content>
-<!--          <AnchorPane style="-fx-padding: 0;">-->
-<!--               <children>-->
-<!--                  <TreeTableView fx:id="treeTable" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">-->
-<!--                    <columns>-->
-<!--                      <TreeTableColumn prefWidth="75.0" text="C1" />-->
-<!--                      <TreeTableColumn prefWidth="75.0" text="C2" />-->
-<!--                    </columns>-->
-<!--                     <columnResizePolicy>-->
-<!--                        <TreeTableView fx:constant="CONSTRAINED_RESIZE_POLICY" />-->
-<!--                     </columnResizePolicy>-->
-<!--                  </TreeTableView>-->
-<!--               </children>-->
-<!--               <opaqueInsets>-->
-<!--                  <Insets />-->
-<!--               </opaqueInsets>-->
-<!--          </AnchorPane>-->
           <BorderPane style="-fx-padding: 0;">
               <center>
                 <TreeTableView fx:id="treeTable">
                   <columns>
-                    <TreeTableColumn prefWidth="75.0" text="C1" />
-                    <TreeTableColumn prefWidth="75.0" text="C2" />
+                    <TreeTableColumn text="C1" />
+                    <TreeTableColumn text="C2" />
                   </columns>
                    <columnResizePolicy>
                       <TreeTableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
@@ -38,10 +22,8 @@
                 </TreeTableView>
               </center>
               <top>
-                  <ToolBar prefWidth="200.0" BorderPane.alignment="CENTER">
-                      <items>
-                          <Button mnemonicParsing="false" onAction="#refreshInspect" text="refresh" />
-                      </items>
+                  <ToolBar>
+                      <Button mnemonicParsing="false" onAction="#refreshInspect" text="refresh"/>
                   </ToolBar>
               </top>
           </BorderPane>
@@ -51,14 +33,14 @@
       <content>
             <BorderPane style="-fx-padding: 0;">
                <center>
-                  <TextArea fx:id="logsStdOut" prefWidth="200.0">
+                  <TextArea fx:id="logsStdOut">
                      <font>
                         <Font name="Monospaced Regular" size="13.0" />
                      </font>
                   </TextArea>
                </center>
                <top>
-                  <ToolBar prefWidth="200.0" BorderPane.alignment="CENTER">
+                  <ToolBar>
                     <items>
                       <Button mnemonicParsing="false" onAction="#refreshLogsStdOut" text="refresh" />
                     </items>
@@ -67,18 +49,18 @@
             </BorderPane>
       </content>
     </TitledPane>
-      <TitledPane prefWidth="200.0" text="logs stderr">
+      <TitledPane animated="false" text="logs stderr">
          <content>
-            <BorderPane prefWidth="200.0" style="-fx-padding: 0;">
+            <BorderPane style="-fx-padding: 0;">
                <center>
-                  <TextArea fx:id="logsStdErr" prefHeight="200.0" prefWidth="200.0" BorderPane.alignment="CENTER">
+                  <TextArea fx:id="logsStdErr">
                       <font>
                           <Font name="Monospaced Regular" size="13.0" />
                       </font>
                   </TextArea>
                </center>
                <top>
-                  <ToolBar prefWidth="200.0" BorderPane.alignment="CENTER">
+                  <ToolBar>
                     <items>
                       <Button mnemonicParsing="false" onAction="#refreshLogsStdErr" text="refresh" />
                     </items>
@@ -91,7 +73,7 @@
         <content>
             <GridPane>
               <columnConstraints>
-                <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="100.0" />
+                <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" />
                 <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" />
               </columnConstraints>
               <rowConstraints>
