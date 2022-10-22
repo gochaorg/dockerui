@@ -1,13 +1,11 @@
 package xyz.cofe.lima.docker.log
 
 import tethys.derivation.semiauto.{jsonReader, jsonWriter}
-import tethys.{JsonObjectWriter, JsonReader, JsonWriter}
 import tethys.writers.tokens.TokenWriter
+import tethys.{JsonReader, JsonWriter}
 import xyz.cofe.lima.docker.model
 import xyz.cofe.lima.docker.model.{CreateContainerRequest, Image}
 import xyz.cofe.lima.store.json._
-
-import scala.reflect.ClassTag
 
 trait Logger {
   import Logger._
