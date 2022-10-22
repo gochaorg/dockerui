@@ -94,6 +94,16 @@ object Logger {
   case class DummyResult[E,R]() extends ResultCall[E,R]
 
   //#region Method and result
+  implicit def arrayOfString2Json: JsonWriter[Array[String]] = (value: Array[String], tokenWriter: TokenWriter) => {
+    tokenWriter.writeArrayStart()
+    value.foreach(itm => {
+      tokenWriter.writeString(itm)
+    })
+    tokenWriter.writeArrayEnd()
+  }
+
+  implicit def unit2Json: JsonWriter[Unit] = (_: Unit, _: TokenWriter) => {}
+
   abstract class MethodWithParams[A:JsonWriter] extends Product with MethodCall {
     import tethys._
     import tethys.jackson._
@@ -103,17 +113,23 @@ object Logger {
   }
 
   case class Containers(all:Boolean=false, limit:Option[Int]=None, size:Boolean=false) extends MethodWithParams[List[model.ContainerStatus]]
-  case class ContainerInspect(id:String) extends MethodWithParams[model.ContainerInspect]
-  case class ContainerProcesses(id:String) extends MethodWithParams[model.Top]
-
-  implicit def arrayOfString2Json:JsonWriter[Array[String]] = (value: Array[String], tokenWriter: TokenWriter) => {
-    tokenWriter.writeArrayStart()
-    value.foreach(itm => {
-      tokenWriter.writeString(itm)
-    })
-    tokenWriter.writeArrayEnd()
+  object Containers {
+    implicit val reader: JsonReader[Containers] = jsonReader[Containers]
+    implicit val writer: JsonWriter[Containers] = classWriter[Containers] ++ jsonWriter[Containers]
   }
-  implicit def unit2Json:JsonWriter[Unit] = (_: Unit, _: TokenWriter) => {}
+
+
+  case class ContainerInspect(id:String) extends MethodWithParams[model.ContainerInspect]
+  object ContainerInspect {
+    implicit val reader: JsonReader[ContainerInspect] = jsonReader[ContainerInspect]
+    implicit val writer: JsonWriter[ContainerInspect] = classWriter[ContainerInspect] ++ jsonWriter[ContainerInspect]
+  }
+
+  case class ContainerProcesses(id:String) extends MethodWithParams[model.Top]
+  object ContainerProcesses {
+    implicit val reader: JsonReader[ContainerProcesses] = jsonReader[ContainerProcesses]
+    implicit val writer: JsonWriter[ContainerProcesses] = classWriter[ContainerProcesses] ++ jsonWriter[ContainerProcesses]
+  }
 
   case class ContainerLogs(id:String,
                            follow:Option[Boolean]=None,
@@ -122,8 +138,22 @@ object Logger {
                            since:Option[Long]=None,
                            timestamps:Option[Boolean]=Some(true),
                            tail:Option[String]=None) extends MethodWithParams[Array[String]]
+  object ContainerLogs {
+    implicit val reader: JsonReader[ContainerLogs] = jsonReader[ContainerLogs]
+    implicit val writer: JsonWriter[ContainerLogs] = classWriter[ContainerLogs] ++ jsonWriter[ContainerLogs]
+  }
+
   case class ContainerStart(containerId:String) extends MethodWithParams[Unit]
+  object ContainerStart {
+    implicit val reader: JsonReader[ContainerStart] = jsonReader[ContainerStart]
+    implicit val writer: JsonWriter[ContainerStart] = classWriter[ContainerStart] ++ jsonWriter[ContainerStart]
+  }
+
   case class ContainerStop(containerId:String) extends MethodWithParams[Unit]
+  object ContainerStop {
+    implicit val reader: JsonReader[ContainerStop] = jsonReader[ContainerStop]
+    implicit val writer: JsonWriter[ContainerStop] = classWriter[ContainerStop] ++ jsonWriter[ContainerStop]
+  }
 
   case class ContainerCreate(
                               createContainerRequest: CreateContainerRequest,
@@ -132,25 +162,69 @@ object Logger {
                             ) extends MethodWithParams[model.CreateContainerResponse]
   object ContainerCreate {
     implicit val reader: JsonReader[ContainerCreate] = jsonReader[ContainerCreate]
-    implicit val writer: JsonWriter[ContainerCreate] = jsonWriter[ContainerCreate]
+    implicit val writer: JsonWriter[ContainerCreate] = classWriter[ContainerCreate] ++ jsonWriter[ContainerCreate]
   }
 
   case class ContainerKill(containerId:String) extends MethodWithParams[Unit]
+  object ContainerKill {
+    implicit val reader: JsonReader[ContainerKill] = jsonReader[ContainerKill]
+    implicit val writer: JsonWriter[ContainerKill] = classWriter[ContainerKill] ++ jsonWriter[ContainerKill]
+  }
+
   case class ContainerRemove(containerId:String,
                              anonVolumesRemove:Option[Boolean]=None,
                              force:Option[Boolean]=None,
                              link:Option[Boolean]=None ) extends MethodWithParams[Unit]
+  object ContainerRemove {
+    implicit val reader: JsonReader[ContainerRemove] = jsonReader[ContainerRemove]
+    implicit val writer: JsonWriter[ContainerRemove] = classWriter[ContainerRemove] ++ jsonWriter[ContainerRemove]
+  }
+
   case class ContainerFsChanges(containerId:String) extends MethodWithParams[List[model.ContainerFileChanges]]
+  object ContainerFsChanges {
+    implicit val reader: JsonReader[ContainerFsChanges] = jsonReader[ContainerFsChanges]
+    implicit val writer: JsonWriter[ContainerFsChanges] = classWriter[ContainerFsChanges] ++ jsonWriter[ContainerFsChanges]
+  }
+
   case class ContainerRename(containerId:String, newName:String) extends MethodWithParams[Unit]
+  object ContainerRename {
+    implicit val reader: JsonReader[ContainerRename] = jsonReader[ContainerRename]
+    implicit val writer: JsonWriter[ContainerRename] = classWriter[ContainerRename] ++ jsonWriter[ContainerRename]
+  }
+
   case class Images() extends MethodWithParams[List[Image]]
+  object Images {
+    implicit val reader: JsonReader[Images] = jsonReader[Images]
+    implicit val writer: JsonWriter[Images] = classWriter[Images] ++ jsonWriter[Images]
+  }
+
   case class ImageRemove(nameOrId:String,
                          force:Option[Boolean]=None,
                          noprune:Option[Boolean]=None) extends MethodWithParams[List[model.ImageRemove]]
+  object ImageRemove {
+    implicit val reader: JsonReader[ImageRemove] = jsonReader[ImageRemove]
+    implicit val writer: JsonWriter[ImageRemove] = classWriter[ImageRemove] ++ jsonWriter[ImageRemove]
+  }
+
   case class ImageTag(nameOrId:String,
                       repo:Option[String]=None,
                       tag:Option[String]=None) extends MethodWithParams[Unit]
+  object ImageTag {
+    implicit val reader: JsonReader[ImageTag] = jsonReader[ImageTag]
+    implicit val writer: JsonWriter[ImageTag] = classWriter[ImageTag] ++ jsonWriter[ImageTag]
+  }
+
   case class ImageHistory(nameOrId:String) extends MethodWithParams[List[model.ImageHistory]]
+  object ImageHistory {
+    implicit val reader: JsonReader[ImageHistory] = jsonReader[ImageHistory]
+    implicit val writer: JsonWriter[ImageHistory] = classWriter[ImageHistory] ++ jsonWriter[ImageHistory]
+  }
+
   case class ImageInspect(nameOrId:String) extends MethodWithParams[model.ImageInspect]
+  object ImageInspect {
+    implicit val reader: JsonReader[ImageInspect] = jsonReader[ImageInspect]
+    implicit val writer: JsonWriter[ImageInspect] = classWriter[ImageInspect] ++ jsonWriter[ImageInspect]
+  }
 
   case class ImageCreate(fromImage: Option[String] = None,
                          fromSrc: Option[String] = None,
