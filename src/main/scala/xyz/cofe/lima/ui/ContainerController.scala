@@ -65,6 +65,21 @@ class ContainerController {
     })
   }
 
+  def refreshInspect():Unit = {
+    containerId.foreach { cid =>
+      dockerClient.foreach { dc =>
+        dc.containerInspect(cid) match {
+          case Left(err) =>
+          case Right(ci) =>
+            Prop(ci).foreach(root => {
+              root.setExpanded(true)
+              treeTable.setRoot(root)
+            })
+        }
+      }
+    }
+  }
+
   def refreshLogsStdOut():Unit = {
     containerId.foreach(cid => {
       dockerClient.foreach(dc => {

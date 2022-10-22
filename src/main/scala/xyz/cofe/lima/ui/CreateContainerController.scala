@@ -81,16 +81,47 @@ class CreateContainerController {
       }
     }
 
-    ControllersHistory.createContainerHistory.last.foreach { h =>
+    history.last.foreach { h =>
       request = h.createContainerRequest
       name = h.name
       platform = h.platform
+
+      historyIndex = Some(history.size-1)
     }
   }
 
   var request:CreateContainerRequest = CreateContainerRequest("image name")
   var name:Option[String] = None
   var platform:Option[String] = None
+
+  def history: History[ContainerCreate] = ControllersHistory.createContainerHistory
+  var historyIndex:Option[Int] = None
+  def historyPrev():Unit = {
+    historyIndex match {
+      case Some(idx) if idx > 0 =>
+        history.get(idx-1).foreach { h =>
+          request = h.createContainerRequest
+          name = h.name
+          platform = h.platform
+          historyIndex = Some(idx-1)
+          params.refresh()
+        }
+      case _ =>
+    }
+  }
+  def historyNext():Unit = {
+    historyIndex match {
+      case Some(idx) if idx < (history.size-1) =>
+        history.get(idx+1).foreach { h =>
+          request = h.createContainerRequest
+          name = h.name
+          platform = h.platform
+          historyIndex = Some(idx+1)
+          params.refresh()
+        }
+      case _ =>
+    }
+  }
 
   def prepareEdit():Unit = {
     val root = new TreeItem(MutProp("CreateContainerController",()=>"",_=>()))
@@ -170,7 +201,6 @@ class CreateContainerController {
           cmd.getChildren.add(ci)
         }
       }
-
       val ci = new TreeItem(MutProp("new",()=>"",
         v => {
           if(v.trim.nonEmpty){
@@ -198,7 +228,16 @@ class CreateContainerController {
 
   def createContainer():Unit = {
     dockerClient.foreach { dc =>
-      ControllersHistory.createContainerHistory.add(ContainerCreate(request, name, platform))
+      request = request.copy(
+        Cmd = request.Cmd.flatMap { cmdList =>
+          if( cmdList.isEmpty ){
+            None
+          }else{
+            Some(cmdList)
+          }
+        }
+      )
+      history.add(ContainerCreate(request, name, platform))
       dc.containerCreate(request, name, platform) match {
         case Left(err) =>
         case Right(resp) => println(resp)

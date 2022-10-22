@@ -1,12 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import javafx.scene.control.Button?>
-<?import javafx.scene.control.TreeTableColumn?>
-<?import javafx.scene.control.TreeTableView?>
-<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
 
-
-<AnchorPane xmlns="http://javafx.com/javafx/18" xmlns:fx="http://javafx.com/fxml/1" fx:controller="xyz.cofe.lima.ui.CreateContainerController">
+<AnchorPane xmlns="http://javafx.com/javafx/17.0.2-ea" xmlns:fx="http://javafx.com/fxml/1" fx:controller="xyz.cofe.lima.ui.CreateContainerController">
    <children>
       <TreeTableView fx:id="params" editable="true" layoutX="5.0" layoutY="5.0" prefHeight="200.0" prefWidth="200.0" AnchorPane.bottomAnchor="35.0" AnchorPane.leftAnchor="5.0" AnchorPane.rightAnchor="5.0" AnchorPane.topAnchor="5.0">
         <columns>
@@ -18,5 +15,7 @@
          </columnResizePolicy>
       </TreeTableView>
       <Button layoutX="151.0" layoutY="209.0" mnemonicParsing="false" onAction="#createContainer" text="Create" AnchorPane.bottomAnchor="5.0" AnchorPane.rightAnchor="5.0" />
+      <Button mnemonicParsing="false" onAction="#historyPrev" text="Prev" AnchorPane.bottomAnchor="5.0" AnchorPane.leftAnchor="5.0" />
+      <Button mnemonicParsing="false" onAction="#historyNext" text="Next" AnchorPane.bottomAnchor="5.0" AnchorPane.leftAnchor="55.0" />
    </children>
 </AnchorPane>

@@ -1,41 +1,50 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import javafx.geometry.Insets?>
-<?import javafx.scene.control.Accordion?>
-<?import javafx.scene.control.Button?>
-<?import javafx.scene.control.TextArea?>
-<?import javafx.scene.control.TextField?>
-<?import javafx.scene.control.TitledPane?>
-<?import javafx.scene.control.ToolBar?>
-<?import javafx.scene.control.TreeTableColumn?>
-<?import javafx.scene.control.TreeTableView?>
-<?import javafx.scene.layout.AnchorPane?>
-<?import javafx.scene.layout.BorderPane?>
-<?import javafx.scene.layout.ColumnConstraints?>
-<?import javafx.scene.layout.GridPane?>
-<?import javafx.scene.layout.RowConstraints?>
-<?import javafx.scene.text.Font?>
+<?import javafx.geometry.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
 
-<Accordion maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" xmlns="http://javafx.com/javafx/18" xmlns:fx="http://javafx.com/fxml/1" fx:controller="xyz.cofe.lima.ui.ContainerController">
+<Accordion maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" xmlns="http://javafx.com/javafx/17.0.2-ea" xmlns:fx="http://javafx.com/fxml/1" fx:controller="xyz.cofe.lima.ui.ContainerController">
   <panes>
     <TitledPane animated="false" text="inspect">
       <content>
-          <AnchorPane style="-fx-padding: 0;">
-               <children>
-                  <TreeTableView fx:id="treeTable" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
-                    <columns>
-                      <TreeTableColumn prefWidth="75.0" text="C1" />
-                      <TreeTableColumn prefWidth="75.0" text="C2" />
-                    </columns>
-                     <columnResizePolicy>
-                        <TreeTableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
-                     </columnResizePolicy>
-                  </TreeTableView>
-               </children>
-               <opaqueInsets>
-                  <Insets />
-               </opaqueInsets>
-          </AnchorPane>
+<!--          <AnchorPane style="-fx-padding: 0;">-->
+<!--               <children>-->
+<!--                  <TreeTableView fx:id="treeTable" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">-->
+<!--                    <columns>-->
+<!--                      <TreeTableColumn prefWidth="75.0" text="C1" />-->
+<!--                      <TreeTableColumn prefWidth="75.0" text="C2" />-->
+<!--                    </columns>-->
+<!--                     <columnResizePolicy>-->
+<!--                        <TreeTableView fx:constant="CONSTRAINED_RESIZE_POLICY" />-->
+<!--                     </columnResizePolicy>-->
+<!--                  </TreeTableView>-->
+<!--               </children>-->
+<!--               <opaqueInsets>-->
+<!--                  <Insets />-->
+<!--               </opaqueInsets>-->
+<!--          </AnchorPane>-->
+          <BorderPane style="-fx-padding: 0;">
+              <center>
+                <TreeTableView fx:id="treeTable">
+                  <columns>
+                    <TreeTableColumn prefWidth="75.0" text="C1" />
+                    <TreeTableColumn prefWidth="75.0" text="C2" />
+                  </columns>
+                   <columnResizePolicy>
+                      <TreeTableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
+                   </columnResizePolicy>
+                </TreeTableView>
+              </center>
+              <top>
+                  <ToolBar prefWidth="200.0" BorderPane.alignment="CENTER">
+                      <items>
+                          <Button mnemonicParsing="false" onAction="#refreshInspect" text="refresh" />
+                      </items>
+                  </ToolBar>
+              </top>
+          </BorderPane>
       </content>
     </TitledPane>
     <TitledPane animated="false" text="logs stdout">
@@ -49,7 +58,7 @@
                   </TextArea>
                </center>
                <top>
-                  <ToolBar  prefWidth="200.0" BorderPane.alignment="CENTER">
+                  <ToolBar prefWidth="200.0" BorderPane.alignment="CENTER">
                     <items>
                       <Button mnemonicParsing="false" onAction="#refreshLogsStdOut" text="refresh" />
                     </items>
