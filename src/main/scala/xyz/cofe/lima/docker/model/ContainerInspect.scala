@@ -35,7 +35,7 @@ case class ContainerInspect(
                              ProcessLabel: String,
                              AppArmorProfile: String,
                              ExecIDs: Option[List[String]],
-                             HostConfig: HostConfigInspect,
+                             HostConfig: HostConfig,
                              //GraphDriver:
                              SizeRw: Option[Long],
                              SizeRootFs: Option[Long],
