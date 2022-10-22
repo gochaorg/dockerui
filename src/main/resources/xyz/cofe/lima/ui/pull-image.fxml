@@ -1,25 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import javafx.geometry.Insets?>
-<?import javafx.scene.control.Accordion?>
-<?import javafx.scene.control.Button?>
-<?import javafx.scene.control.TableColumn?>
-<?import javafx.scene.control.TableView?>
-<?import javafx.scene.control.TextArea?>
-<?import javafx.scene.control.TitledPane?>
-<?import javafx.scene.layout.BorderPane?>
+<?import javafx.geometry.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
 
-<Accordion fx:id="accordion" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="400.0" prefWidth="400.0" xmlns="http://javafx.com/javafx/18" xmlns:fx="http://javafx.com/fxml/1" fx:controller="xyz.cofe.lima.ui.PullImageController">
+<Accordion fx:id="accordion" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="400.0" prefWidth="400.0" xmlns="http://javafx.com/javafx/17.0.2-ea" xmlns:fx="http://javafx.com/fxml/1" fx:controller="xyz.cofe.lima.ui.PullImageController">
   <panes>
     <TitledPane fx:id="paramsTitledPane" animated="false" text="params">
       <content>
             <BorderPane>
                <bottom>
-                  <Button onAction="#pull" mnemonicParsing="false" text="pull" BorderPane.alignment="TOP_RIGHT">
+                  <AnchorPane BorderPane.alignment="TOP_RIGHT">
                      <BorderPane.margin>
                         <Insets top="5.0" />
                      </BorderPane.margin>
-                  </Button>
+                     <children>
+                        <Button mnemonicParsing="false" onAction="#pull" text="pull" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0" />
+                        <Button mnemonicParsing="false" onAction="#historyPrev" text="hist back" AnchorPane.leftAnchor="0.0" AnchorPane.topAnchor="0.0" />
+                        <Button mnemonicParsing="false" onAction="#historyNext" text="next" AnchorPane.leftAnchor="81.0" AnchorPane.topAnchor="0.0" />
+                     </children>
+                  </AnchorPane>
                </bottom>
                <center>
                   <TableView fx:id="paramsTable" editable="true" prefHeight="200.0" prefWidth="200.0" BorderPane.alignment="CENTER">

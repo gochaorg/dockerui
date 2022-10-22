@@ -1,10 +1,13 @@
 package xyz.cofe.lima.docker.log
 
 import tethys.derivation.semiauto.{jsonReader, jsonWriter}
-import tethys.{JsonReader, JsonWriter}
+import tethys.{JsonObjectWriter, JsonReader, JsonWriter}
 import tethys.writers.tokens.TokenWriter
 import xyz.cofe.lima.docker.model
 import xyz.cofe.lima.docker.model.{CreateContainerRequest, Image}
+import xyz.cofe.lima.store.json._
+
+import scala.reflect.ClassTag
 
 trait Logger {
   import Logger._
@@ -91,7 +94,6 @@ object Logger {
   case class DummyResult[E,R]() extends ResultCall[E,R]
 
   //#region Method and result
-
   abstract class MethodWithParams[A:JsonWriter] extends Product with MethodCall {
     import tethys._
     import tethys.jackson._
@@ -158,7 +160,7 @@ object Logger {
                          platform: Option[String] = None) extends MethodWithParams[List[model.ImagePullStatusEntry]]
   object ImageCreate {
     implicit val reader: JsonReader[ImageCreate] = jsonReader[ImageCreate]
-    implicit val writer: JsonWriter[ImageCreate] = jsonWriter[ImageCreate]
+    implicit val writer: JsonWriter[ImageCreate] = classWriter[ImageCreate] ++ jsonWriter[ImageCreate]
   }
   //#endregion
 }

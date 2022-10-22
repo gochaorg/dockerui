@@ -103,6 +103,8 @@ class PullImageController() {
       tag = e.tag
       message = e.message
       platform = e.platform
+
+      historyIndex = Some(history.size-1)
     }
   }
 
@@ -112,6 +114,42 @@ class PullImageController() {
   }
 
   private var threads = List[Thread]()
+
+  private var historyIndex:Option[Int] = None
+  def historyPrev():Unit = {
+    historyIndex match {
+      case Some(idx) if idx>0 =>
+        history.get(idx-1).foreach { e =>
+          fromSrc = e.fromSrc
+          fromImage = e.fromImage
+          repo = e.repo
+          tag = e.tag
+          message = e.message
+          platform = e.platform
+
+          historyIndex = Some(idx-1)
+          paramsTable.refresh()
+        }
+      case _ =>
+    }
+  }
+  def historyNext():Unit = {
+    historyIndex match {
+      case Some(idx) if idx<(history.size-1) =>
+        history.get(idx + 1).foreach { e =>
+          fromSrc = e.fromSrc
+          fromImage = e.fromImage
+          repo = e.repo
+          tag = e.tag
+          message = e.message
+          platform = e.platform
+
+          historyIndex = Some(idx + 1)
+          paramsTable.refresh()
+        }
+      case _ =>
+    }
+  }
 
   def pull():Unit = {
     dockerClient.map(_.newClient).foreach { dc =>
