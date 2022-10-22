@@ -14,6 +14,12 @@ trait History[A] {
   def add(item:A):Unit
   def get(index:Int):Option[A]
   def size:Int
+  def last:Option[A] = {
+    if(size<1)
+      None
+    else
+      get(size-1)
+  }
 }
 
 class HistoryImpl[A:JsonWriter:JsonReader]

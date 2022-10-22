@@ -11,7 +11,7 @@ import javafx.util.StringConverter
 import xyz.cofe.lima.docker.DockerClient
 import xyz.cofe.lima.docker.log.Logger
 import xyz.cofe.lima.docker.model.Image
-import xyz.cofe.lima.store.AppConfig
+import xyz.cofe.lima.store.{AppConfig, ControllersHistory, History}
 
 import java.util.concurrent.ConcurrentLinkedQueue
 
@@ -28,6 +28,8 @@ class PullImageController() {
   var tag:Option[String] = None
   var message:Option[String] = None
   var platform:Option[String] = None
+
+  private def history = ControllersHistory.imageCreateHistory
 
   @FXML def initialize():Unit = {
     paramsTable.getColumns.clear()
@@ -61,35 +63,30 @@ class PullImageController() {
         ()=>fromImage.getOrElse(""),
         v=>{fromImage = if(v.trim.nonEmpty)Some(v.trim)else None }
       ))
-
     paramsTable.getItems.add(
       MutProp(
         "tag",
         ()=>tag.getOrElse(""),
         v=>{tag = if(v.trim.nonEmpty)Some(v.trim)else None }
       ))
-
     paramsTable.getItems.add(
       MutProp(
         "fromSrc",
         ()=>fromSrc.getOrElse(""),
         v=>{fromSrc = if(v.trim.nonEmpty)Some(v.trim)else None }
       ))
-
     paramsTable.getItems.add(
       MutProp(
         "repo",
         ()=>repo.getOrElse(""),
         v=>{repo = if(v.trim.nonEmpty)Some(v.trim)else None }
       ))
-
     paramsTable.getItems.add(
       MutProp(
         "message",
         ()=>message.getOrElse(""),
         v=>{message = if(v.trim.nonEmpty)Some(v.trim)else None }
       ))
-
     paramsTable.getItems.add(
       MutProp(
         "platform",
@@ -98,6 +95,15 @@ class PullImageController() {
       ))
 
     accordion.setExpandedPane(paramsTitledPane)
+
+    history.last.foreach { e =>
+      fromSrc = e.fromSrc
+      fromImage = e.fromImage
+      repo = e.repo
+      tag = e.tag
+      message = e.message
+      platform = e.platform
+    }
   }
 
   private var dockerClient: Option[DockerClient] = None
@@ -117,7 +123,7 @@ class PullImageController() {
       val p_platform = platform
       val th = new Thread("pull image") {
         override def run(): Unit = {
-          AppConfig.imageCreateHistory.add(Logger.ImageCreate(p_fromImage,p_fromSrc,p_repo,p_tag,p_message,p_platform))
+          history.add(Logger.ImageCreate(p_fromImage,p_fromSrc,p_repo,p_tag,p_message,p_platform))
           dc.imageCreate(p_fromImage,p_fromSrc,p_repo,p_tag,p_message,p_platform) { ev =>
             import xyz.cofe.lima.docker.model.ImagePullStatusEntry._
             ev.statusInfo match {
