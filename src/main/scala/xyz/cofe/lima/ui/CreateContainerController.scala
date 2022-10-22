@@ -80,6 +80,12 @@ class CreateContainerController {
         }
       }
     }
+
+    ControllersHistory.createContainerHistory.last.foreach { h =>
+      request = h.createContainerRequest
+      name = h.name
+      platform = h.platform
+    }
   }
 
   var request:CreateContainerRequest = CreateContainerRequest("image name")

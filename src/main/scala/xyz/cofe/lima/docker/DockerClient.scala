@@ -100,7 +100,7 @@ case class DockerClient( socketChannel: SocketChannel,
           ("User-Agent: " + request.`User-Agent` + "\n") +
           ("Accept: " + request.Accept + "\n") +
           (request.otherHeaders.map { case (k, v) => k + ": " + v }.mkString("\n")) +
-          "\n\n"
+          "\n" + (if(request.body.nonEmpty) "\n" else "" )
           ).getBytes(StandardCharsets.UTF_8)
 
       val sendBB = ByteBuffer.allocate(headerBlock.size + request.body.size)

@@ -52,7 +52,7 @@ object RemoveContainerController {
 
     val scene = new Scene(parent)
     stage.setScene(scene)
-    stage.show()
+    stage.showAndWait()
 
     if( controller.isOk ){
       Some(Input(controller.isForce,controller.isRemoveAnonVolumes,controller.isLink))
