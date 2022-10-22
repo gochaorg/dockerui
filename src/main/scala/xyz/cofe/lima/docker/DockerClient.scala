@@ -84,8 +84,8 @@ case class DockerClient( socketChannel: SocketChannel,
     }
   }
 
-  implicit val clientIdProvide = new Logger.ClientId {
-    override def clientId: Int = clientId
+  implicit val clientIdProvide: ClientId = new Logger.ClientId {
+    override def clientId: Int = DockerClient.this.clientId
   }
 
   //#region http tasks
