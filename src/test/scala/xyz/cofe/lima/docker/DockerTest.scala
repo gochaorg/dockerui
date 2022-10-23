@@ -3,6 +3,7 @@ package xyz.cofe.lima.docker
 import org.scalatest.funsuite.AnyFunSuite
 import xyz.cofe.lima.docker.http.HttpResponseStream.Event
 import xyz.cofe.lima.docker.http.{DecodeReader, Decoder, HttpLogger, HttpRequest, HttpResponseStream, SocketLogger}
+import xyz.cofe.lima.docker.log.Logger
 import xyz.cofe.lima.docker.model.CreateContainerRequest
 
 import java.nio.charset.StandardCharsets
@@ -37,7 +38,8 @@ class DockerTest extends AnyFunSuite {
   }
 
   test("images") {
-    implicit val log = HttpLogger.stdout()
+    //implicit val log = HttpLogger.stdout()
+    implicit val dlog = new Logger.JsonToWriter(System.out)
     DockerClient.unixSocket(socket).images() match {
       case Left(err) => println(s"error $err")
       case Right(value) => value.foreach { c =>

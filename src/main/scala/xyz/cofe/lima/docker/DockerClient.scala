@@ -9,7 +9,7 @@ import tethys._
 import tethys.jackson._
 import xyz.cofe.lima.docker.http.HttpResponseStream.Event
 import xyz.cofe.lima.docker.log.Logger
-import xyz.cofe.lima.docker.log.Logger._
+import xyz.cofe.lima.docker.log.Logger.{defaultLogger, _}
 import xyz.cofe.lima.docker.model.{ContainerFileChanges, CreateContainerRequest, CreateContainerResponse, Image, ImageHistory, ImageInspect, ImagePullStatusEntry, ImageRemove}
 
 import java.net.UnixDomainSocketAddress
@@ -581,10 +581,11 @@ object DockerClient {
 
   def unixSocket(path:String)(implicit
                               httpLogger: HttpLogger,
-                              socketLogger: SocketLogger
+                              socketLogger: SocketLogger,
+                              logger: Logger
   ):DockerClient =
     DockerClient(
       SocketChannel.open(UnixDomainSocketAddress.of(path)),
       ()=>SocketChannel.open(UnixDomainSocketAddress.of(path))
-    )
+    )(httpLogger = httpLogger,socketLogger = socketLogger,logger = logger)
 }

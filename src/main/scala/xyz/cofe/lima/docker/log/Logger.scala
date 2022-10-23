@@ -3,6 +3,8 @@ package xyz.cofe.lima.docker.log
 import tethys.derivation.semiauto.{jsonReader, jsonWriter}
 import tethys.writers.tokens.TokenWriter
 import tethys.{JsonReader, JsonWriter}
+import tethys._
+import tethys.jackson._
 import xyz.cofe.lima.docker.model
 import xyz.cofe.lima.docker.model.{CreateContainerRequest, Image}
 import xyz.cofe.lima.store.json._
@@ -28,11 +30,11 @@ object Logger {
 
   sealed trait ResultCall[E, R] {
     def success(result: R)(implicit jw:JsonWriter[R]): R = result
-    def error(error: E)(implicit jw:JsonWriter[R]): E = error
-    def apply(code: => Either[E, R])(implicit clientId: ClientId, jw:JsonWriter[R]): Either[E, R] = {
+    def error(error: E)(implicit jw:JsonWriter[E]): E = error
+    def apply(code: => Either[E, R])(implicit clientId: ClientId, jw:JsonWriter[R], jw2:JsonWriter[E]): Either[E, R] = {
       code.left.map(error).map(success)
     }
-    def run(code: => Either[E,R])(implicit clientId: ClientId, jw:JsonWriter[R]): Either[E, R] = this.apply(code)
+    def run(code: => Either[E,R])(implicit clientId: ClientId, jw:JsonWriter[R], jw2:JsonWriter[E]): Either[E, R] = this.apply(code)
   }
 
   //#region Default logger
@@ -108,30 +110,34 @@ object Logger {
 //  }
   //#endregion
 
-//  sealed trait LogEvent[ARGS] {
-//    def args:ARGS
-//  }
-//  class LogToWriter(out:java.lang.Appendable) extends Logger {
-//    case class ResultCapture[R,M <: Logger.MethodCall]( params:M ) extends ResultCall[String,R] {
-//      override def success(result: R): R = {
-//        super.success(result)
-//      }
-//      override def error(error: String): String = {
-//        super.error(error)
-//      }
-//    }
-//
-//    override def apply[M <: Logger.MethodCall](methodCall: M): Logger.ResultCall[String, methodCall.RESULT] = ResultCapture(methodCall)
-//  }
+  sealed trait LogEvent[ARGS] {
+    def args:ARGS
+  }
+  case class SuccEvent[ARGS:JsonWriter,RES:JsonWriter](args:ARGS, result:RES) extends LogEvent[ARGS]
+  object SuccEvent {
+    implicit def writer[A:JsonWriter,R:JsonWriter]:JsonWriter[SuccEvent[A,R]] = jsonWriter[SuccEvent[A,R]]
+  }
 
-  //#region Method and result
-//  implicit val methodParamsToJson:JsonWriter[MethodCall] = new JsonWriter[MethodCall] {
-//    override def write(mcall: MethodCall, tokenWriter: TokenWriter): Unit =
-//      mcall match {
-//        case params: Containers => Containers.writer.write(params, tokenWriter)
-//        case params: ContainerInspect => ContainerInspect.writer.write(params, tokenWriter)
-//      }
-//  }
+  case class FailEvent[ARGS:JsonWriter,ERR:JsonWriter](args:ARGS, error:ERR) extends LogEvent[ARGS]
+  object FailEvent {
+    implicit def writer[A:JsonWriter,R:JsonWriter]:JsonWriter[FailEvent[A,R]] = jsonWriter[FailEvent[A,R]]
+  }
+
+  class JsonToWriter(out:java.lang.Appendable) extends Logger {
+    case class ResultCapture[R,M <: Logger.MethodCall:JsonWriter]( params:M ) extends ResultCall[String,R] {
+      override def success(result: R)(implicit jw:JsonWriter[R]): R = {
+        out.append(SuccEvent[M,R](params,result).asJson).append(System.lineSeparator())
+        super.success(result)
+      }
+      override def error(error: String)(implicit jw:JsonWriter[String]): String = {
+        out.append(FailEvent(params,error).asJson).append(System.lineSeparator())
+        super.error(error)
+      }
+    }
+
+    override def apply[M <: MethodCall](methodCall: M)(implicit jw: JsonWriter[M]): ResultCall[String, methodCall.RESULT] =
+      ResultCapture[methodCall.RESULT,M](methodCall)
+  }
 
   implicit def arrayOfString2Json: JsonWriter[Array[String]] = (value: Array[String], tokenWriter: TokenWriter) => {
     tokenWriter.writeArrayStart()
