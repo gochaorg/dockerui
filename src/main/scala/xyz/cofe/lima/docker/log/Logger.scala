@@ -12,7 +12,7 @@ import java.time.Instant
 trait Logger {
   import Logger._
 
-  def apply[M <: MethodCall](methodCall: M):ResultCall[String,methodCall.RESULT]
+  def apply[M <: MethodCall](methodCall: M)(implicit jw:JsonWriter[M]):ResultCall[String,methodCall.RESULT]
 }
 
 object Logger {
@@ -27,11 +27,12 @@ object Logger {
   }
 
   sealed trait ResultCall[E, R] {
-    def success(result: R): R = result
-    def error(error: E): E = error
-    def apply(code: => Either[E, R])(implicit clientId: ClientId): Either[E, R] = {
+    def success(result: R)(implicit jw:JsonWriter[R]): R = result
+    def error(error: E)(implicit jw:JsonWriter[R]): E = error
+    def apply(code: => Either[E, R])(implicit clientId: ClientId, jw:JsonWriter[R]): Either[E, R] = {
       code.left.map(error).map(success)
     }
+    def run(code: => Either[E,R])(implicit clientId: ClientId, jw:JsonWriter[R]): Either[E, R] = this.apply(code)
   }
 
   //#region Default logger
@@ -39,98 +40,98 @@ object Logger {
   case class DummyResult[E, R]() extends ResultCall[E, R]
 
   implicit val defaultLogger: Logger = new Logger {
-    override def apply[M <: MethodCall](methodCall: M): ResultCall[String, methodCall.RESULT] = DummyResult()
+    override def apply[M <: MethodCall](methodCall: M)(implicit jw:JsonWriter[M]): ResultCall[String, methodCall.RESULT] = DummyResult()
   }
 
   //#endregion
   //#region stdout logger
 
-  def stdout:Logger = new Logger {
-    case class ResultCapture[R,M]( params:M ) extends ResultCall[String,R] {
-      override def success(result: R): R = {
-        println(s"DockerClient call ${params} succ ${result}")
-        result
-      }
-      override def error(error: String): String = {
-        println(s"DockerClient call ${params} error ${error}")
-        error
-      }
-      override def apply(code: => Either[String, R])(implicit clientId: ClientId): Either[String, R] = super.apply(code)
-    }
-    override def apply[M <: MethodCall](methodCall: M): ResultCall[String, methodCall.RESULT] = ResultCapture(methodCall)
-  }
+//  def stdout:Logger = new Logger {
+//    case class ResultCapture[R,M]( params:M ) extends ResultCall[String,R] {
+//      override def success(result: R): R = {
+//        println(s"DockerClient call ${params} succ ${result}")
+//        result
+//      }
+//      override def error(error: String): String = {
+//        println(s"DockerClient call ${params} error ${error}")
+//        error
+//      }
+//      override def apply(code: => Either[String, R])(implicit clientId: ClientId): Either[String, R] = super.apply(code)
+//    }
+//    override def apply[M <: MethodCall](methodCall: M): ResultCall[String, methodCall.RESULT] = ResultCapture(methodCall)
+//  }
 
   //#endregion
   //#region errorCapture logger
 
-  case class CapturedError(errorMessage:String, method:String, params:String)
-  def errorCapture( capturedError: CapturedError=>Unit ):Logger = new Logger {
-    case class ResultCapture[R,M <: MethodCall](methodWithParams:M) extends ResultCall[String,R] {
-      override def success(result: R): R = result
-      override def error(error: String): String = {
-
-        val (methodName,params) = methodWithParams.parameters
-
-        capturedError(
-          CapturedError(
-            errorMessage = error,
-            method=methodName,
-            params=params.productElementNames.zip(params.productIterator)
-              .map {case(name,value)=>s"$name=$value"}
-              .mkString("\n"),
-          )
-        )
-        error
-      }
-      override def apply(code: => Either[String, R])(implicit clientId: ClientId): Either[String, R] = super.apply(code)
-    }
-    override def apply[M <: MethodCall](methodCall: M): ResultCall[String, methodCall.RESULT] = ResultCapture(methodCall)
-  }
+//  case class CapturedError(errorMessage:String, method:String, params:String)
+//  def errorCapture( capturedError: CapturedError=>Unit ):Logger = new Logger {
+//    case class ResultCapture[R,M <: MethodCall](methodWithParams:M) extends ResultCall[String,R] {
+//      override def success(result: R): R = result
+//      override def error(error: String): String = {
+//
+//        val (methodName,params) = methodWithParams.parameters
+//
+//        capturedError(
+//          CapturedError(
+//            errorMessage = error,
+//            method=methodName,
+//            params=params.productElementNames.zip(params.productIterator)
+//              .map {case(name,value)=>s"$name=$value"}
+//              .mkString("\n"),
+//          )
+//        )
+//        error
+//      }
+//      override def apply(code: => Either[String, R])(implicit clientId: ClientId): Either[String, R] = super.apply(code)
+//    }
+//    override def apply[M <: MethodCall](methodCall: M): ResultCall[String, methodCall.RESULT] = ResultCapture(methodCall)
+//  }
 
   //#endregion
   //#region joinLoggers
 
-  def joinLoggers(left:Logger, right:Logger):Logger = new Logger {
-    case class ResultCapture[R,M <: MethodCall]( left:ResultCall[String,R], right:ResultCall[String,R] ) extends ResultCall[String,R] {
-      override def apply(code: => Either[String, R])(implicit clientId: ClientId): Either[String, R] = {
-        val l = left(code)
-        val r = right(code)
-        l
-      }
-    }
-    override def apply[M <: MethodCall](methodCall: M): ResultCall[String, methodCall.RESULT] = {
-      ResultCapture(
-        left = left(methodCall),
-        right = right(methodCall)
-      )
-    }
-  }
+//  def joinLoggers(left:Logger, right:Logger):Logger = new Logger {
+//    case class ResultCapture[R,M <: MethodCall]( left:ResultCall[String,R], right:ResultCall[String,R] ) extends ResultCall[String,R] {
+//      override def apply(code: => Either[String, R])(implicit clientId: ClientId): Either[String, R] = {
+//        val l = left(code)
+//        val r = right(code)
+//        l
+//      }
+//    }
+//    override def apply[M <: MethodCall](methodCall: M): ResultCall[String, methodCall.RESULT] = {
+//      ResultCapture(
+//        left = left(methodCall),
+//        right = right(methodCall)
+//      )
+//    }
+//  }
   //#endregion
 
-  sealed trait LogEvent[ARGS] {
-    def args:ARGS
-  }
-  class LogToWriter(out:java.lang.Appendable) extends Logger {
-    case class ResultCapture[R,M <: Logger.MethodCall]( params:M ) extends ResultCall[String,R] {
-      override def success(result: R): R = {
-        super.success(result)
-      }
-      override def error(error: String): String = {
-        super.error(error)
-      }
-    }
-
-    override def apply[M <: Logger.MethodCall](methodCall: M): Logger.ResultCall[String, methodCall.RESULT] = ResultCapture(methodCall)
-  }
+//  sealed trait LogEvent[ARGS] {
+//    def args:ARGS
+//  }
+//  class LogToWriter(out:java.lang.Appendable) extends Logger {
+//    case class ResultCapture[R,M <: Logger.MethodCall]( params:M ) extends ResultCall[String,R] {
+//      override def success(result: R): R = {
+//        super.success(result)
+//      }
+//      override def error(error: String): String = {
+//        super.error(error)
+//      }
+//    }
+//
+//    override def apply[M <: Logger.MethodCall](methodCall: M): Logger.ResultCall[String, methodCall.RESULT] = ResultCapture(methodCall)
+//  }
 
   //#region Method and result
-  implicit val methodParamsToJson:JsonWriter[MethodCall] = new JsonWriter[MethodCall] {
-    override def write(mcall: MethodCall, tokenWriter: TokenWriter): Unit =
-      mcall match {
-        case params: Containers => Containers.writer.write(params, tokenWriter)
-        case params: ContainerInspect => ContainerInspect.writer.write(params, tokenWriter)
-      }
-  }
+//  implicit val methodParamsToJson:JsonWriter[MethodCall] = new JsonWriter[MethodCall] {
+//    override def write(mcall: MethodCall, tokenWriter: TokenWriter): Unit =
+//      mcall match {
+//        case params: Containers => Containers.writer.write(params, tokenWriter)
+//        case params: ContainerInspect => ContainerInspect.writer.write(params, tokenWriter)
+//      }
+//  }
 
   implicit def arrayOfString2Json: JsonWriter[Array[String]] = (value: Array[String], tokenWriter: TokenWriter) => {
     tokenWriter.writeArrayStart()

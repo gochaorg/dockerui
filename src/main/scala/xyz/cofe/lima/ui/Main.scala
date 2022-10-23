@@ -53,7 +53,7 @@ class Main extends Application {
 //                 |${e.params.split("\\r?\\n").map("param > "+_).mkString("\n")}
 //                 |""".stripMargin.trim)
 //          }))
-          .withLogger(Logger.stdout)
+//          .withLogger(Logger.stdout)
 
         controller.setDockerClient(dc)
 
