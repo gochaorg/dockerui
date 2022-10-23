@@ -158,6 +158,30 @@ object syntax {
       }
     }
 
+    def move(target: Path)(implicit copt: CopyOptions, trace: JavaNioTracer):Either[Throwable, Unit] = {
+      val op = Move(path,target)
+      try {
+        Right(
+          trace(op)(Files.move(path, target, copt.options: _*))
+        )
+      } catch {
+        case e:Throwable => Left(trace.error(op)(e))
+      }
+    }
+
+    def delete(implicit trace: JavaNioTracer):Either[Throwable,Unit] = {
+      val op = Delete(path)
+      try {
+        Right(
+          trace(op){
+            Files.delete(path)
+          }
+        )
+      } catch {
+        case e: Throwable => Left(trace.error(op)(e))
+      }
+    }
+
     object json {
       def read[A:JsonReader]:Either[Throwable, A] = {
         import tethys._
