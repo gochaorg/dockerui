@@ -1,5 +1,6 @@
 package xyz.cofe.lima.docker.log
 
+import tethys.JsonObjectWriter.lowPriorityWriter
 import tethys.derivation.semiauto.{jsonReader, jsonWriter}
 import tethys.writers.tokens.TokenWriter
 import tethys.{JsonReader, JsonWriter}
@@ -93,21 +94,25 @@ object Logger {
   //#endregion
   //#region joinLoggers
 
-//  def joinLoggers(left:Logger, right:Logger):Logger = new Logger {
-//    case class ResultCapture[R,M <: MethodCall]( left:ResultCall[String,R], right:ResultCall[String,R] ) extends ResultCall[String,R] {
-//      override def apply(code: => Either[String, R])(implicit clientId: ClientId): Either[String, R] = {
-//        val l = left(code)
-//        val r = right(code)
-//        l
-//      }
-//    }
-//    override def apply[M <: MethodCall](methodCall: M): ResultCall[String, methodCall.RESULT] = {
-//      ResultCapture(
-//        left = left(methodCall),
-//        right = right(methodCall)
-//      )
-//    }
-//  }
+  def joinLoggers(left:Logger, right:Logger):Logger = new Logger {
+    case class ResultCapture[M <: MethodCall:JsonWriter,R]( left:ResultCall[String,R], right:ResultCall[String,R] ) extends ResultCall[String,R] {
+      override def success(result: R)(implicit jw: JsonWriter[R]): R = {
+        left.success(result)
+        right.success(result)
+        super.success(result)
+      }
+      override def error(error: String)(implicit jw: JsonWriter[String]): String = {
+        left.error(error)
+        right.error(error)
+        super.error(error)
+      }
+    }
+    override def apply[M <: MethodCall](methodCall: M)(implicit jw: JsonWriter[M]): ResultCall[String, methodCall.RESULT] = {
+      val l: ResultCall[String, methodCall.RESULT] = left.apply[M](methodCall)
+      val r: ResultCall[String, methodCall.RESULT] = right.apply[M](methodCall)
+      ResultCapture(l,r)
+    }
+  }
   //#endregion
 
   sealed trait LogEvent[ARGS] {
@@ -138,6 +143,8 @@ object Logger {
     override def apply[M <: MethodCall](methodCall: M)(implicit jw: JsonWriter[M]): ResultCall[String, methodCall.RESULT] =
       ResultCapture[methodCall.RESULT,M](methodCall)
   }
+
+  //#region log events
 
   implicit def arrayOfString2Json: JsonWriter[Array[String]] = (value: Array[String], tokenWriter: TokenWriter) => {
     tokenWriter.writeArrayStart()
