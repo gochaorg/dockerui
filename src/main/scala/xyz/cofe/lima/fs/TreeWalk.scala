@@ -18,6 +18,7 @@ class TreeWalk( var workSet:List[Path] )(implicit
         }
       }
     }
+    workSet = workSet.filterNot( p=> p==res )
     res
   }
 }

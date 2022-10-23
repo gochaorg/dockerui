@@ -50,7 +50,7 @@ class Main extends Application {
               AppendableFile(
                 PathPattern.escape(AppHome.directory) ++
                 PathPattern.parse(Path.of("log/dockerClient/{yyyy}-{MM}/{dd}/{hh}-{mm}-{ss}.stream.json")),
-                limitSizePerFile = Some(1024L*1024L)
+                limitSizePerFile = Some(1024L*512L)
               )
             )
           )
