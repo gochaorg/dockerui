@@ -159,10 +159,10 @@ object syntax {
     }
 
     def move(target: Path)(implicit copt: CopyOptions, trace: JavaNioTracer):Either[Throwable, Unit] = {
-      val op = Move(path,target)
+      val op = Move(path,target,copt.options)
       try {
         Right(
-          trace(op)(Files.move(path, target, copt.options: _*))
+          trace(op)(Files.move(path, target, op.options: _*))
         )
       } catch {
         case e:Throwable => Left(trace.error(op)(e))
@@ -177,6 +177,33 @@ object syntax {
             Files.delete(path)
           }
         )
+      } catch {
+        case e: Throwable => Left(trace.error(op)(e))
+      }
+    }
+
+    def writer(cs: Charset)(implicit opt: OpenOptions, trace: JavaNioTracer):Either[Throwable,_ <: java.io.Writer] = {
+      val op = Writer(path,cs,opt.options)
+      try {
+        Right {
+          trace(op) {
+            Files.newBufferedWriter(path, cs, op.options: _*)
+          }
+        }
+      } catch {
+        case e: Throwable => Left(trace.error(op)(e))
+      }
+    }
+
+    def appendWriter(cs: Charset)(implicit opt: OpenOptions, trace: JavaNioTracer):Either[Throwable,_ <: java.io.Writer] = {
+      val opts = opt.append.write.create.options
+      val op = Writer(path,cs,opt.options)
+      try {
+        Right {
+          trace(op) {
+            Files.newBufferedWriter(path, cs, op.options: _*)
+          }
+        }
       } catch {
         case e: Throwable => Left(trace.error(op)(e))
       }

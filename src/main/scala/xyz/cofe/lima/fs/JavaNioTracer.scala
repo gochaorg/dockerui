@@ -19,8 +19,10 @@ object JavaNioOperation {
   case class WriteString(path:Path, cs:Charset, str:String) extends JavaNioOperation { type R = Unit }
   case class AppendString(path:Path, cs:Charset, str:String) extends JavaNioOperation { type R = Unit }
   case class CreateDirectories(path:Path) extends JavaNioOperation { type R = Unit }
-  case class Move(from:Path, to:Path) extends JavaNioOperation { type R = Unit }
+  case class Move(from:Path, to:Path, options:Seq[java.nio.file.CopyOption]) extends JavaNioOperation { type R = Unit }
   case class Delete(path:Path) extends JavaNioOperation { type R = Unit }
+  case class Writer(path:Path, charset:Charset, options:Seq[java.nio.file.OpenOption]) extends JavaNioOperation { type R = java.io.Writer }
+  case class AppendWriter(path:Path, charset:Charset, options:Seq[java.nio.file.OpenOption]) extends JavaNioOperation { type R = java.io.Writer }
 }
 
 trait JavaNioTracer {
