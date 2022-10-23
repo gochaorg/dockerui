@@ -8,7 +8,7 @@ import javafx.stage.Stage
 import xyz.cofe.lima.docker.DockerClient
 import xyz.cofe.lima.docker.log.Logger
 import xyz.cofe.lima.store.AppHome
-import xyz.cofe.lima.store.log.{AppendableFile, PathPattern}
+import xyz.cofe.lima.store.log.{AppendableFile, FilesCleaner, PathPattern}
 
 import java.nio.file.Path
 import java.util.{Timer, TimerTask}
@@ -54,6 +54,14 @@ class Main extends Application {
               )
             )
           )
+
+        val logCleaner = new Thread(()=>{
+          FilesCleaner.clean(
+            AppHome.directory.resolve("log/dockerClient"), 1024L * 1024L * 32L
+          )
+        })
+        logCleaner.setDaemon(true)
+        logCleaner.start()
 
         controller.setDockerClient(dc)
 

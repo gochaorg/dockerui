@@ -182,6 +182,19 @@ object syntax {
       }
     }
 
+    def deleteIfExists(implicit trace: JavaNioTracer):Either[Throwable,Unit] = {
+      val op = DeleteIfExists(path)
+      try {
+        Right(
+          trace(op){
+            Files.deleteIfExists(path)
+          }
+        )
+      } catch {
+        case e: Throwable => Left(trace.error(op)(e))
+      }
+    }
+
     def writer(cs: Charset)(implicit opt: OpenOptions, trace: JavaNioTracer):Either[Throwable,_ <: java.io.Writer] = {
       val op = Writer(path,cs,opt.options)
       try {
@@ -197,7 +210,7 @@ object syntax {
 
     def appendWriter(cs: Charset)(implicit opt: OpenOptions, trace: JavaNioTracer):Either[Throwable,_ <: java.io.Writer] = {
       val opts = opt.append.write.create.options
-      val op = Writer(path,cs,opt.options)
+      val op = AppendWriter(path,cs,opt.options)
       try {
         Right {
           trace(op) {
@@ -206,6 +219,17 @@ object syntax {
         }
       } catch {
         case e: Throwable => Left(trace.error(op)(e))
+      }
+    }
+
+    def walk(implicit opt: OpenOptions, trace: JavaNioTracer):TreeWalk = new TreeWalk(List(path))
+
+    def lastModified(implicit opt: OpenOptions, linkOptions: LinkOptions, copyOptions: CopyOptions, trace: JavaNioTracer) = {
+      try {
+        val lops = linkOptions.options
+        Right(Files.getLastModifiedTime(path,lops:_*))
+      } catch {
+        case e:Throwable => Left(e)
       }
     }
 
