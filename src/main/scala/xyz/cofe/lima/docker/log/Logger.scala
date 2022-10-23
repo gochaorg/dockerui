@@ -7,6 +7,8 @@ import xyz.cofe.lima.docker.model
 import xyz.cofe.lima.docker.model.{CreateContainerRequest, Image}
 import xyz.cofe.lima.store.json._
 
+import java.time.Instant
+
 trait Logger {
   import Logger._
 
@@ -14,9 +16,35 @@ trait Logger {
 }
 
 object Logger {
+  trait ClientId {
+    def clientId: Int
+  }
+
+  sealed trait MethodCall {
+    type RESULT
+    def parameters: (String, Product)
+    def resultToJson(result: RESULT): String
+  }
+
+  sealed trait ResultCall[E, R] {
+    def success(result: R): R = result
+    def error(error: E): E = error
+    def apply(code: => Either[E, R])(implicit clientId: ClientId): Either[E, R] = {
+      code.left.map(error).map(success)
+    }
+  }
+
+  //#region Default logger
+
+  case class DummyResult[E, R]() extends ResultCall[E, R]
+
   implicit val defaultLogger: Logger = new Logger {
     override def apply[M <: MethodCall](methodCall: M): ResultCall[String, methodCall.RESULT] = DummyResult()
   }
+
+  //#endregion
+  //#region stdout logger
+
   def stdout:Logger = new Logger {
     case class ResultCapture[R,M]( params:M ) extends ResultCall[String,R] {
       override def success(result: R): R = {
@@ -31,6 +59,9 @@ object Logger {
     }
     override def apply[M <: MethodCall](methodCall: M): ResultCall[String, methodCall.RESULT] = ResultCapture(methodCall)
   }
+
+  //#endregion
+  //#region errorCapture logger
 
   case class CapturedError(errorMessage:String, method:String, params:String)
   def errorCapture( capturedError: CapturedError=>Unit ):Logger = new Logger {
@@ -56,6 +87,9 @@ object Logger {
     override def apply[M <: MethodCall](methodCall: M): ResultCall[String, methodCall.RESULT] = ResultCapture(methodCall)
   }
 
+  //#endregion
+  //#region joinLoggers
+
   def joinLoggers(left:Logger, right:Logger):Logger = new Logger {
     case class ResultCapture[R,M <: MethodCall]( left:ResultCall[String,R], right:ResultCall[String,R] ) extends ResultCall[String,R] {
       override def apply(code: => Either[String, R])(implicit clientId: ClientId): Either[String, R] = {
@@ -71,27 +105,33 @@ object Logger {
       )
     }
   }
+  //#endregion
 
-  trait ClientId {
-    def clientId:Int
+  sealed trait LogEvent[ARGS] {
+    def args:ARGS
   }
-
-  sealed trait MethodCall {
-    type RESULT
-    def parameters:(String,Product)
-    def resultToJson(result:RESULT):String
-  }
-
-  sealed trait ResultCall[E,R] {
-    def success(result:R):R=result
-    def error(error:E):E=error
-    def apply(code: =>Either[E,R])(implicit clientId: ClientId): Either[E, R] ={
-      code.left.map(error).map(success)
+  class LogToWriter(out:java.lang.Appendable) extends Logger {
+    case class ResultCapture[R,M <: Logger.MethodCall]( params:M ) extends ResultCall[String,R] {
+      override def success(result: R): R = {
+        super.success(result)
+      }
+      override def error(error: String): String = {
+        super.error(error)
+      }
     }
+
+    override def apply[M <: Logger.MethodCall](methodCall: M): Logger.ResultCall[String, methodCall.RESULT] = ResultCapture(methodCall)
   }
-  case class DummyResult[E,R]() extends ResultCall[E,R]
 
   //#region Method and result
+  implicit val methodParamsToJson:JsonWriter[MethodCall] = new JsonWriter[MethodCall] {
+    override def write(mcall: MethodCall, tokenWriter: TokenWriter): Unit =
+      mcall match {
+        case params: Containers => Containers.writer.write(params, tokenWriter)
+        case params: ContainerInspect => ContainerInspect.writer.write(params, tokenWriter)
+      }
+  }
+
   implicit def arrayOfString2Json: JsonWriter[Array[String]] = (value: Array[String], tokenWriter: TokenWriter) => {
     tokenWriter.writeArrayStart()
     value.foreach(itm => {
@@ -99,7 +139,6 @@ object Logger {
     })
     tokenWriter.writeArrayEnd()
   }
-
   implicit def unit2Json: JsonWriter[Unit] = (_: Unit, _: TokenWriter) => {}
 
   abstract class MethodWithParams[A:JsonWriter] extends Product with MethodCall {
@@ -115,7 +154,6 @@ object Logger {
     implicit val reader: JsonReader[Containers] = jsonReader[Containers]
     implicit val writer: JsonWriter[Containers] = classWriter[Containers] ++ jsonWriter[Containers]
   }
-
 
   case class ContainerInspect(id:String) extends MethodWithParams[model.ContainerInspect]
   object ContainerInspect {
