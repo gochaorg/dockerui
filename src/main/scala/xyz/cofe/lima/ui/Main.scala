@@ -8,6 +8,7 @@ import javafx.stage.Stage
 import xyz.cofe.lima.docker.DockerClient
 import xyz.cofe.lima.docker.log.Logger
 import xyz.cofe.lima.store.AppHome
+import xyz.cofe.lima.store.log.{AppendableFile, PathPattern}
 
 import java.nio.file.Path
 import java.util.{Timer, TimerTask}
@@ -43,17 +44,16 @@ class Main extends Application {
         val prnt = loader.load[Parent]()
         val controller = loader.getController[MainController]
 
-
-
         val dc = DockerClient.unixSocket(str)
-//          .withLogger(Logger.errorCapture(e => {
-//            println(
-//              s"""error: ${e.errorMessage}
-//                 |method: ${e.method}
-//                 |${e.params.split("\\r?\\n").map("param > "+_).mkString("\n")}
-//                 |""".stripMargin.trim)
-//          }))
-//          .withLogger(Logger.stdout)
+          .withLogger(
+            Logger.JsonToWriter(
+              AppendableFile(
+                PathPattern.escape(AppHome.directory) ++
+                PathPattern.parse(Path.of("log/dockerClient/{yyyy}-{MM}/{dd}/{hh}-{mm}-{ss}.stream.json")),
+                limitSizePerFile = Some(1024L*1024L)
+              )
+            )
+          )
 
         controller.setDockerClient(dc)
 

@@ -10,5 +10,11 @@ class PathPatternTest extends AnyFunSuite {
     println(
       PathPattern.parse(Path.of("/a{b}c/{def}/xyz")).generate{ code => Right(code*2) }
     )
+    println(
+      PathPattern.parse(Path.of("/log/app/{yyyy}-{MM}-{dd}-{hh}-{mm}-{ss}")).generate
+    )
+    println(
+      PathPattern.parse(Path.of("/log/app/{yy}-{MM}-{dd}-{hh}-{mm}-{ss}")).generate
+    )
   }
 }

@@ -1,6 +1,8 @@
 package xyz.cofe.lima.store.log
 
 import java.nio.file.{Path, Paths}
+import java.time.{Instant, LocalDateTime, ZoneId}
+import java.util.Locale
 import scala.collection.mutable
 
 object PathPattern {
@@ -90,9 +92,37 @@ object PathPattern {
       ) :: ptrn
     }.reverse
   }
+  def escape(path: Path):List[Name] = {
+    (0 until path.getNameCount).foldLeft(
+      if (path.isAbsolute) {
+        List[Name](Name.AbsolutePrefix)
+      } else {
+        List[Name]()
+      }
+    ) { case (ptrn, idx) =>
+      val name = path.getName(idx).toString
+      Name.Plain(name) :: ptrn
+    }.reverse
+  }
 
   trait Evaluate {
     def eval(code:String):Either[String,String]
+    def cached:Evaluate = this match {
+      case EvaluateCache(_) => this
+      case _ => EvaluateCache(this)
+    }
+  }
+  case class EvaluateCache(source:Evaluate) extends Evaluate {
+    private var cache: Map[String,Either[String,String]] = Map()
+    override def eval(code: String): Either[String, String] = {
+      cache.get(code) match {
+        case Some(value) => value
+        case None =>
+          val res = source.eval(code)
+          cache = cache + (code -> res)
+          res
+      }
+    }
   }
 
   implicit class PatternOps(val pattern:List[Name]) extends AnyVal {
@@ -137,8 +167,57 @@ object PathPattern {
       if( pattern.isEmpty ){
         Left("empty")
       } else {
-        pattern.drop(1).foldLeft(evalFirst(pattern.head)) { case (path,name) =>
-          path.flatMap( p => evalNext(p,name) )
+        val ev = evaluate.cached
+        pattern.drop(1).foldLeft(evalFirst(pattern.head)(ev)) { case (path,name) =>
+          path.flatMap( p => evalNext(p,name)(ev) )
+        }
+      }
+    }
+  }
+
+  implicit class StrOps(val str:String) extends AnyVal {
+    def alignLeft(len: Int, chr: Char): String = {
+      if (str.length >= len) {
+        str
+      } else {
+        str + s"$chr" * (len - str.length)
+      }
+    }
+
+    def alignRight(len: Int, chr: Char): String = {
+      if (str.length >= len) {
+        str
+      } else {
+        s"$chr" * (len - str.length) + str
+      }
+    }
+  }
+
+  object Evaluate {
+    case class Time(time:Instant = Instant.now()) {
+      lazy val localTime: LocalDateTime = time.atZone(ZoneId.systemDefault()).toLocalDateTime
+      lazy val year = localTime.getYear
+      lazy val month = localTime.getMonth
+      lazy val dayOfMonth = localTime.getDayOfMonth
+      lazy val dayOfWeek = localTime.getDayOfWeek
+      lazy val hour = localTime.getHour
+      lazy val minute = localTime.getMinute
+      lazy val second = localTime.getSecond
+    }
+
+    implicit def defaultEvaluate = new Evaluate {
+      lazy val time = Time()
+      override def eval(code: String): Either[String, String] = {
+        code match {
+          case "yy" | "YY" => Right(time.year.toString.alignRight(4,'0').substring(2))
+          case "yyyy" | "YYYY" => Right(time.year.toString.alignRight(4,'0'))
+          case "MM" | "Mm" => Right(time.month.getValue.toString.alignRight(2,'0'))
+          case "MMM" | "Mmm" => Right(time.month.getDisplayName(java.time.format.TextStyle.SHORT,Locale.US))
+          case "dd" => Right(time.dayOfMonth.toString.alignRight(2,'0'))
+          case "hh" | "HH" => Right(time.hour.toString.alignRight(2,'0'))
+          case "mm" | "mi" => Right(time.minute.toString.alignRight(2,'0'))
+          case "ss" | "ss" => Right(time.second.toString.alignRight(2,'0'))
+          case _ => Left(s"undefined $code")
         }
       }
     }

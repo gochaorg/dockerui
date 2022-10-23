@@ -143,6 +143,9 @@ object Logger {
     override def apply[M <: MethodCall](methodCall: M)(implicit jw: JsonWriter[M]): ResultCall[String, methodCall.RESULT] =
       ResultCapture[methodCall.RESULT,M](methodCall)
   }
+  object JsonToWriter {
+    def apply(out:java.lang.Appendable):JsonToWriter = new JsonToWriter(out)
+  }
 
   //#region log events
 
