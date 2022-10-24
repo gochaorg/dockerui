@@ -41,7 +41,8 @@ case class DockerClient( socketChannel: SocketChannel,
       cpuThrottling,
       streamReadTimeout,
       streamSourceTimeout,
-      new ReentrantLock()
+      socketLock = new ReentrantLock(),
+      clientId = DockerClient.idSeq.incrementAndGet()
     )(httpLogger,socketLogger,logger)
 
   def withLogger(httpLogger: HttpLogger):DockerClient =

@@ -263,23 +263,51 @@ case class HttpResponseReader( source:()=>Option[Byte],
     val bytes = new ByteArrayOutputStream()
     val chunkSizeReader = readChunkSize(byteReader)
     val chunkDataReader = readChunkData(byteReader)
-    def reader():Either[String,Unit] = for {
-      chunkSize <- chunkSizeReader()
-      chunkData <- chunkSize match {
-        case 0 => Right(new Array[Byte](0))
-        case _ => chunkDataReader(chunkSize)
-      }
-      _ = chunkSize match {
-        case 0 => Right(())
-        case _ =>
-          bytes.write(chunkData)
-          reader()
-      }
-    } yield ()
 
-    reader().map { _ =>
-      bytes.toByteArray
-    }.left.map( err => (err, bytes.toByteArray) )
+    var stop = false
+    var err:Option[String] = None
+    while(!stop) {
+      chunkSizeReader() match {
+        case Left(value) =>
+          err = Some(value)
+          stop = true
+        case Right(value) =>
+          if( value>0 ) {
+            chunkDataReader(value) match {
+              case Left(value) =>
+                err = Some(value)
+                stop = true
+              case Right(value) =>
+                bytes.write(value)
+            }
+          }else{
+            stop = true
+          }
+      }
+    }
+
+    err match {
+      case Some(value) => Left((value,bytes.toByteArray))
+      case None => Right(bytes.toByteArray)
+    }
+
+//    def reader():Either[String,Unit] = for {
+//      chunkSize <- chunkSizeReader()
+//      chunkData <- chunkSize match {
+//        case 0 => Right(new Array[Byte](0))
+//        case _ => chunkDataReader(chunkSize)
+//      }
+//      _ = chunkSize match {
+//        case 0 => Right(())
+//        case _ =>
+//          bytes.write(chunkData)
+//          reader()
+//      }
+//    } yield ()
+//
+//    reader().map { _ =>
+//      bytes.toByteArray
+//    }.left.map( err => (err, bytes.toByteArray) )
   }
 
 }

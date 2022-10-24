@@ -55,6 +55,8 @@ class Main extends Application {
             )
           )
 
+        DockerClientPool.init(new DockerClientPool(dc))
+
         val logCleaner = new Thread(()=>{
           FilesCleaner.clean(
             AppHome.directory.resolve("log/dockerClient"), 1024L * 1024L * 32L
