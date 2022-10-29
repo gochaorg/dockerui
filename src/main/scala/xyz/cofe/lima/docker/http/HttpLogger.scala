@@ -43,4 +43,23 @@ object HttpLogger {
     }
     override def error(string: String): Unit = println(s"err $string")
   }
+
+  class JoinLoggers(loggers: Seq[HttpLogger]) extends HttpLogger {
+    override def send(httpRequest: HttpRequest): Unit = {
+      loggers.foreach(_.send(httpRequest))
+    }
+    override def receive(httpResponse: HttpResponse): Unit = {
+      loggers.foreach(_.receive(httpResponse))
+    }
+    override def event(event: Event): Event = {
+      loggers.foreach(_.event(event))
+      event
+    }
+    override def error(string: String): Unit = {
+      loggers.foreach(_.error(string))
+    }
+  }
+
+  def join( loggerA:HttpLogger, loggerB:HttpLogger, loggers:HttpLogger* ):JoinLoggers = new JoinLoggers( List(loggerA) ++ List(loggerB) ++ loggers)
+  def join( loggers:Seq[HttpLogger] ):JoinLoggers = new JoinLoggers(loggers)
 }

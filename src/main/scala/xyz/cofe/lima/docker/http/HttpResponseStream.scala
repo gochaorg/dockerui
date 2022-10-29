@@ -7,7 +7,8 @@ import java.util.regex.Pattern
 case class HttpResponseStream(source:()=>Option[Byte],
                               sourceTimeout:Long=1000L*10L,
                               readTimeout:  Long=1000L*60L,
-                              cpuThrottling:Long=1
+                              cpuThrottling:Long=1,
+                              pid:Long = -1
                              )(implicit httpLogger: HttpLogger)
 {
   import HttpResponseStream._

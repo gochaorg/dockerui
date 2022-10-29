@@ -138,7 +138,8 @@ case class DockerClient( socketChannel: SocketChannel,
         socketChannelSupplier,
         sourceTimeout = sourceTimeout,
         readTimeout = readTimeout,
-        cpuThrottling = cpuThrottling
+        cpuThrottling = cpuThrottling,
+        pid = request.id
       ).read.left.map(err => {
         httpLogger.error(err)
         err
@@ -180,11 +181,8 @@ case class DockerClient( socketChannel: SocketChannel,
                         ):Either[String,A] = {
     lockAndRun {
       for {
-        //_ <- Right(httpLogger.send(request))
         response0 <- sendForHttp(request)
         response = responseWrapper(response0)
-        //_ <- Right(httpLogger.receive(response))
-
         _ <- if (successHttpCode(response)) {
           Right(response)
         } else {

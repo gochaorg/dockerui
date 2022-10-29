@@ -6,7 +6,8 @@ import java.nio.charset.StandardCharsets
 case class HttpResponseReader( source:()=>Option[Byte],
                                sourceTimeout:Long=1000L*10L,
                                readTimeout:  Long=1000L*60L,
-                               cpuThrottling:Long=1
+                               cpuThrottling:Long=1,
+                               pid:Long = -1,
                              )
 {
   lazy val byte2charDecoder: Decoder.Byte2Char = Decoder.Byte2Char(StandardCharsets.UTF_8.newDecoder())
@@ -51,7 +52,7 @@ case class HttpResponseReader( source:()=>Option[Byte],
       val (firstLine, headers, bodyEt) = result
       (for {
         body <- bodyEt
-      } yield HttpResponse(firstLine, headers, body, bodyDecoded = true))
+      } yield HttpResponse(firstLine, headers, body, bodyDecoded = true, pid = pid))
         .left.map { case(str,_) => str }
     }
   }

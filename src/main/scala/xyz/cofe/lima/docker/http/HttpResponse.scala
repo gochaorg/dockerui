@@ -1,18 +1,27 @@
 package xyz.cofe.lima.docker.http
 
+import tethys.{JsonReader, JsonWriter}
+import tethys.derivation.semiauto.{jsonReader, jsonWriter}
+import xyz.cofe.lima.thread.ThreadID
+
 import java.io.ByteArrayOutputStream
 import java.nio.charset.{Charset, StandardCharsets}
+import java.time.LocalDateTime
 import java.util.regex.Pattern
+import xyz.cofe.lima.store.json._
 
 case class HttpResponse( firstLine: String,
                          headers: List[(String,String)],
                          body: Seq[Byte],
                          bodyError:Option[String] = None,
-                         bodyDecoded:Boolean = false
+                         bodyDecoded:Boolean = false,
+                         id:Long = HttpRequest.idSeq.incrementAndGet(),
+                         pid:Long = -1,
                        ) {
   lazy val dump:String = {
     val sb = new StringBuilder
     sb ++= "HttpResponse\n"
+    sb ++= s"id ${id}\n"
     sb ++= s"firstLine $firstLine\n"
     headers.foreach { case(k,v) => sb ++= s"header $k $v\n" }
 
@@ -231,11 +240,14 @@ object HttpResponse {
       var headers = List[(String,String)]()
       val body = new ByteArrayOutputStream()
       var bodyError = None:Option[String]
+      var id = None:Option[String]
       var bodyDecoded = false
 
       lines.foreach { case(line) =>
         if( line.startsWith("firstLine ")){
           firstLine = Some(line.substring("firstLine ".length))
+        }else if( line.startsWith("id ")){
+          id = Some(line.substring("id ".length))
         }else if( line.startsWith("bodyError ")){
           bodyError = Some(line.substring("bodyError ".length))
         }else if( line.startsWith("bodyDecoded ")){
@@ -261,9 +273,65 @@ object HttpResponse {
             body.toByteArray,
             bodyError = bodyError,
             bodyDecoded = bodyDecoded,
+            id = id.map( str => str.toLong ).getOrElse(-1L)
           )
         )
       }
     }
   }
+
+  case class HttpHeaderLogView(name:String, value:String)
+  object HttpHeaderLogView {
+    implicit val reader: JsonReader[HttpHeaderLogView] = jsonReader[HttpHeaderLogView]
+    implicit val writer: JsonWriter[HttpHeaderLogView] = jsonWriter[HttpHeaderLogView]
+  }
+  case class HttpResponseLogView(
+                                  threadId: ThreadID,
+                                  time: LocalDateTime,
+                                  firstLine: String,
+                                  headers: List[HttpHeaderLogView],
+                                  body: Option[String],
+                                  bodyError: Option[String],
+                                  bodyDecoded: Boolean,
+                                  id: Long,
+                                  pid: Long,
+                                ) {
+    def toResponse:HttpResponse = {
+      HttpResponse(
+        firstLine = firstLine,
+        headers = headers.map { h => (h.name, h.value) },
+        body = body match {
+          case Some(value) => HexDump.bytesFrom(value)
+          case None => null
+        },
+        bodyError = bodyError,
+        bodyDecoded = bodyDecoded,
+        id = id,
+        pid = pid)
+    }
+  }
+
+  object HttpResponseLogView {
+    def apply(req:HttpResponse):HttpResponseLogView =
+      new HttpResponseLogView(
+        threadId = ThreadID.current,
+        time = LocalDateTime.now(),
+        firstLine = req.firstLine,
+        headers = req.headers.map {case(k,v) => HttpHeaderLogView(k,v)},
+        body = req.body match {
+          case some: Seq[Byte] => Some(HexDump.toString(some))
+          case null => None
+        },
+        bodyError = req.bodyError,
+        bodyDecoded = req.bodyDecoded,
+        id = req.id,
+        pid = req.pid
+      )
+
+    implicit val writer: JsonWriter[HttpResponseLogView] = jsonWriter[HttpResponseLogView]
+    implicit val reader: JsonReader[HttpResponseLogView] = jsonReader[HttpResponseLogView]
+  }
+
+  implicit val writer:JsonWriter[HttpResponse] = HttpResponseLogView.writer.contramap[HttpResponse]( r => HttpResponseLogView(r) )
+  implicit val reader:JsonReader[HttpResponse] = HttpResponseLogView.reader.map[HttpResponse]( r => r.toResponse )
 }

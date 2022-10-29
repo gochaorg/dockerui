@@ -116,6 +116,8 @@ object Logger {
   }
   //#endregion
 
+  //#region Json logger
+
   sealed trait LogEvent[ARGS] {
     def args:ARGS
   }
@@ -159,6 +161,8 @@ object Logger {
   object JsonToWriter {
     def apply(out:java.lang.Appendable):JsonToWriter = new JsonToWriter(out)
   }
+
+  //#endregion
 
   //#region log events
 

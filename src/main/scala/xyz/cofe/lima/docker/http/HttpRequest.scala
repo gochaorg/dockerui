@@ -5,9 +5,14 @@ import tethys.JsonWriter
 import java.net.{URL, URLEncoder}
 import java.nio.charset.{Charset, StandardCharsets}
 import tethys._
+import tethys.derivation.semiauto.{jsonReader, jsonWriter}
 import tethys.jackson._
+import xyz.cofe.lima.thread.ThreadID
 
 import java.io.ByteArrayOutputStream
+import java.time.LocalDateTime
+import java.util.concurrent.atomic.AtomicLong
+import xyz.cofe.lima.store.json._
 
 case class HttpRequest(
   path:String,
@@ -17,7 +22,8 @@ case class HttpRequest(
   Accept:String = "*/*",
   `User-Agent`:String = "curl/7.79.1",
   otherHeaders:List[(String,String)] = List(),
-  body:Seq[Byte] = List()
+  body:Seq[Byte] = List(),
+  id: Long = HttpRequest.idSeq.incrementAndGet()
 ) {
   def get():HttpRequest = copy(method="GET")
   def post():HttpRequest = copy(method="POST")
@@ -102,6 +108,7 @@ case class HttpRequest(
   lazy val dump:String = {
     val sb = new StringBuilder
     sb ++= "HttpRequest\n"
+    sb ++= s"id $id\n"
     sb ++= s"method $method\n"
     sb ++= s"path $path\n"
     sb ++= s"proto $proto\n"
@@ -138,4 +145,65 @@ case class HttpRequest(
 
     ba.toByteArray
   }
+}
+
+object HttpRequest {
+  lazy val idSeq = new AtomicLong()
+
+  case class HttpRequestLogView(threadId:ThreadID,
+                                time:LocalDateTime,
+                                path:String,
+                                method:String,
+                                proto: String,
+                                headers: Map[String,String],
+                                body: Option[String],
+                                id: Long
+                               ) {
+    def toRequest:HttpRequest =
+      HttpRequest(
+        path = path,
+        method = method,
+        proto = proto,
+        id = id,
+        host = headers.getOrElse("Host", "dummy"),
+        Accept = headers.getOrElse("Accept", "dummy"),
+        `User-Agent` = headers.getOrElse("User-Agent", "dummy"),
+        otherHeaders = headers.filter(_._1 != "Host").filter(_._1!="Accept").filter(_._1!="User-Agent").toList,
+        body = body match {
+          case Some(value) => HexDump.bytesFrom(value)
+          case None => null
+        }
+      )
+  }
+
+  object HttpRequestLogView {
+    def apply(req:HttpRequest):HttpRequestLogView =
+      new HttpRequestLogView(
+        threadId=ThreadID.current,
+        time=LocalDateTime.now(),
+        path=req.path,
+        proto = req.proto,
+        id = req.id,
+        method = req.method,
+        body = if(req.body!=null){
+          Some(HexDump.toString(req.body))
+        }else{
+          None
+        },
+        headers = Map(
+          "Host" -> req.host,
+          "Accept" -> req.Accept,
+          "User-Agent" -> req.`User-Agent`
+        ) ++ req.otherHeaders.toMap
+      )
+
+    implicit val writer: JsonWriter[HttpRequestLogView] = jsonWriter[HttpRequestLogView]
+    implicit val reader: JsonReader[HttpRequestLogView] = jsonReader[HttpRequestLogView]
+  }
+
+  implicit val writer:JsonWriter[HttpRequest] =
+    HttpRequestLogView.writer.contramap[HttpRequest]( req => HttpRequestLogView(req) )
+
+  implicit val reader:JsonReader[HttpRequest] =
+    HttpRequestLogView.reader.map[HttpRequest]( req => req.toRequest )
 }
