@@ -9,8 +9,9 @@ import tethys.jackson._
 import xyz.cofe.lima.docker.model
 import xyz.cofe.lima.docker.model.{CreateContainerRequest, Image}
 import xyz.cofe.lima.store.json._
+import xyz.cofe.lima.thread.ThreadID
 
-import java.time.Instant
+import java.time.{Instant, LocalDateTime}
 
 trait Logger {
   import Logger._
@@ -118,30 +119,42 @@ object Logger {
   sealed trait LogEvent[ARGS] {
     def args:ARGS
   }
-  case class SuccEvent[ARGS:JsonWriter,RES:JsonWriter](args:ARGS, result:RES) extends LogEvent[ARGS]
+  case class SuccEvent[ARGS:JsonWriter,RES:JsonWriter](threadId:ThreadID, beginTime:LocalDateTime, endTime:LocalDateTime, args:ARGS, result:RES) extends LogEvent[ARGS]
   object SuccEvent {
     implicit def writer[A:JsonWriter,R:JsonWriter]:JsonWriter[SuccEvent[A,R]] = jsonWriter[SuccEvent[A,R]]
   }
 
-  case class FailEvent[ARGS:JsonWriter,ERR:JsonWriter](args:ARGS, error:ERR) extends LogEvent[ARGS]
+  case class FailEvent[ARGS:JsonWriter,ERR:JsonWriter](threadId:ThreadID, beginTime:LocalDateTime, endTime:LocalDateTime, args:ARGS, error:ERR) extends LogEvent[ARGS]
   object FailEvent {
     implicit def writer[A:JsonWriter,R:JsonWriter]:JsonWriter[FailEvent[A,R]] = jsonWriter[FailEvent[A,R]]
   }
 
   class JsonToWriter(out:java.lang.Appendable) extends Logger {
-    case class ResultCapture[R,M <: Logger.MethodCall:JsonWriter]( params:M ) extends ResultCall[String,R] {
+    case class ResultCapture[R,M <: Logger.MethodCall:JsonWriter]( beginCall: LocalDateTime, params:M ) extends ResultCall[String,R] {
       override def success(result: R)(implicit jw:JsonWriter[R]): R = {
-        out.append(SuccEvent[M,R](params,result).asJson).append(System.lineSeparator())
+        out.append(SuccEvent[M,R](
+          ThreadID.current,
+          beginCall,
+          LocalDateTime.now(),
+          params,
+          result
+        ).asJson).append(System.lineSeparator())
         super.success(result)
       }
       override def error(error: String)(implicit jw:JsonWriter[String]): String = {
-        out.append(FailEvent(params,error).asJson).append(System.lineSeparator())
+        out.append(FailEvent(
+          ThreadID.current,
+          beginCall,
+          LocalDateTime.now(),
+          params,
+          error
+        ).asJson).append(System.lineSeparator())
         super.error(error)
       }
     }
 
     override def apply[M <: MethodCall](methodCall: M)(implicit jw: JsonWriter[M]): ResultCall[String, methodCall.RESULT] =
-      ResultCapture[methodCall.RESULT,M](methodCall)
+      ResultCapture[methodCall.RESULT,M](LocalDateTime.now(),methodCall)
   }
   object JsonToWriter {
     def apply(out:java.lang.Appendable):JsonToWriter = new JsonToWriter(out)

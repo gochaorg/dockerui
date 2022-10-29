@@ -52,7 +52,7 @@ class DockerTest extends AnyFunSuite {
     implicit val log = HttpLogger.stdout()
     DockerClient
       .unixSocket(socket)
-      .containerInspect("n1") match {
+      .containerInspect("53e9e78d58ef") match {
       case Left(err) => println(s"error $err")
       case Right(ci) =>
         println(ci)

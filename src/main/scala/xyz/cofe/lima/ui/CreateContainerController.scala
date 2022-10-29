@@ -217,6 +217,9 @@ class CreateContainerController {
     }
     rebuildCmdRoot()
 
+    val hostConf = new TreeItem(MutProp("hostConfig", ()=>"", _ => ()));
+    
+
     params.setShowRoot(false)
     params.setRoot(root)
   }

@@ -39,7 +39,7 @@ case class ContainerInspect(
                              //GraphDriver:
                              SizeRw: Option[Long],
                              SizeRootFs: Option[Long],
-                             Mounts: List[Mounts],
+                             Mounts: Option[List[Mounts]],
                              Config: ContainerConfig,
                              NetworkSettings: NetworkSettingsInspect
                            )
