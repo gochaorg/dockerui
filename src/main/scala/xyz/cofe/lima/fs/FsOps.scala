@@ -195,6 +195,21 @@ object syntax {
       }
     }
 
+    def reader(cs: Charset)(implicit trace: JavaNioTracer):Either[Throwable,java.io.Reader] = {
+      val op = Reader(path,cs)
+      try {
+        Right {
+          trace(op) {
+            Files.newBufferedReader(path, cs)
+          }
+        }
+      }catch {
+        case e:Throwable => Left(
+          trace.error(op)(e)
+        )
+      }
+    }
+
     def writer(cs: Charset)(implicit opt: OpenOptions, trace: JavaNioTracer):Either[Throwable,_ <: java.io.Writer] = {
       val op = Writer(path,cs,opt.options)
       try {

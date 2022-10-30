@@ -23,6 +23,7 @@ object JavaNioOperation {
   case class Delete(path:Path) extends JavaNioOperation { type R = Unit }
   case class DeleteIfExists(path:Path) extends JavaNioOperation { type R = Unit }
   case class Writer(path:Path, charset:Charset, options:Seq[java.nio.file.OpenOption]) extends JavaNioOperation { type R = java.io.Writer }
+  case class Reader(path:Path, charset:Charset) extends JavaNioOperation { type R = java.io.Reader }
   case class AppendWriter(path:Path, charset:Charset, options:Seq[java.nio.file.OpenOption]) extends JavaNioOperation { type R = java.io.Writer }
 }
 
