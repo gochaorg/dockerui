@@ -119,14 +119,14 @@ class DockerTest extends AnyFunSuite {
           )).post()
       ) { ev =>
         ev match {
-          case Event.Error(string) => println(string)
-          case Event.FirstLine(string) => println(string)
-          case Event.Header(name, value) => println(s"$name: $value")
-          case Event.HeaderEnd => println("header end")
-          case Event.Data(bytes) =>
+          case Event.Error(_,string) => println(string)
+          case Event.FirstLine(_,string) => println(string)
+          case Event.Header(_,name, value) => println(s"$name: $value")
+          case Event.HeaderEnd(_) => println("header end")
+          case Event.Data(_,bytes) =>
             lineDecoder.accept(bytes)
             lineDecoder.fetch.foreach { println }
-          case Event.DataEnd =>
+          case Event.DataEnd(_) =>
             println(lineDecoder.tail)
             println("="*40)
             println("END")

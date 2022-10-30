@@ -124,7 +124,8 @@ case class DockerClient( socketChannel: SocketChannel,
         SocketChannelSupplier(socketChannel),
         sourceTimeout = streamSourceTimeout,
         readTimeout = streamReadTimeout,
-        cpuThrottling = cpuThrottling
+        cpuThrottling = cpuThrottling,
+        pid = request.id
       ).read(consumer)
     }
   }

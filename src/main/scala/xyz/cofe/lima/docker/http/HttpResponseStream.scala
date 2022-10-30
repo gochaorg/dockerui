@@ -1,8 +1,13 @@
 package xyz.cofe.lima.docker.http
 
+import tethys.{JsonObjectWriter, JsonReader, JsonWriter}
+import tethys.derivation.semiauto.{jsonReader, jsonWriter}
+import tethys.writers.tokens.TokenWriter
+
 import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
 import java.util.regex.Pattern
+import xyz.cofe.lima.store.json._
 
 case class HttpResponseStream(source:()=>Option[Byte],
                               sourceTimeout:Long=1000L*10L,
@@ -171,6 +176,8 @@ case class HttpResponseStream(source:()=>Option[Byte],
     consumer(httpLogger.event(Event.DataEnd(pid)))
   }
 
+  //#region read transfer encoding
+
   private def fromHex(b: Byte): Option[Int] = {
     b match {
       case 48 => Some(0)
@@ -227,9 +234,10 @@ case class HttpResponseStream(source:()=>Option[Byte],
                 case _ => Right( d :: dig )
               }
             } yield res
-          case None => isCR(b0) match {
-            case true => Right( Nil )
-            case false => Left("expect CR (\\r)")
+          case None => if (isCR(b0)) {
+            Right(Nil)
+          } else {
+            Left("expect CR (\\r)")
           }
         }
       } yield digits
@@ -317,6 +325,7 @@ case class HttpResponseStream(source:()=>Option[Byte],
     }
   }
 
+  //#endregion
 }
 
 object HttpResponseStream {
@@ -328,7 +337,17 @@ object HttpResponseStream {
 
   sealed trait Event
   object Event {
+    //#region Error
+
     case class Error(pid:Long, string: String) extends Event
+    object Error {
+      implicit val reader: JsonReader[Error] = jsonReader[Error]
+      implicit val writer: JsonWriter[Error] = classWriter[Error] ++ jsonWriter[Error]
+    }
+
+    //#endregion
+    //#region FirstLine
+
     case class FirstLine(pid:Long, string:String) extends Event {
       lazy val firstLineDecoded: Option[(String, String, Option[String])] = {
         val ptrn = Pattern.compile(
@@ -350,9 +369,69 @@ object HttpResponseStream {
       lazy val message: Option[String] = firstLineDecoded.flatMap( _._3 )
       lazy val isOk: Boolean = code.contains(200)
     }
+    object FirstLine {
+      implicit val reader: JsonReader[FirstLine] = jsonReader[FirstLine]
+      implicit val writer: JsonWriter[FirstLine] = classWriter[FirstLine] ++ jsonWriter[FirstLine]
+    }
+
+    //#endregion
+    //#region Header
+
     case class Header(pid:Long, name:String,value:String) extends Event
+    object Header {
+      implicit val reader: JsonReader[Header] = jsonReader[Header]
+      implicit val writer: JsonWriter[Header] = classWriter[Header] ++ jsonWriter[Header]
+    }
+
+    //#endregion
+    //#region HeaderEnd
+
     case class HeaderEnd(pid:Long) extends Event
+    object HeaderEnd {
+      implicit val reader: JsonReader[HeaderEnd] = jsonReader[HeaderEnd]
+      implicit val writer: JsonWriter[HeaderEnd] = classWriter[HeaderEnd] ++  jsonWriter[HeaderEnd]
+    }
+
+    //#endregion
+    //#region Data
+
     case class Data(pid:Long, bytes:Array[Byte]) extends Event
+    object Data {
+      case class DataLogView(pid:Long, bytes:Option[String],_type:String="Data") {
+        def toData:Data = new Data(pid, bytes.map(bs => HexDump.bytesFrom(bs)).orNull)
+      }
+      object DataLogView {
+        def apply(data:Data):DataLogView =
+          new DataLogView(data.pid, if(data.bytes!=null) Some(HexDump.toString(data.bytes)) else None )
+
+        implicit val reader: JsonReader[DataLogView] = jsonReader[DataLogView]
+        implicit val writer: JsonWriter[DataLogView] = jsonWriter[DataLogView]
+      }
+
+      implicit val reader: JsonReader[Data] = DataLogView.reader.map[Data]( r=>r.toData )
+      implicit val writer: JsonWriter[Data] = DataLogView.writer.contramap[Data]( r => DataLogView(r) )
+    }
+
+    //#endregion
+    //#region DataEnd
+
     case class DataEnd(pid:Long) extends Event
+    object DataEnd {
+      implicit val reader: JsonReader[DataEnd] = jsonReader[DataEnd]
+      implicit val writer: JsonWriter[DataEnd] = classWriter[DataEnd] ++ jsonWriter[DataEnd]
+    }
+
+    //#endregion
+
+    implicit val writer:JsonWriter[Event] = (value: Event, tokenWriter: TokenWriter) => {
+      value match {
+        case ev: Error => Error.writer.write(ev, tokenWriter)
+        case ev: FirstLine => FirstLine.writer.write(ev, tokenWriter)
+        case ev: Header => Header.writer.write(ev, tokenWriter)
+        case ev: HeaderEnd => HeaderEnd.writer.write(ev, tokenWriter)
+        case ev: Data => Data.writer.write(ev, tokenWriter)
+        case ev: DataEnd => DataEnd.writer.write(ev, tokenWriter)
+      }
+    }
   }
 }
