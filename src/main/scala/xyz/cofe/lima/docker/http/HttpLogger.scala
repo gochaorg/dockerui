@@ -19,7 +19,7 @@ trait HttpLogger {
 }
 
 object HttpLogger {
-  implicit val defaultLogger = new HttpLogger {
+  implicit val defaultLogger: HttpLogger = new HttpLogger {
     override def send(httpRequest: HttpRequest): Unit = {}
     override def receive(httpResponse: HttpResponse): Unit = {}
     override def event(ev: HttpResponseStream.Event): HttpResponseStream.Event = ev

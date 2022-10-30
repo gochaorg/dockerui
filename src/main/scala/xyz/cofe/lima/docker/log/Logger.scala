@@ -6,6 +6,8 @@ import tethys.writers.tokens.TokenWriter
 import tethys.{JsonReader, JsonWriter}
 import tethys._
 import tethys.jackson._
+import tethys.readers.FieldName
+import tethys.readers.tokens.TokenIterator
 import xyz.cofe.lima.docker.model
 import xyz.cofe.lima.docker.model.{CreateContainerRequest, Image}
 import xyz.cofe.lima.store.json._
@@ -118,17 +120,47 @@ object Logger {
 
   //#region Json logger
 
+  implicit def methodCallReader:JsonReader[MethodCall] =
+    JsonReader.builder.addField[String]("_type").selectReader[MethodCall] {
+      case "Containers" => Containers.reader
+      case "ContainerInspect" => ContainerInspect.reader
+      case "ContainerProcesses" => ContainerProcesses.reader
+      case "ContainerLogs" => ContainerLogs.reader
+      case "ContainerStart" => ContainerStart.reader
+      case "ContainerStop" => ContainerStop.reader
+      case "ContainerCreate" => ContainerCreate.reader
+      case "ContainerKill" => ContainerKill.reader
+      case "ContainerRemove" => ContainerRemove.reader
+      case "ContainerFsChanges" => ContainerFsChanges.reader
+      case "ContainerRename" => ContainerRename.reader
+      case "Images" => Images.reader
+      case "ImageRemove" => ImageRemove.reader
+      case "ImageTag" => ImageTag.reader
+      case "ImageHistory" => ImageHistory.reader
+      case "ImageInspect" => ImageInspect.reader
+      case "ImageCreate" => ImageCreate.reader
+    }
+
+  def methodResultCalllReader[M <: MethodCall](implicit reader:JsonReader[M#RESULT]):JsonReader[M#RESULT] =
+    reader
+
   sealed trait LogEvent[ARGS] {
     def args:ARGS
   }
-  case class SuccEvent[ARGS:JsonWriter,RES:JsonWriter](threadId:ThreadID, beginTime:LocalDateTime, endTime:LocalDateTime, args:ARGS, result:RES) extends LogEvent[ARGS]
+
+  case class SuccEvent[ARGS <: MethodCall:JsonWriter,RES:JsonWriter](threadId:ThreadID, beginTime:LocalDateTime, endTime:LocalDateTime, args:ARGS, result:RES) extends LogEvent[ARGS]
   object SuccEvent {
-    implicit def writer[A:JsonWriter,R:JsonWriter]:JsonWriter[SuccEvent[A,R]] = jsonWriter[SuccEvent[A,R]]
+    implicit def writer[A<:MethodCall:JsonWriter,R:JsonWriter]:JsonWriter[SuccEvent[A,R]] = classWriter[SuccEvent[A,R]] ++ jsonWriter[SuccEvent[A,R]]
+//    implicit def reader[A:JsonReader,R:JsonReader]:JsonReader[SuccEvent[A,R]] =
+//      JsonReader.builder.addField[String]("_type").selectReader[SuccEvent[A,R]] {
+//        case ""
+//      }
   }
 
   case class FailEvent[ARGS:JsonWriter,ERR:JsonWriter](threadId:ThreadID, beginTime:LocalDateTime, endTime:LocalDateTime, args:ARGS, error:ERR) extends LogEvent[ARGS]
   object FailEvent {
-    implicit def writer[A:JsonWriter,R:JsonWriter]:JsonWriter[FailEvent[A,R]] = jsonWriter[FailEvent[A,R]]
+    implicit def writer[A:JsonWriter,R:JsonWriter]:JsonWriter[FailEvent[A,R]] = classWriter[FailEvent[A,R]] ++ jsonWriter[FailEvent[A,R]]
+    //implicit def reader[A:JsonReader,R:JsonReader]:JsonReader[FailEvent[A,R]] = jsonReader[FailEvent[A,R]]
   }
 
   class JsonToWriter(out:java.lang.Appendable) extends Logger {
@@ -173,7 +205,18 @@ object Logger {
     })
     tokenWriter.writeArrayEnd()
   }
+  implicit def json2arrayOfString: JsonReader[Array[String]] = {
+    implicitly[JsonReader[List[String]]].map[Array[String]] { listArr => listArr.toArray }
+  }
+
   implicit def unit2Json: JsonWriter[Unit] = (_: Unit, _: TokenWriter) => {}
+  implicit def json2unit: JsonReader[Unit] = new JsonReader[Unit] {
+    override def read(it: TokenIterator)(implicit fieldName: FieldName): Unit = {
+      ()
+    }
+  }
+
+  //implicit def
 
   abstract class MethodWithParams[A:JsonWriter] extends Product with MethodCall {
     import tethys._
