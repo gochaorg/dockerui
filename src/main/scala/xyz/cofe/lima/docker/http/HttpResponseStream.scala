@@ -433,5 +433,13 @@ object HttpResponseStream {
         case ev: DataEnd => DataEnd.writer.write(ev, tokenWriter)
       }
     }
+    implicit val reader:JsonReader[Event] = JsonReader.builder.addField[String]("_type").selectReader[Event] {
+      case "Error" => Error.reader
+      case "FirstLine" => FirstLine.reader
+      case "Header" => Header.reader
+      case "HeaderEnd" => HeaderEnd.reader
+      case "Data" => Data.reader
+      case "DataEnd" => DataEnd.reader
+    }
   }
 }

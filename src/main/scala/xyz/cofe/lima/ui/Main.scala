@@ -6,6 +6,7 @@ import javafx.scene.control.TextInputDialog
 import javafx.scene.{Parent, Scene}
 import javafx.stage.Stage
 import xyz.cofe.lima.docker.DockerClient
+import xyz.cofe.lima.docker.http.HttpLogger
 import xyz.cofe.lima.docker.log.Logger
 import xyz.cofe.lima.store.AppHome
 import xyz.cofe.lima.store.log.{AppendableFile, FilesCleaner, PathPattern}
@@ -44,6 +45,15 @@ class Main extends Application {
         val prnt = loader.load[Parent]()
         val controller = loader.getController[MainController]
 
+        implicit val httpLogger: HttpLogger =
+          HttpLogger.JsonLogger(
+            AppendableFile(
+              PathPattern.escape(AppHome.directory) ++
+              PathPattern.parse(Path.of("log/http/{yyyy}-{MM}/{dd}/{hh}-{mm}-{ss}.stream.json")),
+              limitSizePerFile = Some(1024L*512L)
+            )
+          )
+
         val dc = DockerClient.unixSocket(str)
           .withLogger(
             Logger.JsonToWriter(
@@ -58,9 +68,8 @@ class Main extends Application {
         DockerClientPool.init(new DockerClientPool(dc))
 
         val logCleaner = new Thread(()=>{
-          FilesCleaner.clean(
-            AppHome.directory.resolve("log/dockerClient"), 1024L * 1024L * 32L
-          )
+          FilesCleaner.clean(AppHome.directory.resolve("log/dockerClient"), 1024L * 1024L * 32L)
+          FilesCleaner.clean(AppHome.directory.resolve("log/http"), 1024L * 1024L * 32L)
         })
         logCleaner.setDaemon(true)
         logCleaner.start()
