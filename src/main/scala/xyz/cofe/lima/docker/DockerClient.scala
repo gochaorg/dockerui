@@ -507,12 +507,12 @@ case class DockerClient( socketChannel: SocketChannel,
         )
     ) { ev =>
       ev match {
-        case Event.Error(string) => ()
-        case Event.FirstLine(string) => ()
-        case Event.Header(name, value) => ()
-        case Event.HeaderEnd => ()
-        case Event.DataEnd => ()
-        case Event.Data(bytes) =>
+        case Event.Error(pid,string) => ()
+        case Event.FirstLine(pid,string) => ()
+        case Event.Header(pid,name,value) => ()
+        case Event.HeaderEnd(pid) => ()
+        case Event.DataEnd(pid) => ()
+        case Event.Data(pid,bytes) =>
           decoder.accept(bytes)
           decoder.fetch.foreach { jsEntryString =>
             jsEntryString.trim.jsonAs[ImagePullStatusEntry].foreach { ent =>

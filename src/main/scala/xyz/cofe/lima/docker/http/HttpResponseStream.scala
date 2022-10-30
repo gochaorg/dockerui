@@ -37,19 +37,19 @@ case class HttpResponseStream(source:()=>Option[Byte],
         var hasError = false
         while( !stop ){
           (readHeader {
-            case Event.Error(string) =>
-              consumer(Event.Error(string))
+            case Event.Error(pis,string) =>
+              consumer(Event.Error(pid,string))
               hasError = true
               Behavior.Stop
-            case Event.Header(name, value) =>
+            case Event.Header(pid, name, value) =>
               headers = (name -> value) :: headers
-              consumer(Event.Header(name,value))
+              consumer(Event.Header(pid, name,value))
               Behavior.Continue
-            case Event.HeaderEnd =>
+            case Event.HeaderEnd(pid) =>
               Behavior.Stop
             case _ =>
               hasError = true
-              consumer(Event.Error(s"undefined Behavior"))
+              consumer(Event.Error(pid,s"undefined Behavior"))
               Behavior.Stop
           }) match {
             case Behavior.Continue =>
@@ -72,13 +72,13 @@ case class HttpResponseStream(source:()=>Option[Byte],
     lineReader.read match {
       case Some(line) =>
         if (line.matches(firstLineRegex)) {
-          consumer(httpLogger.event(Event.FirstLine(line)))
+          consumer(httpLogger.event(Event.FirstLine(pid,line)))
         } else {
-          consumer(httpLogger.event(Event.Error(s"first line ($line) not match $firstLineRegex")))
+          consumer(httpLogger.event(Event.Error(pid,s"first line ($line) not match $firstLineRegex")))
           Behavior.Stop
         }
       case None =>
-        consumer(Event.Error(HttpResponse.NO_RESPONSE))
+        consumer(Event.Error(pid,HttpResponse.NO_RESPONSE))
         Behavior.Stop
     }
 
@@ -86,20 +86,20 @@ case class HttpResponseStream(source:()=>Option[Byte],
     lineReader.read match {
       case Some(line) =>
         if(line.isEmpty){
-          consumer(httpLogger.event(Event.HeaderEnd))
+          consumer(httpLogger.event(Event.HeaderEnd(pid)))
         }else{
           val idx = line.indexOf(":")
           if( idx<1 || idx>=line.length ){
-            consumer(httpLogger.event(Event.Error(s"expect header, line with: name \":\" value, but accept $line")))
+            consumer(httpLogger.event(Event.Error(pid,s"expect header, line with: name \":\" value, but accept $line")))
             Behavior.Stop
           }else{
             val name = line.substring(0,idx).trim
             val value = line.substring(idx+1).trim
-            consumer(httpLogger.event(Event.Header(name,value)))
+            consumer(httpLogger.event(Event.Header(pid,name,value)))
           }
         }
       case None =>
-        consumer(httpLogger.event(Event.Error(s"No response: header not readed")))
+        consumer(httpLogger.event(Event.Error(pid,s"No response: header not readed")))
         Behavior.Stop
     }
   }
@@ -120,7 +120,7 @@ case class HttpResponseStream(source:()=>Option[Byte],
         case Some(b) =>
           ba(0) = b
           reads += 1
-          consumer(httpLogger.event(Event.Data(ba))) match {
+          consumer(httpLogger.event(Event.Data(pid,ba))) match {
             case Behavior.Stop =>
               stop = true
             case _ => ()
@@ -132,8 +132,8 @@ case class HttpResponseStream(source:()=>Option[Byte],
     }
 
     err match {
-      case Some(value) => consumer(httpLogger.event(Event.Error(value)))
-      case None => consumer(httpLogger.event(Event.DataEnd))
+      case Some(value) => consumer(httpLogger.event(Event.Error(pid,value)))
+      case None => consumer(httpLogger.event(Event.DataEnd(pid)))
     }
   }
 
@@ -159,7 +159,7 @@ case class HttpResponseStream(source:()=>Option[Byte],
       byteReader.read match {
         case Some(b) =>
           ba(0) = b
-          consumer(httpLogger.event(Event.Data(ba))) match {
+          consumer(httpLogger.event(Event.Data(pid,ba))) match {
             case Behavior.Continue => ()
             case Behavior.Stop =>
               stop = true
@@ -168,7 +168,7 @@ case class HttpResponseStream(source:()=>Option[Byte],
           stop = true
       }
     }
-    consumer(httpLogger.event(Event.DataEnd))
+    consumer(httpLogger.event(Event.DataEnd(pid)))
   }
 
   private def fromHex(b: Byte): Option[Int] = {
@@ -301,7 +301,7 @@ case class HttpResponseStream(source:()=>Option[Byte],
       _ = chunkSize match {
         case 0 => Right(())
         case _ =>
-          consumer(httpLogger.event(Event.Data(chunkData))) match {
+          consumer(httpLogger.event(Event.Data(pid,chunkData))) match {
             case Behavior.Stop => Right(())
             case Behavior.Continue =>
               reader()
@@ -311,9 +311,9 @@ case class HttpResponseStream(source:()=>Option[Byte],
 
     reader() match {
       case Left(errMessage) =>
-        consumer(httpLogger.event(Event.Error(errMessage)))
+        consumer(httpLogger.event(Event.Error(pid,errMessage)))
       case Right(_) =>
-        consumer(httpLogger.event(Event.DataEnd))
+        consumer(httpLogger.event(Event.DataEnd(pid)))
     }
   }
 
@@ -328,8 +328,8 @@ object HttpResponseStream {
 
   sealed trait Event
   object Event {
-    case class Error(string: String) extends Event
-    case class FirstLine(string:String) extends Event {
+    case class Error(pid:Long, string: String) extends Event
+    case class FirstLine(pid:Long, string:String) extends Event {
       lazy val firstLineDecoded: Option[(String, String, Option[String])] = {
         val ptrn = Pattern.compile(
           "(?is)(?<proto>HTTPS?/\\d(\\.\\d))\\s+(?<code>\\d+)(\\s+(?<msg>.+))?")
@@ -350,9 +350,9 @@ object HttpResponseStream {
       lazy val message: Option[String] = firstLineDecoded.flatMap( _._3 )
       lazy val isOk: Boolean = code.contains(200)
     }
-    case class Header(name:String,value:String) extends Event
-    case object HeaderEnd extends Event
-    case class Data(bytes:Array[Byte]) extends Event
-    case object DataEnd extends Event
+    case class Header(pid:Long, name:String,value:String) extends Event
+    case class HeaderEnd(pid:Long) extends Event
+    case class Data(pid:Long, bytes:Array[Byte]) extends Event
+    case class DataEnd(pid:Long) extends Event
   }
 }

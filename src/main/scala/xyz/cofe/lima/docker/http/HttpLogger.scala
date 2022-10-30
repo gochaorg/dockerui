@@ -29,15 +29,15 @@ object HttpLogger {
     }
     override def event(ev: HttpResponseStream.Event): HttpResponseStream.Event = {
       ev match {
-        case Event.Error(string) => println(s"ev.err $string")
-        case Event.FirstLine(string) => println(s"ev.firstLine $string")
-        case Event.Header(name, value) => println(s"ev.header $name: $value")
-        case Event.HeaderEnd => println("ev.header end")
-        case Event.Data(bytes) =>
+        case Event.Error(pid,string) => println(s"ev.err $string")
+        case Event.FirstLine(pid,string) => println(s"ev.firstLine $string")
+        case Event.Header(pid,name, value) => println(s"ev.header $name: $value")
+        case Event.HeaderEnd(pid) => println("ev.header end")
+        case Event.Data(pid,bytes) =>
           if(logStreamData){
             println(HexDump.toString(bytes,"ev.data bytes "))
           }
-        case Event.DataEnd => println("ev.data end")
+        case Event.DataEnd(pid) => println("ev.data end")
       }
       ev
     }
