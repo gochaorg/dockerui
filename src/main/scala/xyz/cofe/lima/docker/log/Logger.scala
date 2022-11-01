@@ -5,6 +5,7 @@ import tethys.derivation.semiauto.{jsonReader, jsonWriter}
 import tethys.writers.tokens.TokenWriter
 import tethys.{JsonReader, JsonWriter}
 import tethys._
+import tethys.derivation.auto.jsonReaderMaterializer
 import tethys.jackson._
 import tethys.readers.FieldName
 import tethys.readers.tokens.TokenIterator
@@ -141,9 +142,6 @@ object Logger {
       case "ImageCreate" => ImageCreate.reader
     }
 
-  def methodResultCalllReader[M <: MethodCall](implicit reader:JsonReader[M#RESULT]):JsonReader[M#RESULT] =
-    reader
-
   sealed trait LogEvent[ARGS] {
     def args:ARGS
   }
@@ -151,10 +149,6 @@ object Logger {
   case class SuccEvent[ARGS <: MethodCall:JsonWriter,RES:JsonWriter](threadId:ThreadID, beginTime:LocalDateTime, endTime:LocalDateTime, args:ARGS, result:RES) extends LogEvent[ARGS]
   object SuccEvent {
     implicit def writer[A<:MethodCall:JsonWriter,R:JsonWriter]:JsonWriter[SuccEvent[A,R]] = classWriter[SuccEvent[A,R]] ++ jsonWriter[SuccEvent[A,R]]
-//    implicit def reader[A:JsonReader,R:JsonReader]:JsonReader[SuccEvent[A,R]] =
-//      JsonReader.builder.addField[String]("_type").selectReader[SuccEvent[A,R]] {
-//        case ""
-//      }
   }
 
   case class FailEvent[ARGS:JsonWriter,ERR:JsonWriter](threadId:ThreadID, beginTime:LocalDateTime, endTime:LocalDateTime, args:ARGS, error:ERR) extends LogEvent[ARGS]
