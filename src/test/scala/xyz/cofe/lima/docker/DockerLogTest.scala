@@ -3,8 +3,8 @@ package xyz.cofe.lima.docker
 import org.scalatest.funsuite.AnyFunSuite
 import xyz.cofe.lima.docker.log.Logger
 import tethys._
-import tethys.commons.{Token, TokenNode}
 import tethys.jackson._
+import tethys.commons.{Token, TokenNode}
 import tethys.readers.FieldName
 import tethys.readers.tokens.TokenIterator
 
