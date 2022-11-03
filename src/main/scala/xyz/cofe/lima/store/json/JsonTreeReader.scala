@@ -18,7 +18,7 @@ sealed trait JsonTreeReader {
     parent.map(p => p.accept(arrayReader)).getOrElse(this)
   }
 
-  def accept(fieldReader: FieldReader, value: Any): JsonTreeReader = {
+  def accept(fieldReader: FieldReader, value: JsValue): JsonTreeReader = {
     parent.map(p => p.accept(fieldReader, value)).getOrElse(this)
   }
 
@@ -63,10 +63,8 @@ object JsonTreeReader {
   }
 }
 
-case object NULL
-
 class InitialReader extends JsonTreeReader {
-  var items: List[Any] = List[Any]()
+  var items: List[JsValue] = List()
 
   override def parent: Option[JsonTreeReader] = None
 
@@ -76,16 +74,16 @@ class InitialReader extends JsonTreeReader {
       case Token.ObjectStartToken => new ObjectReader(Some(this))
 
       case Token.StringValueToken =>
-        items = items :+ it.number()
+        items = items :+ JsString(it.string())
         this
       case Token.NumberValueToken =>
-        items = items :+ it.number()
+        items = items :+ JsNumber(it.number())
         this
       case Token.BooleanValueToken =>
-        items = items :+ it.boolean()
+        items = items :+ JsBoolean(it.boolean())
         this
       case Token.NullValueToken =>
-        items = items :+ NULL
+        items = items :+ JsNull
         this
 
       case Token.ArrayEndToken
@@ -96,12 +94,12 @@ class InitialReader extends JsonTreeReader {
   }
 
   override def accept(objectReader: ObjectReader): JsonTreeReader = {
-    items = items :+ objectReader
+    items = items :+ objectReader.toJsObject
     this
   }
 
   override def accept(arrayReader: ArrayReader): JsonTreeReader = {
-    items = items :+ arrayReader
+    items = items :+ arrayReader.toJsArray
     this
   }
 
@@ -109,7 +107,7 @@ class InitialReader extends JsonTreeReader {
 }
 
 class ObjectReader(val parent: Option[JsonTreeReader]) extends JsonTreeReader {
-  var fields: Map[String, Any] = Map()
+  var fields: Map[String, JsValue] = Map()
 
   override def read(it: TokenIterator): JsonTreeReader = {
     it.currentToken() match {
@@ -128,25 +126,27 @@ class ObjectReader(val parent: Option[JsonTreeReader]) extends JsonTreeReader {
     }
   }
 
-  override def accept(fieldReader: FieldReader, value: Any): JsonTreeReader = {
+  override def accept(fieldReader: FieldReader, value: JsValue): JsonTreeReader = {
     fields = fields + (fieldReader.fieldName -> value)
     this
   }
 
   override def toString = s"ObjectReader()"
+
+  def toJsObject:JsObject = JsObject(fields)
 }
 
 class FieldReader(val parent: Option[JsonTreeReader], val fieldName: String) extends JsonTreeReader {
   override def read(it: TokenIterator): JsonTreeReader = {
     it.currentToken() match {
       case Token.StringValueToken =>
-        accept(this, it.string())
+        accept(this, JsString(it.string()))
       case Token.NumberValueToken =>
-        accept(this, it.number())
+        accept(this, JsNumber(it.number()))
       case Token.BooleanValueToken =>
-        accept(this, it.boolean())
+        accept(this, JsBoolean(it.boolean()))
       case Token.NullValueToken =>
-        accept(this, NULL)
+        accept(this, JsNull)
       case Token.ArrayStartToken => new ArrayReader(Some(this))
       case Token.ObjectStartToken => new ObjectReader(Some(this))
       case Token.FieldNameToken | Token.ArrayEndToken | Token.ObjectEndToken | Token.Empty => new FailStateReader(Some(this), it.currentToken())
@@ -154,32 +154,32 @@ class FieldReader(val parent: Option[JsonTreeReader], val fieldName: String) ext
   }
 
   override def accept(objectReader: ObjectReader): JsonTreeReader = {
-    accept(this, objectReader)
+    accept(this, objectReader.toJsObject)
   }
 
   override def accept(arrayReader: ArrayReader): JsonTreeReader = {
-    accept(this, arrayReader)
+    accept(this, arrayReader.toJsArray)
   }
 
   override def toString = s"FieldReader(${fieldName})"
 }
 
 class ArrayReader(val parent: Option[JsonTreeReader]) extends JsonTreeReader {
-  var items: List[Any] = List()
+  var items: List[JsValue] = List()
 
   override def read(it: TokenIterator): JsonTreeReader = {
     it.currentToken() match {
       case Token.StringValueToken =>
-        items = items :+ it.string()
+        items = items :+ JsString(it.string())
         this
       case Token.NumberValueToken =>
-        items = items :+ it.number()
+        items = items :+ JsNumber(it.number())
         this
       case Token.BooleanValueToken =>
-        items = items :+ it.boolean()
+        items = items :+ JsBoolean(it.boolean())
         this
       case Token.NullValueToken =>
-        items = items :+ (NULL)
+        items = items :+ JsNull
         this
       case Token.ArrayStartToken => new ArrayReader(Some(this))
       case Token.ArrayEndToken =>
@@ -190,16 +190,18 @@ class ArrayReader(val parent: Option[JsonTreeReader]) extends JsonTreeReader {
   }
 
   override def accept(objectReader: ObjectReader): JsonTreeReader = {
-    items = items :+ objectReader
+    items = items :+ objectReader.toJsObject
     this
   }
 
   override def accept(arrayReader: ArrayReader): JsonTreeReader = {
-    items = items :+ arrayReader
+    items = items :+ arrayReader.toJsArray
     this
   }
 
   override def toString = s"ArrayReader()"
+
+  def toJsArray:JsArray = JsArray(items)
 }
 
 class FailStateReader(val parent: Option[JsonTreeReader], val token: Token) extends JsonTreeReader {
