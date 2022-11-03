@@ -3,7 +3,7 @@ package xyz.cofe.lima.docker
 import org.scalatest.funsuite.AnyFunSuite
 import tethys._
 import tethys.jackson._
-import xyz.cofe.lima.docker.log.Logger.Containers
+import xyz.cofe.lima.docker.log.Logger.{Containers, LogEvent}
 import xyz.cofe.lima.store.json._
 
 class DockerLog2Test extends AnyFunSuite {
@@ -99,6 +99,13 @@ class DockerLog2Test extends AnyFunSuite {
         case Right(value) => println(value)
       }
       case None => ???
+    }
+  }
+
+  test("read log entry") {
+    logEntry.jsonAs[LogEvent[_]] match {
+      case Left(value) => println(value)
+      case Right(value) => println(value)
     }
   }
 }
