@@ -153,7 +153,8 @@ case class DockerClient( socketChannel: SocketChannel,
 
   def sendForText(
     request:HttpRequest,
-    responseWrapper:HttpResponse=>HttpResponse = r=>r
+    responseWrapper:HttpResponse=>HttpResponse = r=>r,
+    successHttpCode:HttpResponse=>Boolean = r=>r.isOk
   ):Either[String,String] = {
     lockAndRun {
       for {
@@ -161,7 +162,7 @@ case class DockerClient( socketChannel: SocketChannel,
         response0 <- sendForHttp(request)
         response = responseWrapper(response0)
         _ <- Right(httpLogger.receive(response))
-        _ <- if (response.isOk) {
+        _ <- if (successHttpCode(response)) {
           Right(response)
         } else {
           Left(s"response not ok\ncode = ${response.code}\ntext = ${response.text}")

@@ -74,14 +74,14 @@ case class HttpResponseReader( source:()=>Option[Byte],
         } else {
           val idx = line.indexOf(":")
           if( idx<1 || idx>=line.length ){
-            Left(s"expect header, line with: name \":\" value, but accept $line")
+            Left(s"expect header, line with: name \":\" value, but accept $line") //todo err
           }else{
             val name = line.substring(0,idx).trim
             val value = line.substring(idx+1).trim
             Right(Some((name,value)))
           }
         }
-      case None => Left(s"No response: header not readed")
+      case None => Left(s"No response: header not readed") //todo err
     })
   }
 
@@ -178,7 +178,7 @@ case class HttpResponseReader( source:()=>Option[Byte],
       for {
         b0 <- bytes() match {
           case Some(value) => Right(value)
-          case None => Left("no data")
+          case None => Left("no data") //todo err
         }
         digits <- fromHex(b0) match {
           case Some(d) =>
@@ -187,12 +187,12 @@ case class HttpResponseReader( source:()=>Option[Byte],
               res <- dig match {
                 case Nil =>
                   bytes() match {
-                    case None => Left("no data, expect LF (\\n)")
+                    case None => Left("no data, expect LF (\\n)") //todo err
                     case Some(b1) =>
                       if( isLF(b1) ){
                         Right( d :: dig )
                       }else{
-                        Left("expect LF (\\n)")
+                        Left("expect LF (\\n)") //todo err
                       }
                   }
                 case _ => Right( d :: dig )
@@ -200,7 +200,7 @@ case class HttpResponseReader( source:()=>Option[Byte],
             } yield res
           case None => isCR(b0) match {
             case true => Right( Nil )
-            case false => Left("expect CR (\\r)")
+            case false => Left("expect CR (\\r)") //todo err
           }
         }
       } yield digits
@@ -235,11 +235,11 @@ case class HttpResponseReader( source:()=>Option[Byte],
       (bytes(), bytes()) match {
         case (Some(13), Some(10)) =>
           if( readsBytes.length < expectSize )
-            Left(s"reads ${readsBytes.length} less then expected ${expectSize}")
+            Left(s"reads ${readsBytes.length} less then expected ${expectSize}") //todo err
           else
             Right(readsBytes)
         case (b0,b1) =>
-          Left(s"expect CRLF, but found ${b0}, ${b1}")
+          Left(s"expect CRLF, but found ${b0}, ${b1}") //todo err
       }
     }
     reader
