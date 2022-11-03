@@ -325,6 +325,11 @@ case class DockerClient( socketChannel: SocketChannel,
     }
   }
 
+  /**
+   * Cтарт контейнера, контейнер должен быть уже создан [[containerCreate()]]
+   * @param containerId контейнер ид или имя
+   * @return контейнер запускается и может быть еще не запущен
+   */
   def containerStart(containerId:String): Either[String, Unit] = {
     logger(ContainerStart(containerId)).run {
       sendForHttp(
@@ -348,6 +353,11 @@ case class DockerClient( socketChannel: SocketChannel,
     }
   }
 
+  /**
+   * Остановка конйтейнера
+   * @param containerId контейнер ид или имя
+   * @return остановка контейнера
+   */
   def containerStop(containerId:String): Either[String, Unit] = {
     logger(ContainerStart(containerId)).run {
       sendForHttp(
@@ -371,6 +381,13 @@ case class DockerClient( socketChannel: SocketChannel,
     }
   }
 
+  /**
+   * Создание контейнера из образа см [[imageCreate()]]
+   * @param createContainerRequest как создать контейнер
+   * @param name имя контейнера
+   * @param platform платформа, существенно для ос windows
+   * @return результат создания
+   */
   def containerCreate(
                        createContainerRequest: CreateContainerRequest,
                        name:Option[String]=None,
@@ -387,6 +404,11 @@ case class DockerClient( socketChannel: SocketChannel,
     }
   }
 
+  /**
+   * Принудительное остановка контейнера (SIGTERM)
+   * @param containerId имя или id контейнера
+   * @return результат остановки
+   */
   def containerKill(containerId:String): Either[String, Unit] = {
     logger(ContainerKill(containerId)).run {
       sendForHttp(HttpRequest(s"/containers/$containerId/kill").post()) match {
@@ -408,6 +430,14 @@ case class DockerClient( socketChannel: SocketChannel,
     }
   }
 
+  /**
+   * Удаление контейнера
+   * @param containerId имя или id контейнера
+   * @param anonVolumesRemove удалить так же анонимыные тома
+   * @param force форсировать удаление, прибивать запущенные контейнеры
+   * @param link Remove the specified link associated with the container.
+   * @return результат
+   */
   def containerRemove(containerId:String, anonVolumesRemove:Option[Boolean]=None, force:Option[Boolean]=None, link:Option[Boolean]=None ): Either[String, Unit] = {
     logger(ContainerRemove(containerId, anonVolumesRemove, force, link)).run {
       sendForHttp(
@@ -433,6 +463,11 @@ case class DockerClient( socketChannel: SocketChannel,
     }
   }
 
+  /**
+   * Возвращает, какие файлы в файловой системе контейнера были добавлены, удалены или изменены.
+   * @param containerId  имя или id контейнера
+   * @return список файлов
+   */
   def containerFsChanges(containerId:String): Either[String, List[ContainerFileChanges]] =
     logger(ContainerFsChanges(containerId)).run {
       sendForJson[List[model.ContainerFileChanges]](
@@ -440,6 +475,12 @@ case class DockerClient( socketChannel: SocketChannel,
       )
     }
 
+  /**
+   * Переименование контейнера
+   * @param containerId имя или id контейнера
+   * @param newName новое имя
+   * @return результат
+   */
   def containerRename(containerId:String, newName:String): Either[String, Unit] =
     logger(ContainerRename(containerId,newName)).run {
       sendForHttp(

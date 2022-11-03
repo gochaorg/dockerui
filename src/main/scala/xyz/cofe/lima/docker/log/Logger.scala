@@ -1,21 +1,52 @@
 package xyz.cofe.lima.docker.log
 
-import tethys.JsonObjectWriter.lowPriorityWriter
 import tethys.derivation.semiauto.{jsonReader, jsonWriter}
-import tethys.writers.tokens.TokenWriter
-import tethys.{JsonReader, JsonWriter}
-import tethys._
-import tethys.derivation.auto.jsonReaderMaterializer
 import tethys.jackson._
 import tethys.readers.FieldName
 import tethys.readers.tokens.TokenIterator
+import tethys.writers.tokens.TokenWriter
+import tethys._
 import xyz.cofe.lima.docker.model
 import xyz.cofe.lima.docker.model.{CreateContainerRequest, Image}
 import xyz.cofe.lima.store.json._
 import xyz.cofe.lima.thread.ThreadID
 
-import java.time.{Instant, LocalDateTime}
+import java.time.LocalDateTime
 
+/**
+ * Логирование работы DockerClient
+ *
+ * '''Использование'''
+ *
+ * есть где то в клиенте {{{implicit logger: Logger}}}
+ *
+ * и его использование в коде клиента
+ *
+ * <pre>
+ * def containerProcesses(id:String): Either[String, model.Top] =
+ *  <b>logger(ContainerProcesses(id))</b> // что за операция
+ *    .run { // тут код операции
+ *      sendForJson[model.Top](
+ *        HttpRequest(path = s"/containers/${id}/top")
+ *      )
+ *    }
+ * </pre>
+ *
+ * А направлять лог событий так
+ *
+ * {{{
+ * val dc = DockerClient.unixSocket(str)
+ *  .withLogger(
+ *    Logger.JsonToWriter(
+ *      AppendableFile(
+ *        PathPattern.escape(AppHome.directory) ++
+ *        PathPattern.parse(Path.of("log/dockerClient/{yyyy}-{MM}/{dd}/{hh}-{mm}-{ss}.stream.json")),
+ *        limitSizePerFile = Some(1024L*512L)
+ *      )
+ *    )
+ *  )
+ * }}}
+ */
 trait Logger {
   import Logger._
 
@@ -121,36 +152,44 @@ object Logger {
 
   //#region Json logger
 
-  implicit def methodCallReader:JsonReader[MethodCall] =
-    JsonReader.builder.addField[String]("_type").selectReader[MethodCall] {
-      case "Containers" => Containers.reader
-      case "ContainerInspect" => ContainerInspect.reader
-      case "ContainerProcesses" => ContainerProcesses.reader
-      case "ContainerLogs" => ContainerLogs.reader
-      case "ContainerStart" => ContainerStart.reader
-      case "ContainerStop" => ContainerStop.reader
-      case "ContainerCreate" => ContainerCreate.reader
-      case "ContainerKill" => ContainerKill.reader
-      case "ContainerRemove" => ContainerRemove.reader
-      case "ContainerFsChanges" => ContainerFsChanges.reader
-      case "ContainerRename" => ContainerRename.reader
-      case "Images" => Images.reader
-      case "ImageRemove" => ImageRemove.reader
-      case "ImageTag" => ImageTag.reader
-      case "ImageHistory" => ImageHistory.reader
-      case "ImageInspect" => ImageInspect.reader
-      case "ImageCreate" => ImageCreate.reader
-    }
-
+  /**
+   * Логируемое событие
+   * @tparam ARGS метод клиента и его параметры
+   */
   sealed trait LogEvent[ARGS] {
     def args:ARGS
   }
 
+  /**
+   * Логируемое событие - успешный вызов метода
+   * @param threadId поток
+   * @param beginTime время начала вызова метода клиента
+   * @param endTime время завершения вызова метода клиента
+   * @param args метод и его параметры
+   * @param result результат вызова
+   * @param jsonWriter$ARGS$0 сериализация метода и аргументов
+   * @param jsonWriter$RES$0 сериализация результата
+   * @tparam ARGS метод клиента и его параметры
+   * @tparam RES результат вызова
+   */
   case class SuccEvent[ARGS <: MethodCall:JsonWriter,RES:JsonWriter](threadId:ThreadID, beginTime:LocalDateTime, endTime:LocalDateTime, args:ARGS, result:RES) extends LogEvent[ARGS]
   object SuccEvent {
     implicit def writer[A<:MethodCall:JsonWriter,R:JsonWriter]:JsonWriter[SuccEvent[A,R]] = classWriter[SuccEvent[A,R]] ++ jsonWriter[SuccEvent[A,R]]
   }
 
+  /**
+   * Логируемое событие - ошибочный вызов метода
+   *
+   * @param threadId          поток
+   * @param beginTime         время начала вызова метода клиента
+   * @param endTime           время завершения вызова метода клиента
+   * @param args              метод и его параметры
+   * @param error             ошбика
+   * @param jsonWriter$ARGS$0 сериализация метода и аргументов
+   * @param jsonWriter$ERR$0 сериализация ошибки
+   * @tparam ARGS метод клиента и его параметры
+   * @tparam ERR тип ошибки
+   */
   case class FailEvent[ARGS:JsonWriter,ERR:JsonWriter](threadId:ThreadID, beginTime:LocalDateTime, endTime:LocalDateTime, args:ARGS, error:ERR) extends LogEvent[ARGS]
   object FailEvent {
     implicit def writer[A:JsonWriter,R:JsonWriter]:JsonWriter[FailEvent[A,R]] = classWriter[FailEvent[A,R]] ++ jsonWriter[FailEvent[A,R]]
@@ -220,24 +259,39 @@ object Logger {
     override def resultToJson(result:RESULT):String = result.asJson
   }
 
+  /**
+   * Вызов метода [[xyz.cofe.lima.docker.DockerClient.containers]]
+   * @param all параметры метода
+   * @param limit параметры метода
+   * @param size параметры метода
+   */
   case class Containers(all:Boolean=false, limit:Option[Int]=None, size:Boolean=false) extends MethodWithParams[List[model.ContainerStatus]]
   object Containers {
     implicit val reader: JsonReader[Containers] = jsonReader[Containers]
     implicit val writer: JsonWriter[Containers] = classWriter[Containers] ++ jsonWriter[Containers]
   }
 
+  /**
+   * Вызов метода [[xyz.cofe.lima.docker.DockerClient.containerInspect]]
+   */
   case class ContainerInspect(id:String) extends MethodWithParams[model.ContainerInspect]
   object ContainerInspect {
     implicit val reader: JsonReader[ContainerInspect] = jsonReader[ContainerInspect]
     implicit val writer: JsonWriter[ContainerInspect] = classWriter[ContainerInspect] ++ jsonWriter[ContainerInspect]
   }
 
+  /**
+   * Вызов метода [[xyz.cofe.lima.docker.DockerClient.containerProcesses]]
+   */
   case class ContainerProcesses(id:String) extends MethodWithParams[model.Top]
   object ContainerProcesses {
     implicit val reader: JsonReader[ContainerProcesses] = jsonReader[ContainerProcesses]
     implicit val writer: JsonWriter[ContainerProcesses] = classWriter[ContainerProcesses] ++ jsonWriter[ContainerProcesses]
   }
 
+  /**
+   * Вызов метода [[xyz.cofe.lima.docker.DockerClient.containerLogs]]
+   */
   case class ContainerLogs(id:String,
                            follow:Option[Boolean]=None,
                            stdout:Option[Boolean]=Some(true),
@@ -250,18 +304,27 @@ object Logger {
     implicit val writer: JsonWriter[ContainerLogs] = classWriter[ContainerLogs] ++ jsonWriter[ContainerLogs]
   }
 
+  /**
+   * Вызов метода [[xyz.cofe.lima.docker.DockerClient.containerStart]]
+   */
   case class ContainerStart(containerId:String) extends MethodWithParams[Unit]
   object ContainerStart {
     implicit val reader: JsonReader[ContainerStart] = jsonReader[ContainerStart]
     implicit val writer: JsonWriter[ContainerStart] = classWriter[ContainerStart] ++ jsonWriter[ContainerStart]
   }
 
+  /**
+   * Вызов метода [[xyz.cofe.lima.docker.DockerClient.containerStop]]
+   */
   case class ContainerStop(containerId:String) extends MethodWithParams[Unit]
   object ContainerStop {
     implicit val reader: JsonReader[ContainerStop] = jsonReader[ContainerStop]
     implicit val writer: JsonWriter[ContainerStop] = classWriter[ContainerStop] ++ jsonWriter[ContainerStop]
   }
 
+  /**
+   * Вызов метода [[xyz.cofe.lima.docker.DockerClient.containerCreate]]
+   */
   case class ContainerCreate(
                               createContainerRequest: CreateContainerRequest,
                               name:Option[String]=None,
@@ -272,12 +335,18 @@ object Logger {
     implicit val writer: JsonWriter[ContainerCreate] = classWriter[ContainerCreate] ++ jsonWriter[ContainerCreate]
   }
 
+  /**
+   * Вызов метода [[xyz.cofe.lima.docker.DockerClient.containerKill]]
+   */
   case class ContainerKill(containerId:String) extends MethodWithParams[Unit]
   object ContainerKill {
     implicit val reader: JsonReader[ContainerKill] = jsonReader[ContainerKill]
     implicit val writer: JsonWriter[ContainerKill] = classWriter[ContainerKill] ++ jsonWriter[ContainerKill]
   }
 
+  /**
+   * Вызов метода [[xyz.cofe.lima.docker.DockerClient.containerRemove]]
+   */
   case class ContainerRemove(containerId:String,
                              anonVolumesRemove:Option[Boolean]=None,
                              force:Option[Boolean]=None,
@@ -287,24 +356,36 @@ object Logger {
     implicit val writer: JsonWriter[ContainerRemove] = classWriter[ContainerRemove] ++ jsonWriter[ContainerRemove]
   }
 
+  /**
+   * Вызов метода [[xyz.cofe.lima.docker.DockerClient.containerFsChanges]]
+   */
   case class ContainerFsChanges(containerId:String) extends MethodWithParams[List[model.ContainerFileChanges]]
   object ContainerFsChanges {
     implicit val reader: JsonReader[ContainerFsChanges] = jsonReader[ContainerFsChanges]
     implicit val writer: JsonWriter[ContainerFsChanges] = classWriter[ContainerFsChanges] ++ jsonWriter[ContainerFsChanges]
   }
 
+  /**
+   * Вызов метода [[xyz.cofe.lima.docker.DockerClient.containerRename]]
+   */
   case class ContainerRename(containerId:String, newName:String) extends MethodWithParams[Unit]
   object ContainerRename {
     implicit val reader: JsonReader[ContainerRename] = jsonReader[ContainerRename]
     implicit val writer: JsonWriter[ContainerRename] = classWriter[ContainerRename] ++ jsonWriter[ContainerRename]
   }
 
+  /**
+   * Вызов метода [[xyz.cofe.lima.docker.DockerClient.images]]
+   */
   case class Images() extends MethodWithParams[List[Image]]
   object Images {
     implicit val reader: JsonReader[Images] = jsonReader[Images]
     implicit val writer: JsonWriter[Images] = classWriter[Images] ++ jsonWriter[Images]
   }
 
+  /**
+   * Вызов метода [[xyz.cofe.lima.docker.DockerClient.imageRemove]]
+   */
   case class ImageRemove(nameOrId:String,
                          force:Option[Boolean]=None,
                          noprune:Option[Boolean]=None) extends MethodWithParams[List[model.ImageRemove]]
@@ -313,6 +394,9 @@ object Logger {
     implicit val writer: JsonWriter[ImageRemove] = classWriter[ImageRemove] ++ jsonWriter[ImageRemove]
   }
 
+  /**
+   * Вызов метода [[xyz.cofe.lima.docker.DockerClient.imageTag]]
+   */
   case class ImageTag(nameOrId:String,
                       repo:Option[String]=None,
                       tag:Option[String]=None) extends MethodWithParams[Unit]
@@ -321,18 +405,27 @@ object Logger {
     implicit val writer: JsonWriter[ImageTag] = classWriter[ImageTag] ++ jsonWriter[ImageTag]
   }
 
+  /**
+   * Вызов метода [[xyz.cofe.lima.docker.DockerClient.imageTag]]
+   */
   case class ImageHistory(nameOrId:String) extends MethodWithParams[List[model.ImageHistory]]
   object ImageHistory {
     implicit val reader: JsonReader[ImageHistory] = jsonReader[ImageHistory]
     implicit val writer: JsonWriter[ImageHistory] = classWriter[ImageHistory] ++ jsonWriter[ImageHistory]
   }
 
+  /**
+   * Вызов метода [[xyz.cofe.lima.docker.DockerClient.imageInspect]]
+   */
   case class ImageInspect(nameOrId:String) extends MethodWithParams[model.ImageInspect]
   object ImageInspect {
     implicit val reader: JsonReader[ImageInspect] = jsonReader[ImageInspect]
     implicit val writer: JsonWriter[ImageInspect] = classWriter[ImageInspect] ++ jsonWriter[ImageInspect]
   }
 
+  /**
+   * Вызов метода [[xyz.cofe.lima.docker.DockerClient.imageCreate]]
+   */
   case class ImageCreate(fromImage: Option[String] = None,
                          fromSrc: Option[String] = None,
                          repo: Option[String] = None,
