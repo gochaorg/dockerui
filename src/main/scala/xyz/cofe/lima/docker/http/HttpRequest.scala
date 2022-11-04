@@ -60,13 +60,106 @@ case class HttpRequest(
       copy(path = pathWithoutQuery + "?" + qs)
     }
   }
-  def queryString[V:HttpParamValue](args:(String,V)*):HttpRequest = {
+
+  def queryString[
+    A0:HttpParamValue,
+  ](a0:(String,A0) ):HttpRequest = {
     queryString(
-      args
-        .map { case(k,v) => (k,implicitly[HttpParamValue[V]].httpParamValue(v)) }
+      Map(
+        a0._1 -> implicitly[HttpParamValue[A0]].httpParamValue(a0._2),
+      )
         .filter { case(_,v) => v.nonEmpty }
         .map { case(k,v) => (k,v.get) }
-        .toMap
+    )
+  }
+
+  def queryString[
+    A0:HttpParamValue,
+    A1:HttpParamValue,
+  ](a0:(String,A0), a1:(String,A1) ):HttpRequest = {
+    queryString(
+      Map(
+        a0._1 -> implicitly[HttpParamValue[A0]].httpParamValue(a0._2),
+        a1._1 -> implicitly[HttpParamValue[A1]].httpParamValue(a1._2),
+      )
+        .filter { case(_,v) => v.nonEmpty }
+        .map { case(k,v) => (k,v.get) }
+    )
+  }
+
+  def queryString[
+    A0:HttpParamValue,
+    A1:HttpParamValue,
+    A2:HttpParamValue
+  ](a0:(String,A0), a1:(String,A1), a2:(String,A2) ):HttpRequest = {
+    queryString(
+      Map(
+        a0._1 -> implicitly[HttpParamValue[A0]].httpParamValue(a0._2),
+        a1._1 -> implicitly[HttpParamValue[A1]].httpParamValue(a1._2),
+        a2._1 -> implicitly[HttpParamValue[A2]].httpParamValue(a2._2),
+      )
+        .filter { case(_,v) => v.nonEmpty }
+        .map { case(k,v) => (k,v.get) }
+    )
+  }
+
+  def queryString[
+    A0:HttpParamValue,
+    A1:HttpParamValue,
+    A2:HttpParamValue,
+    A3:HttpParamValue,
+  ](a0:(String,A0), a1:(String,A1), a2:(String,A2), a3:(String,A3) ):HttpRequest = {
+    queryString(
+      Map(
+        a0._1 -> implicitly[HttpParamValue[A0]].httpParamValue(a0._2),
+        a1._1 -> implicitly[HttpParamValue[A1]].httpParamValue(a1._2),
+        a2._1 -> implicitly[HttpParamValue[A2]].httpParamValue(a2._2),
+        a3._1 -> implicitly[HttpParamValue[A3]].httpParamValue(a3._2),
+      )
+        .filter { case(_,v) => v.nonEmpty }
+        .map { case(k,v) => (k,v.get) }
+    )
+  }
+
+  def queryString[
+    A0:HttpParamValue,
+    A1:HttpParamValue,
+    A2:HttpParamValue,
+    A3:HttpParamValue,
+    A4:HttpParamValue,
+  ](a0:(String,A0), a1:(String,A1), a2:(String,A2), a3:(String,A3), a4:(String,A4) ):HttpRequest = {
+    queryString(
+      Map(
+        a0._1 -> implicitly[HttpParamValue[A0]].httpParamValue(a0._2),
+        a1._1 -> implicitly[HttpParamValue[A1]].httpParamValue(a1._2),
+        a2._1 -> implicitly[HttpParamValue[A2]].httpParamValue(a2._2),
+        a3._1 -> implicitly[HttpParamValue[A3]].httpParamValue(a3._2),
+        a4._1 -> implicitly[HttpParamValue[A4]].httpParamValue(a4._2),
+      )
+        .filter { case(_,v) => v.nonEmpty }
+        .map { case(k,v) => (k,v.get) }
+    )
+  }
+
+  def queryString[
+    A0:HttpParamValue,
+    A1:HttpParamValue,
+    A2:HttpParamValue,
+    A3:HttpParamValue,
+    A4:HttpParamValue,
+    A5:HttpParamValue,
+  ](a0:(String,A0), a1:(String,A1), a2:(String,A2), a3:(String,A3), a4:(String,A4), a5:(String,A5) ):HttpRequest = {
+    queryString(
+      Map(
+        a0._1 -> implicitly[HttpParamValue[A0]].httpParamValue(a0._2),
+        a1._1 -> implicitly[HttpParamValue[A1]].httpParamValue(a1._2),
+        a2._1 -> implicitly[HttpParamValue[A2]].httpParamValue(a2._2),
+        a3._1 -> implicitly[HttpParamValue[A3]].httpParamValue(a3._2),
+        a4._1 -> implicitly[HttpParamValue[A4]].httpParamValue(a4._2),
+        a5._1 -> implicitly[HttpParamValue[A5]].httpParamValue(a5._2),
+      )
+        .filter { case(_,v) => v.nonEmpty }
+        .map { case(k,v) => (k,v.get) }
     )
   }
 

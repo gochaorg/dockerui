@@ -211,13 +211,26 @@ case class DockerClient( socketChannel: SocketChannel,
    */
   def containers(all:Boolean=false, limit:Option[Int]=None, size:Boolean=false)
   : Either[String, List[model.ContainerStatus]] = {
-    logger[Containers,String](Containers(all,limit,size)).run {
+//    logger[Containers,String](Containers(all,limit,size)).run {
+//      val q = Map("all" -> all.toString) ++
+//        (limit.map(l => Map("limit" -> l.toString)).getOrElse(Map())) ++
+//        (if (size) Map("size" -> size.toString) else (Map()))
+//
+//      sendForJson[List[model.ContainerStatus]](
+//        HttpRequest(path = "/containers/json").queryString(q)
+//      )
+//    }
+    logger.log(Logger.Containers(all, limit, size)).catchIt {
       val q = Map("all" -> all.toString) ++
         (limit.map(l => Map("limit" -> l.toString)).getOrElse(Map())) ++
         (if (size) Map("size" -> size.toString) else (Map()))
 
       sendForJson[List[model.ContainerStatus]](
-        HttpRequest(path = "/containers/json").queryString(q)
+        HttpRequest(path = "/containers/json").queryString(
+          "all" -> all,
+          "limit" -> limit,
+          "size" -> size
+        )
       )
     }
   }
