@@ -53,13 +53,16 @@ import java.time.LocalDateTime
  */
 trait Logger {
   import Logger._
-
-  def apply[M <: MethodCall,E](methodCall: M)(implicit jw:JsonWriter[M],jwe:JsonWriter[E]):ResultCall[E,methodCall.RESULT]
+  def apply[M<:MethodCall](op:M)(implicit jw:JsonWriter[M],jwr:JsonWriter[M#RESULT]):CallCatcher[M] = new CallCatcher(op)
 }
 
 object Logger {
   trait ClientId {
     def clientId: Int
+  }
+
+  class CallCatcher[M <: MethodCall](val op:M) {
+    def run[E](someResult: Either[E, M#RESULT])(implicit jwe:JsonWriter[E]): Either[E, M#RESULT] = someResult
   }
 
   sealed trait MethodCall {
@@ -68,22 +71,9 @@ object Logger {
     def resultToJson(result: RESULT): String
   }
 
-  sealed trait ResultCall[E, R] {
-    def success(result: R)(implicit jw:JsonWriter[R]): R = result
-    def error(error: E)(implicit jw:JsonWriter[E]): E = error
-    def apply(code: => Either[E, R])(implicit clientId: ClientId, jw:JsonWriter[R], jw2:JsonWriter[E]): Either[E, R] = {
-      code.left.map(error).map(success)
-    }
-    def run(code: => Either[E,R])(implicit clientId: ClientId, jw:JsonWriter[R], jw2:JsonWriter[E]): Either[E, R] = this.apply(code)
-  }
-
   //#region Default logger
 
-  case class DummyResult[E, R]() extends ResultCall[E, R]
-
-  implicit val defaultLogger: Logger = new Logger {
-    override def apply[M <: MethodCall,E](methodCall: M)(implicit jw:JsonWriter[M], jwe:JsonWriter[E]): ResultCall[E, methodCall.RESULT] = DummyResult()
-  }
+  implicit val defaultLogger: Logger = new Logger {}
 
   //#endregion
   //#region stdout logger
@@ -134,23 +124,23 @@ object Logger {
   //#region joinLoggers
 
   def joinLoggers(left:Logger, right:Logger):Logger = new Logger {
-    case class ResultCapture[M <: MethodCall:JsonWriter,R,E]( left:ResultCall[E,R], right:ResultCall[E,R] ) extends ResultCall[E,R] {
-      override def success(result: R)(implicit jw: JsonWriter[R]): R = {
-        left.success(result)
-        right.success(result)
-        super.success(result)
-      }
-      override def error(error: E)(implicit jw: JsonWriter[E]): E = {
-        left.error(error)
-        right.error(error)
-        super.error(error)
-      }
-    }
-    override def apply[M <: MethodCall,E](methodCall: M)(implicit jw: JsonWriter[M],jwe:JsonWriter[E]): ResultCall[E, methodCall.RESULT] = {
-      val l: ResultCall[E, methodCall.RESULT] = left.apply[M,E](methodCall)
-      val r: ResultCall[E, methodCall.RESULT] = right.apply[M,E](methodCall)
-      ResultCapture(l,r)
-    }
+//    case class ResultCapture[M <: MethodCall:JsonWriter,R,E]( left:ResultCall[E,R], right:ResultCall[E,R] ) extends ResultCall[E,R] {
+//      override def success(result: R)(implicit jw: JsonWriter[R]): R = {
+//        left.success(result)
+//        right.success(result)
+//        super.success(result)
+//      }
+//      override def error(error: E)(implicit jw: JsonWriter[E]): E = {
+//        left.error(error)
+//        right.error(error)
+//        super.error(error)
+//      }
+//    }
+//    override def apply[M <: MethodCall,E](methodCall: M)(implicit jw: JsonWriter[M],jwe:JsonWriter[E]): ResultCall[E, methodCall.RESULT] = {
+//      val l: ResultCall[E, methodCall.RESULT] = left.apply[M,E](methodCall)
+//      val r: ResultCall[E, methodCall.RESULT] = right.apply[M,E](methodCall)
+//      ResultCapture(l,r)
+//    }
   }
   //#endregion
 
@@ -193,7 +183,6 @@ object Logger {
   case class FailEvent[ARGS:JsonWriter,ERR:JsonWriter](threadId:ThreadID, beginTime:LocalDateTime, endTime:LocalDateTime, args:ARGS, error:ERR) extends LogEvent[ARGS,ERR]
   object FailEvent {
     implicit def writer[A:JsonWriter,R:JsonWriter]:JsonWriter[FailEvent[A,R]] = classWriter[FailEvent[A,R]] ++ jsonWriter[FailEvent[A,R]]
-    //implicit def reader[A:JsonReader,R:JsonReader]:JsonReader[FailEvent[A,R]] = jsonReader[FailEvent[A,R]]
   }
 
   /**
@@ -201,33 +190,50 @@ object Logger {
    * @param out поток куда записываются события
    */
   class JsonToWriter(out:java.lang.Appendable) extends Logger {
-    case class ResultCapture[R,M <: Logger.MethodCall:JsonWriter,E]( beginCall: LocalDateTime, params:M ) extends ResultCall[E,R] {
-      override def success(result: R)(implicit jw:JsonWriter[R]): R = {
-        out.append(SuccEvent[M,R](
-          ThreadID.current,
-          beginCall,
-          LocalDateTime.now(),
-          params,
-          result
-        ).asJson).append(System.lineSeparator())
-        super.success(result)
-      }
-      override def error(error: E)(implicit jw:JsonWriter[E]): E = {
 
-        out.append(FailEvent(
-          ThreadID.current,
-          beginCall,
-          LocalDateTime.now(),
-          params,
-          error
-        ).asJson).append(System.lineSeparator())
-        super.error(error)(jw)
+//    case class ResultCapture[R,M <: Logger.MethodCall:JsonWriter,E]( beginCall: LocalDateTime, params:M ) extends ResultCall[E,R] {
+//      override def success(result: R)(implicit jw:JsonWriter[R]): R = {
+//        out.append(SuccEvent[M,R](
+//          ThreadID.current,
+//          beginCall,
+//          LocalDateTime.now(),
+//          params,
+//          result
+//        ).asJson).append(System.lineSeparator())
+//        super.success(result)
+//      }
+//      override def error(error: E)(implicit jw:JsonWriter[E]): E = {
+//
+//        out.append(FailEvent(
+//          ThreadID.current,
+//          beginCall,
+//          LocalDateTime.now(),
+//          params,
+//          error
+//        ).asJson).append(System.lineSeparator())
+//        super.error(error)(jw)
+//      }
+//    }
+//
+//    override def apply[M <: MethodCall,E](methodCall: M)(implicit jw: JsonWriter[M], jwe:JsonWriter[E]): ResultCall[E, methodCall.RESULT] =
+//      ResultCapture[methodCall.RESULT,M,E](LocalDateTime.now(),methodCall)
+
+    class JsonCallCatcher[M <: MethodCall](op:M, begin:LocalDateTime)(implicit jw:JsonWriter[M],jwr:JsonWriter[M#RESULT]) extends CallCatcher(op) {
+      override def run[E](someResult: Either[E, M#RESULT])(implicit jwe:JsonWriter[E]): Either[E, M#RESULT] = {
+        someResult match {
+          case Left(error) =>
+            out.append( FailEvent(ThreadID.current, begin, LocalDateTime.now(), op, error).asJson ).append(System.lineSeparator())
+          case Right(sucResult) =>
+            out.append( SuccEvent(ThreadID.current, begin, LocalDateTime.now(), op, sucResult).asJson ).append(System.lineSeparator())
+        }
+        someResult
       }
     }
 
-    override def apply[M <: MethodCall,E](methodCall: M)(implicit jw: JsonWriter[M], jwe:JsonWriter[E]): ResultCall[E, methodCall.RESULT] =
-      ResultCapture[methodCall.RESULT,M,E](LocalDateTime.now(),methodCall)
+    override def apply[M <: MethodCall](op: M)(implicit jw:JsonWriter[M],jwr:JsonWriter[M#RESULT]): CallCatcher[M] =
+      (new JsonCallCatcher[M](op, LocalDateTime.now())).asInstanceOf[CallCatcher[M]]
   }
+
   object JsonToWriter {
     def apply(out:java.lang.Appendable):JsonToWriter = new JsonToWriter(out)
   }
