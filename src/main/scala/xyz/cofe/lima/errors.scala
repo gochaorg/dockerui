@@ -111,6 +111,11 @@ object errors {
     def message:String
   }
 
+  trait DockerClientError extends AppError
+  object DockerClientError {
+    case class Simple(message:String) extends DockerClientError
+  }
+
   sealed trait HttpError extends AppError
   object HttpError {
     case class BadHeaderFormat(message:String) extends HttpError

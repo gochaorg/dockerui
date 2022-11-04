@@ -13,6 +13,7 @@ import xyz.cofe.lima.store.json._
 import xyz.cofe.lima.store.json.Query._
 import xyz.cofe.lima.store.json.TethysToks._
 import xyz.cofe.lima.thread.ThreadID
+import xyz.cofe.lima.errors.DockerClientError
 
 import java.time.LocalDateTime
 
@@ -53,7 +54,7 @@ import java.time.LocalDateTime
 trait Logger {
   import Logger._
 
-  def apply[M <: MethodCall](methodCall: M)(implicit jw:JsonWriter[M]):ResultCall[String,methodCall.RESULT]
+  def apply[M <: MethodCall,E](methodCall: M)(implicit jw:JsonWriter[M],jwe:JsonWriter[E]):ResultCall[E,methodCall.RESULT]
 }
 
 object Logger {
@@ -81,7 +82,7 @@ object Logger {
   case class DummyResult[E, R]() extends ResultCall[E, R]
 
   implicit val defaultLogger: Logger = new Logger {
-    override def apply[M <: MethodCall](methodCall: M)(implicit jw:JsonWriter[M]): ResultCall[String, methodCall.RESULT] = DummyResult()
+    override def apply[M <: MethodCall,E](methodCall: M)(implicit jw:JsonWriter[M], jwe:JsonWriter[E]): ResultCall[E, methodCall.RESULT] = DummyResult()
   }
 
   //#endregion
@@ -133,21 +134,21 @@ object Logger {
   //#region joinLoggers
 
   def joinLoggers(left:Logger, right:Logger):Logger = new Logger {
-    case class ResultCapture[M <: MethodCall:JsonWriter,R]( left:ResultCall[String,R], right:ResultCall[String,R] ) extends ResultCall[String,R] {
+    case class ResultCapture[M <: MethodCall:JsonWriter,R,E]( left:ResultCall[E,R], right:ResultCall[E,R] ) extends ResultCall[E,R] {
       override def success(result: R)(implicit jw: JsonWriter[R]): R = {
         left.success(result)
         right.success(result)
         super.success(result)
       }
-      override def error(error: String)(implicit jw: JsonWriter[String]): String = {
+      override def error(error: E)(implicit jw: JsonWriter[E]): E = {
         left.error(error)
         right.error(error)
         super.error(error)
       }
     }
-    override def apply[M <: MethodCall](methodCall: M)(implicit jw: JsonWriter[M]): ResultCall[String, methodCall.RESULT] = {
-      val l: ResultCall[String, methodCall.RESULT] = left.apply[M](methodCall)
-      val r: ResultCall[String, methodCall.RESULT] = right.apply[M](methodCall)
+    override def apply[M <: MethodCall,E](methodCall: M)(implicit jw: JsonWriter[M],jwe:JsonWriter[E]): ResultCall[E, methodCall.RESULT] = {
+      val l: ResultCall[E, methodCall.RESULT] = left.apply[M,E](methodCall)
+      val r: ResultCall[E, methodCall.RESULT] = right.apply[M,E](methodCall)
       ResultCapture(l,r)
     }
   }
@@ -159,7 +160,7 @@ object Logger {
    * Логируемое событие
    * @tparam ARGS метод клиента и его параметры
    */
-  sealed trait LogEvent[ARGS] {
+  sealed trait LogEvent[ARGS,ERR] {
     def args:ARGS
   }
 
@@ -170,12 +171,10 @@ object Logger {
    * @param endTime время завершения вызова метода клиента
    * @param args метод и его параметры
    * @param result результат вызова
-   * @param jsonWriter$ARGS$0 сериализация метода и аргументов
-   * @param jsonWriter$RES$0 сериализация результата
    * @tparam ARGS метод клиента и его параметры
    * @tparam RES результат вызова
    */
-  case class SuccEvent[ARGS <: MethodCall:JsonWriter,RES:JsonWriter](threadId:ThreadID, beginTime:LocalDateTime, endTime:LocalDateTime, args:ARGS, result:RES) extends LogEvent[ARGS]
+  case class SuccEvent[ARGS <: MethodCall:JsonWriter,RES:JsonWriter](threadId:ThreadID, beginTime:LocalDateTime, endTime:LocalDateTime, args:ARGS, result:RES) extends LogEvent[ARGS,Unit]
   object SuccEvent {
     implicit def writer[A<:MethodCall:JsonWriter,R:JsonWriter]:JsonWriter[SuccEvent[A,R]] = classWriter[SuccEvent[A,R]] ++ jsonWriter[SuccEvent[A,R]]
   }
@@ -188,12 +187,10 @@ object Logger {
    * @param endTime           время завершения вызова метода клиента
    * @param args              метод и его параметры
    * @param error             ошбика
-   * @param jsonWriter$ARGS$0 сериализация метода и аргументов
-   * @param jsonWriter$ERR$0 сериализация ошибки
    * @tparam ARGS метод клиента и его параметры
    * @tparam ERR тип ошибки
    */
-  case class FailEvent[ARGS:JsonWriter,ERR:JsonWriter](threadId:ThreadID, beginTime:LocalDateTime, endTime:LocalDateTime, args:ARGS, error:ERR) extends LogEvent[ARGS]
+  case class FailEvent[ARGS:JsonWriter,ERR:JsonWriter](threadId:ThreadID, beginTime:LocalDateTime, endTime:LocalDateTime, args:ARGS, error:ERR) extends LogEvent[ARGS,ERR]
   object FailEvent {
     implicit def writer[A:JsonWriter,R:JsonWriter]:JsonWriter[FailEvent[A,R]] = classWriter[FailEvent[A,R]] ++ jsonWriter[FailEvent[A,R]]
     //implicit def reader[A:JsonReader,R:JsonReader]:JsonReader[FailEvent[A,R]] = jsonReader[FailEvent[A,R]]
@@ -204,7 +201,7 @@ object Logger {
    * @param out поток куда записываются события
    */
   class JsonToWriter(out:java.lang.Appendable) extends Logger {
-    case class ResultCapture[R,M <: Logger.MethodCall:JsonWriter]( beginCall: LocalDateTime, params:M ) extends ResultCall[String,R] {
+    case class ResultCapture[R,M <: Logger.MethodCall:JsonWriter,E]( beginCall: LocalDateTime, params:M ) extends ResultCall[E,R] {
       override def success(result: R)(implicit jw:JsonWriter[R]): R = {
         out.append(SuccEvent[M,R](
           ThreadID.current,
@@ -215,7 +212,8 @@ object Logger {
         ).asJson).append(System.lineSeparator())
         super.success(result)
       }
-      override def error(error: String)(implicit jw:JsonWriter[String]): String = {
+      override def error(error: E)(implicit jw:JsonWriter[E]): E = {
+
         out.append(FailEvent(
           ThreadID.current,
           beginCall,
@@ -223,153 +221,153 @@ object Logger {
           params,
           error
         ).asJson).append(System.lineSeparator())
-        super.error(error)
+        super.error(error)(jw)
       }
     }
 
-    override def apply[M <: MethodCall](methodCall: M)(implicit jw: JsonWriter[M]): ResultCall[String, methodCall.RESULT] =
-      ResultCapture[methodCall.RESULT,M](LocalDateTime.now(),methodCall)
+    override def apply[M <: MethodCall,E](methodCall: M)(implicit jw: JsonWriter[M], jwe:JsonWriter[E]): ResultCall[E, methodCall.RESULT] =
+      ResultCapture[methodCall.RESULT,M,E](LocalDateTime.now(),methodCall)
   }
   object JsonToWriter {
     def apply(out:java.lang.Appendable):JsonToWriter = new JsonToWriter(out)
   }
 
-  implicit def logEventJsonReader(implicit dtFormat:DateTimeFormatterProvide):JsonReader[LogEvent[_]] = {
-    val jsReader = implicitly[JsonReader[JsValue]]
-    val expectMethods = List(
-      "Containers","ContainerInspect","ContainerProcesses","ContainerLogs","ContainerStart","ContainerStop",
-      "ContainerCreate","ContainerKill","ContainerRemove","ContainerFsChanges",
-      "Images","ImageRemove","ImageTag","ImageHistory","ImageHistory","ImageInspect","ImageCreate"
-    )
-
-    new JsonReader[LogEvent[_]] {
-      override def read(it: TokenIterator)(implicit fieldName: FieldName): LogEvent[_] = {
-        val js = jsReader.read(it)
-        js.query("_type").string match {
-          case None => throw new Error("type of log event (_type = SuccEvent | FailEvent) not defined in root json")
-          case Some(logEventType) => logEventType match {
-            case "SuccEvent" | "FailEvent" => js.query("args")("_type").string match {
-              case None => throw new Error("type of method in event (args._type) not defined")
-              case Some(methodType) => methodType match {
-                case _ if expectMethods.contains(methodType) => restoreEvent(js, logEventType, methodType)
-                case _ => throw new Error(s"type of method $methodType incorrect, expect $expectMethods")
-              }
-            }
-            case _ => throw new Error(s"type of log incorrect $logEventType, expect SuccEvent | FailEvent")
-          }
-        }
-      }
-
-      private def restoreEvent(js:JsValue, logEventType:String, methodType:String):LogEvent[_] = {
-        js.query("args").jsObject match {
-          case None => throw new Error("field args not found")
-          case Some(args) => js.query("threadId").jsObject match {
-            case None => throw new Error("field threadId not found")
-            case Some(threadIdObj) => js.query("beginTime").jsValue match {
-              case None => throw new Error("field beginTime not found")
-              case Some(beginTime) => js.query("endTime").jsValue match {
-                case None => throw new Error("field endTime not found")
-                case Some(endTime) => logEventType match {
-                  case "SuccEvent" => js.query("result").jsValue match {
-                    case None => throw new Error("field result not found")
-                    case Some(result) => restoreSuccEvent(args, methodType, threadIdObj, beginTime, endTime, result)
-                  }
-                  case "FailEvent" => js.query("error").jsValue match {
-                    case None => throw new Error("field error not found")
-                    case Some(error) => restoreFailEvent(args, methodType, threadIdObj, beginTime, endTime, error)
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-
-      private def restoreSuccEvent(args:JsValue, methodType:String, threadIdObj:JsValue, beginTime:JsValue, endTime:JsValue, result:JsValue):LogEvent[_] = {
-        methodType match {
-          case "Containers" =>         restoreSucc[Containers]        (args,threadIdObj,beginTime,endTime,result)
-          case "ContainerInspect" =>   restoreSucc[ContainerInspect]  (args,threadIdObj,beginTime,endTime,result)
-          case "ContainerProcesses" => restoreSucc[ContainerProcesses](args,threadIdObj,beginTime,endTime,result)
-          case "ContainerLogs" =>      restoreSucc[ContainerLogs]     (args,threadIdObj,beginTime,endTime,result)
-          case "ContainerStart" =>     restoreSucc[ContainerStart]    (args,threadIdObj,beginTime,endTime,result)
-          case "ContainerStop" =>      restoreSucc[ContainerStop]     (args,threadIdObj,beginTime,endTime,result)
-          case "ContainerCreate" =>    restoreSucc[ContainerCreate]   (args,threadIdObj,beginTime,endTime,result)
-          case "ContainerKill" =>      restoreSucc[ContainerKill]     (args,threadIdObj,beginTime,endTime,result)
-          case "ContainerRemove" =>    restoreSucc[ContainerRemove]   (args,threadIdObj,beginTime,endTime,result)
-          case "ContainerFsChanges" => restoreSucc[ContainerFsChanges](args,threadIdObj,beginTime,endTime,result)
-          case "Images" =>             restoreSucc[Images]            (args,threadIdObj,beginTime,endTime,result)
-          case "ImageRemove" =>        restoreSucc[ImageRemove]       (args,threadIdObj,beginTime,endTime,result)
-          case "ImageTag" =>           restoreSucc[ImageTag]          (args,threadIdObj,beginTime,endTime,result)
-          case "ImageHistory" =>       restoreSucc[ImageHistory]      (args,threadIdObj,beginTime,endTime,result)
-          case "ImageInspect" =>       restoreSucc[ImageInspect]      (args,threadIdObj,beginTime,endTime,result)
-          case "ImageCreate" =>        restoreSucc[ImageCreate]       (args,threadIdObj,beginTime,endTime,result)
-        }
-      }
-
-      private def restoreSucc[M<:MethodCall](
-                                              argsJs:JsValue,
-                                              threadIdObjJs:JsValue,
-                                              beginTimeJs:JsValue,
-                                              endTimeJs:JsValue,
-                                              resultJs:JsValue
-                                            )(implicit
-                                              methReader:JsonReader[M],
-                                              resultReader:JsonReader[M#RESULT],
-                                              methWriter:JsonWriter[M],
-                                              resultWriter:JsonWriter[M#RESULT]
-      )
-      :SuccEvent[M,M#RESULT] = {
-        (for {
-          margs <- argsJs.jsonAs[M]
-          mrest <- resultJs.jsonAs[M#RESULT]
-          thId <- threadIdObjJs.jsonAs[ThreadID]
-          begin <- beginTimeJs.jsonAs[LocalDateTime]
-          end <- endTimeJs.jsonAs[LocalDateTime]
-          event = SuccEvent(thId, begin, end, margs, mrest)
-        } yield event) match {
-          case Left(err) => throw err
-          case Right(value) => value
-        }
-      }
-
-      private def restoreFailEvent(args:JsValue, methodType:String, threadIdObj:JsValue, beginTime:JsValue, endTime:JsValue, error:JsValue):LogEvent[_] = {
-        methodType match {
-          case "Containers" =>         restoreFail[Containers]         (threadIdObj, beginTime, endTime, args, error)
-          case "ContainerInspect" =>   restoreFail[ContainerInspect]   (threadIdObj, beginTime, endTime, args, error)
-          case "ContainerProcesses" => restoreFail[ContainerProcesses] (threadIdObj, beginTime, endTime, args, error)
-          case "ContainerLogs" =>      restoreFail[ContainerLogs]      (threadIdObj, beginTime, endTime, args, error)
-          case "ContainerStart" =>     restoreFail[ContainerStart]     (threadIdObj, beginTime, endTime, args, error)
-          case "ContainerStop" =>      restoreFail[ContainerStop]      (threadIdObj, beginTime, endTime, args, error)
-          case "ContainerCreate" =>    restoreFail[ContainerCreate]    (threadIdObj, beginTime, endTime, args, error)
-          case "ContainerKill" =>      restoreFail[ContainerKill]      (threadIdObj, beginTime, endTime, args, error)
-          case "ContainerRemove" =>    restoreFail[ContainerRemove]    (threadIdObj, beginTime, endTime, args, error)
-          case "ContainerFsChanges" => restoreFail[ContainerFsChanges] (threadIdObj, beginTime, endTime, args, error)
-          case "Images" =>             restoreFail[Images]             (threadIdObj, beginTime, endTime, args, error)
-          case "ImageRemove" =>        restoreFail[ImageRemove]        (threadIdObj, beginTime, endTime, args, error)
-          case "ImageTag" =>           restoreFail[ImageTag]           (threadIdObj, beginTime, endTime, args, error)
-          case "ImageHistory" =>       restoreFail[ImageHistory]       (threadIdObj, beginTime, endTime, args, error)
-          case "ImageInspect" =>       restoreFail[ImageInspect]       (threadIdObj, beginTime, endTime, args, error)
-          case "ImageCreate" =>        restoreFail[ImageCreate]        (threadIdObj, beginTime, endTime, args, error)
-        }
-      }
-
-      private def restoreFail[M<:MethodCall](threadIdObj:JsValue, beginTime:JsValue, endTime:JsValue, args:JsValue, error:JsValue)
-                                            (implicit methReader:JsonReader[M], methWriter:JsonWriter[M], errReader:JsonReader[String], errWriter:JsonWriter[String])
-      :FailEvent[M,String] = {
-        (for {
-          thId <- threadIdObj.jsonAs[ThreadID]
-          begin <- beginTime.jsonAs[LocalDateTime]
-          end <- endTime.jsonAs[LocalDateTime]
-          margs <- args.jsonAs[M]
-          err <- error.jsonAs[String]
-          event = FailEvent(thId, begin, end, margs, err)
-        } yield event) match {
-          case Left(err) => throw err
-          case Right(value) => value
-        }
-      }
-    }
-  }
+//  implicit def logEventJsonReader(implicit dtFormat:DateTimeFormatterProvide):JsonReader[LogEvent[_,_]] = {
+//    val jsReader = implicitly[JsonReader[JsValue]]
+//    val expectMethods = List(
+//      "Containers","ContainerInspect","ContainerProcesses","ContainerLogs","ContainerStart","ContainerStop",
+//      "ContainerCreate","ContainerKill","ContainerRemove","ContainerFsChanges",
+//      "Images","ImageRemove","ImageTag","ImageHistory","ImageHistory","ImageInspect","ImageCreate"
+//    )
+//
+//    new JsonReader[LogEvent[_,_]] {
+//      override def read(it: TokenIterator)(implicit fieldName: FieldName): LogEvent[_,_] = {
+//        val js = jsReader.read(it)
+//        js.query("_type").string match {
+//          case None => throw new Error("type of log event (_type = SuccEvent | FailEvent) not defined in root json")
+//          case Some(logEventType) => logEventType match {
+//            case "SuccEvent" | "FailEvent" => js.query("args")("_type").string match {
+//              case None => throw new Error("type of method in event (args._type) not defined")
+//              case Some(methodType) => methodType match {
+//                case _ if expectMethods.contains(methodType) => restoreEvent(js, logEventType, methodType)
+//                case _ => throw new Error(s"type of method $methodType incorrect, expect $expectMethods")
+//              }
+//            }
+//            case _ => throw new Error(s"type of log incorrect $logEventType, expect SuccEvent | FailEvent")
+//          }
+//        }
+//      }
+//
+//      private def restoreEvent(js:JsValue, logEventType:String, methodType:String):LogEvent[_,_] = {
+//        js.query("args").jsObject match {
+//          case None => throw new Error("field args not found")
+//          case Some(args) => js.query("threadId").jsObject match {
+//            case None => throw new Error("field threadId not found")
+//            case Some(threadIdObj) => js.query("beginTime").jsValue match {
+//              case None => throw new Error("field beginTime not found")
+//              case Some(beginTime) => js.query("endTime").jsValue match {
+//                case None => throw new Error("field endTime not found")
+//                case Some(endTime) => logEventType match {
+//                  case "SuccEvent" => js.query("result").jsValue match {
+//                    case None => throw new Error("field result not found")
+//                    case Some(result) => restoreSuccEvent(args, methodType, threadIdObj, beginTime, endTime, result)
+//                  }
+//                  case "FailEvent" => js.query("error").jsValue match {
+//                    case None => throw new Error("field error not found")
+//                    case Some(error) => restoreFailEvent(args, methodType, threadIdObj, beginTime, endTime, error)
+//                  }
+//                }
+//              }
+//            }
+//          }
+//        }
+//      }
+//
+//      private def restoreSuccEvent(args:JsValue, methodType:String, threadIdObj:JsValue, beginTime:JsValue, endTime:JsValue, result:JsValue):LogEvent[_,_] = {
+//        methodType match {
+//          case "Containers" =>         restoreSucc[Containers]        (args,threadIdObj,beginTime,endTime,result)
+//          case "ContainerInspect" =>   restoreSucc[ContainerInspect]  (args,threadIdObj,beginTime,endTime,result)
+//          case "ContainerProcesses" => restoreSucc[ContainerProcesses](args,threadIdObj,beginTime,endTime,result)
+//          case "ContainerLogs" =>      restoreSucc[ContainerLogs]     (args,threadIdObj,beginTime,endTime,result)
+//          case "ContainerStart" =>     restoreSucc[ContainerStart]    (args,threadIdObj,beginTime,endTime,result)
+//          case "ContainerStop" =>      restoreSucc[ContainerStop]     (args,threadIdObj,beginTime,endTime,result)
+//          case "ContainerCreate" =>    restoreSucc[ContainerCreate]   (args,threadIdObj,beginTime,endTime,result)
+//          case "ContainerKill" =>      restoreSucc[ContainerKill]     (args,threadIdObj,beginTime,endTime,result)
+//          case "ContainerRemove" =>    restoreSucc[ContainerRemove]   (args,threadIdObj,beginTime,endTime,result)
+//          case "ContainerFsChanges" => restoreSucc[ContainerFsChanges](args,threadIdObj,beginTime,endTime,result)
+//          case "Images" =>             restoreSucc[Images]            (args,threadIdObj,beginTime,endTime,result)
+//          case "ImageRemove" =>        restoreSucc[ImageRemove]       (args,threadIdObj,beginTime,endTime,result)
+//          case "ImageTag" =>           restoreSucc[ImageTag]          (args,threadIdObj,beginTime,endTime,result)
+//          case "ImageHistory" =>       restoreSucc[ImageHistory]      (args,threadIdObj,beginTime,endTime,result)
+//          case "ImageInspect" =>       restoreSucc[ImageInspect]      (args,threadIdObj,beginTime,endTime,result)
+//          case "ImageCreate" =>        restoreSucc[ImageCreate]       (args,threadIdObj,beginTime,endTime,result)
+//        }
+//      }
+//
+//      private def restoreSucc[M<:MethodCall](
+//                                              argsJs:JsValue,
+//                                              threadIdObjJs:JsValue,
+//                                              beginTimeJs:JsValue,
+//                                              endTimeJs:JsValue,
+//                                              resultJs:JsValue
+//                                            )(implicit
+//                                              methReader:JsonReader[M],
+//                                              resultReader:JsonReader[M#RESULT],
+//                                              methWriter:JsonWriter[M],
+//                                              resultWriter:JsonWriter[M#RESULT]
+//      )
+//      :SuccEvent[M,M#RESULT] = {
+//        (for {
+//          margs <- argsJs.jsonAs[M]
+//          mrest <- resultJs.jsonAs[M#RESULT]
+//          thId <- threadIdObjJs.jsonAs[ThreadID]
+//          begin <- beginTimeJs.jsonAs[LocalDateTime]
+//          end <- endTimeJs.jsonAs[LocalDateTime]
+//          event = SuccEvent(thId, begin, end, margs, mrest)
+//        } yield event) match {
+//          case Left(err) => throw err
+//          case Right(value) => value
+//        }
+//      }
+//
+//      private def restoreFailEvent(args:JsValue, methodType:String, threadIdObj:JsValue, beginTime:JsValue, endTime:JsValue, error:JsValue):LogEvent[_,_] = {
+//        methodType match {
+//          case "Containers" =>         restoreFail[Containers]         (threadIdObj, beginTime, endTime, args, error)
+//          case "ContainerInspect" =>   restoreFail[ContainerInspect]   (threadIdObj, beginTime, endTime, args, error)
+//          case "ContainerProcesses" => restoreFail[ContainerProcesses] (threadIdObj, beginTime, endTime, args, error)
+//          case "ContainerLogs" =>      restoreFail[ContainerLogs]      (threadIdObj, beginTime, endTime, args, error)
+//          case "ContainerStart" =>     restoreFail[ContainerStart]     (threadIdObj, beginTime, endTime, args, error)
+//          case "ContainerStop" =>      restoreFail[ContainerStop]      (threadIdObj, beginTime, endTime, args, error)
+//          case "ContainerCreate" =>    restoreFail[ContainerCreate]    (threadIdObj, beginTime, endTime, args, error)
+//          case "ContainerKill" =>      restoreFail[ContainerKill]      (threadIdObj, beginTime, endTime, args, error)
+//          case "ContainerRemove" =>    restoreFail[ContainerRemove]    (threadIdObj, beginTime, endTime, args, error)
+//          case "ContainerFsChanges" => restoreFail[ContainerFsChanges] (threadIdObj, beginTime, endTime, args, error)
+//          case "Images" =>             restoreFail[Images]             (threadIdObj, beginTime, endTime, args, error)
+//          case "ImageRemove" =>        restoreFail[ImageRemove]        (threadIdObj, beginTime, endTime, args, error)
+//          case "ImageTag" =>           restoreFail[ImageTag]           (threadIdObj, beginTime, endTime, args, error)
+//          case "ImageHistory" =>       restoreFail[ImageHistory]       (threadIdObj, beginTime, endTime, args, error)
+//          case "ImageInspect" =>       restoreFail[ImageInspect]       (threadIdObj, beginTime, endTime, args, error)
+//          case "ImageCreate" =>        restoreFail[ImageCreate]        (threadIdObj, beginTime, endTime, args, error)
+//        }
+//      }
+//
+//      private def restoreFail[M<:MethodCall](threadIdObj:JsValue, beginTime:JsValue, endTime:JsValue, args:JsValue, error:JsValue)
+//                                            (implicit methReader:JsonReader[M], methWriter:JsonWriter[M], errReader:JsonReader[String], errWriter:JsonWriter[String])
+//      :FailEvent[M,String] = {
+//        (for {
+//          thId <- threadIdObj.jsonAs[ThreadID]
+//          begin <- beginTime.jsonAs[LocalDateTime]
+//          end <- endTime.jsonAs[LocalDateTime]
+//          margs <- args.jsonAs[M]
+//          err <- error.jsonAs[String]
+//          event = FailEvent(thId, begin, end, margs, err)
+//        } yield event) match {
+//          case Left(err) => throw err
+//          case Right(value) => value
+//        }
+//      }
+//    }
+//  }
 
   //#endregion
 

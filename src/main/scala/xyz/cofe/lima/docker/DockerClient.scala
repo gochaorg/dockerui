@@ -211,7 +211,7 @@ case class DockerClient( socketChannel: SocketChannel,
    */
   def containers(all:Boolean=false, limit:Option[Int]=None, size:Boolean=false)
   : Either[String, List[model.ContainerStatus]] = {
-    logger(Containers(all,limit,size)).run {
+    logger[Containers,String](Containers(all,limit,size)).run {
       val q = Map("all" -> all.toString) ++
         (limit.map(l => Map("limit" -> l.toString)).getOrElse(Map())) ++
         (if (size) Map("size" -> size.toString) else (Map()))
@@ -228,7 +228,7 @@ case class DockerClient( socketChannel: SocketChannel,
    * @return инфа
    */
   def containerInspect(id:String): Either[String, model.ContainerInspect] =
-    logger(ContainerInspect(id)).run {
+    logger[ContainerInspect,String](ContainerInspect(id)).run {
       sendForJson[model.ContainerInspect](
         HttpRequest(path = s"/containers/${id}/json")
       )
@@ -240,7 +240,7 @@ case class DockerClient( socketChannel: SocketChannel,
    * @return процессы
    */
   def containerProcesses(id:String): Either[String, model.Top] =
-    logger(ContainerProcesses(id)).run {
+    logger[ContainerProcesses,String](ContainerProcesses(id)).run {
       sendForJson[model.Top](
         HttpRequest(path = s"/containers/${id}/top")
       )
@@ -294,7 +294,7 @@ case class DockerClient( socketChannel: SocketChannel,
                     timestamps:Option[Boolean]=Some(true),
                     tail:Option[String]=None
           ): Either[String, Array[String]] = {
-    logger(ContainerLogs(id, follow, stdout, stderr, since, timestamps, tail)).run {
+    logger[ContainerLogs,String](ContainerLogs(id, follow, stdout, stderr, since, timestamps, tail)).run {
       sendForText(
         HttpRequest(path = s"/containers/${id}/logs")
           .queryString(
@@ -332,7 +332,7 @@ case class DockerClient( socketChannel: SocketChannel,
    * @return контейнер запускается и может быть еще не запущен
    */
   def containerStart(containerId:String): Either[String, Unit] = {
-    logger(ContainerStart(containerId)).run {
+    logger[ContainerStart,String](ContainerStart(containerId)).run {
       sendForHttp(
         HttpRequest(path = s"/containers/${containerId}/start", method = "POST")
       ) match {
@@ -360,7 +360,7 @@ case class DockerClient( socketChannel: SocketChannel,
    * @return остановка контейнера
    */
   def containerStop(containerId:String): Either[String, Unit] = {
-    logger(ContainerStart(containerId)).run {
+    logger[ContainerStart,String](ContainerStart(containerId)).run {
       sendForHttp(
         HttpRequest(path = s"/containers/${containerId}/stop", method = "POST")
       ) match {
@@ -394,7 +394,7 @@ case class DockerClient( socketChannel: SocketChannel,
                        name:Option[String]=None,
                        platform:Option[String]=None
                      ): Either[String, CreateContainerResponse] = {
-    logger(ContainerCreate(createContainerRequest,name, platform)).run {
+    logger[ContainerCreate,String](ContainerCreate(createContainerRequest,name, platform)).run {
       sendForJson[CreateContainerResponse](
         HttpRequest("/containers/create")
           .post()
@@ -411,7 +411,7 @@ case class DockerClient( socketChannel: SocketChannel,
    * @return результат остановки
    */
   def containerKill(containerId:String): Either[String, Unit] = {
-    logger(ContainerKill(containerId)).run {
+    logger[ContainerKill,String](ContainerKill(containerId)).run {
       sendForHttp(HttpRequest(s"/containers/$containerId/kill").post()) match {
         case Left(errMessage) =>
           errMessage match {
@@ -440,7 +440,7 @@ case class DockerClient( socketChannel: SocketChannel,
    * @return результат
    */
   def containerRemove(containerId:String, anonVolumesRemove:Option[Boolean]=None, force:Option[Boolean]=None, link:Option[Boolean]=None ): Either[String, Unit] = {
-    logger(ContainerRemove(containerId, anonVolumesRemove, force, link)).run {
+    logger[ContainerRemove,String](ContainerRemove(containerId, anonVolumesRemove, force, link)).run {
       sendForHttp(
         HttpRequest(s"/containers/$containerId")
           .delete()
@@ -470,7 +470,7 @@ case class DockerClient( socketChannel: SocketChannel,
    * @return список файлов
    */
   def containerFsChanges(containerId:String): Either[String, List[ContainerFileChanges]] =
-    logger(ContainerFsChanges(containerId)).run {
+    logger[ContainerFsChanges,String](ContainerFsChanges(containerId)).run {
       sendForJson[List[model.ContainerFileChanges]](
         HttpRequest(s"/containers/$containerId/changes").get()
       )
@@ -483,7 +483,7 @@ case class DockerClient( socketChannel: SocketChannel,
    * @return результат
    */
   def containerRename(containerId:String, newName:String): Either[String, Unit] =
-    logger(ContainerRename(containerId,newName)).run {
+    logger[ContainerRename,String](ContainerRename(containerId,newName)).run {
       sendForHttp(
         HttpRequest(s"/containers/$containerId/rename")
           .delete()
@@ -510,14 +510,14 @@ case class DockerClient( socketChannel: SocketChannel,
   //#region image task
 
   def images(): Either[String, List[Image]] =
-    logger(Images()).run {
+    logger[Images,String](Images()).run {
       sendForJson[List[model.Image]](
         HttpRequest("/images/json").get()
       )
     }
 
   def imageInspect(imageId:String): Either[String, model.ImageInspect] =
-    logger(Logger.ImageInspect(imageId)).run {
+    logger[Logger.ImageInspect,String](Logger.ImageInspect(imageId)).run {
       sendForJson[model.ImageInspect](
         HttpRequest(s"/images/${imageId}/json").get()
       )
@@ -531,7 +531,7 @@ case class DockerClient( socketChannel: SocketChannel,
                    platform:Option[String] = None
                  )(progress:ImagePullStatusEntry=>Unit):Unit =
   {
-    val logReq = logger(Logger.ImageCreate(fromImage, fromSrc, repo, tag, message, platform))
+    val logReq = logger[Logger.ImageCreate,String](Logger.ImageCreate(fromImage, fromSrc, repo, tag, message, platform))
     var logEvents = List[model.ImagePullStatusEntry]()
 
     lazy val byte2charDecoder: Decoder.Byte2Char = Decoder.Byte2Char(StandardCharsets.UTF_8.newDecoder())
@@ -578,14 +578,14 @@ case class DockerClient( socketChannel: SocketChannel,
    * @param noprune Do not delete untagged parent images
    */
   def imageRemove(nameOrId:String,force:Option[Boolean]=None,noprune:Option[Boolean]=None): Either[String, List[model.ImageRemove]] =
-    logger(Logger.ImageRemove(nameOrId, force, noprune)).run {
+    logger[Logger.ImageRemove,String](Logger.ImageRemove(nameOrId, force, noprune)).run {
       sendForJson[List[model.ImageRemove]](
         HttpRequest(s"/images/${nameOrId}").delete().queryString("force" -> force, "noprune" -> noprune)
       )
     }
 
   def imageTag(nameOrId:String,repo:Option[String]=None,tag:Option[String]=None): Either[String, Unit] =
-    logger(Logger.ImageTag(nameOrId, repo, tag)).run {
+    logger[Logger.ImageTag,String](Logger.ImageTag(nameOrId, repo, tag)).run {
       sendForHttp(
         HttpRequest(path = s"/images/${nameOrId}/tag")
           .post()
@@ -611,7 +611,7 @@ case class DockerClient( socketChannel: SocketChannel,
 
 
   def imageHistory(nameOrId:String): Either[String, List[ImageHistory]] = {
-    logger(Logger.ImageHistory(nameOrId)).run {
+    logger[Logger.ImageHistory,String](Logger.ImageHistory(nameOrId)).run {
       sendForJson[List[model.ImageHistory]](HttpRequest(s"/images/$nameOrId/history"))
     }
   }
