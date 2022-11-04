@@ -1,5 +1,16 @@
 package xyz.cofe.lima.docker.http
 
+/**
+ * Чтение данных из некого сокета,
+ * читает данные ожидая их поступление, с приемлеменными задержками
+ * @param source источник данных
+ * @param decoder декодер данных
+ * @param sourceTimeout (мс) максимальная задерждка данных очередного байта из сокета, после которого будет отказ/завершение
+ * @param readTimeout (мс) максимальное допустимое время исполнения метода read
+ * @param cpuThrottling (мс) пропуск CPU
+ * @tparam I тип исходных данных
+ * @tparam O тип результирущих данных
+ */
 case class DecodeReader[I,O](source:()=>Option[I],
                              decoder: Decoder[I,O,_],
                              sourceTimeout:Long=0,
