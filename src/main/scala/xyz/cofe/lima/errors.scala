@@ -115,15 +115,4 @@ object errors {
   object DockerClientError {
     case class Simple(message:String) extends DockerClientError
   }
-
-  sealed trait HttpError extends AppError
-  object HttpError {
-    case class BadHeaderFormat(message:String) extends HttpError
-    case class HeaderExpected(message:String = "No response: header not readed") extends HttpError
-    case class NoData(message:String="no data") extends HttpError
-    case class TransferEncodingExpectLF(message:String="expect LF (\\n)") extends HttpError
-    case class TransferEncodingExpectCR(message:String="expect CR (\\n)") extends HttpError
-    case class TransferEncodingNoData(expect:Long, actual:Long, message:String="expect CR (\\n)") extends HttpError
-    case class TransferEncodingExpectCRLF(b0:Byte, b1:Byte, message:String="expect CR (\\n)") extends HttpError
-  }
 }
