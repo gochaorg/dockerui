@@ -513,6 +513,10 @@ case class DockerClient( socketChannel: SocketChannel,
   //#endregion
   //#region image task
 
+  /**
+   * Получение списка образов
+   * @return список образов
+   */
   def images(): Either[String, List[Image]] =
     logger(Images()).run {
       sendForJson[List[model.Image]](
@@ -520,6 +524,11 @@ case class DockerClient( socketChannel: SocketChannel,
       )
     }
 
+  /**
+   * Получение детальной информации по образу
+   * @param imageId ид образа
+   * @return информация по образу
+   */
   def imageInspect(imageId:String): Either[String, model.ImageInspect] =
     logger(Logger.ImageInspect(imageId)).run {
       sendForJson[model.ImageInspect](
@@ -527,6 +536,16 @@ case class DockerClient( socketChannel: SocketChannel,
       )
     }
 
+  /**
+   * Получение/создание образа из реестра или импорт образа
+   * @param fromImage Имя образа для извлечения. Имя может включать тег или дайджест. Этот параметр можно использовать только при извлечении(pull) образа. Вытягивание отменяется, если соединение HTTP закрыто.
+   * @param fromSrc Источник для импорта. Значение может быть URL-адресом, по которому можно получить образ, или - для чтения образа из тела запроса. Этот параметр можно использовать только при импорте образа.
+   * @param repo Имя репозитория, присвоенное образу при его импорте. Может включать тег. Этот параметр можно использовать только при импорте образа.
+   * @param tag Тег или подпись (digest). Если пусто при извлечении изображения, это приводит к извлечению всех тегов для данного образа.
+   * @param message Set commit message for imported image.
+   * @param platform Platform in the format os [/arch [/variant] ]
+   * @param progress
+   */
   def imageCreate( fromImage:Option[String] = None,
                    fromSrc:Option[String] = None,
                    repo:Option[String] = None,
