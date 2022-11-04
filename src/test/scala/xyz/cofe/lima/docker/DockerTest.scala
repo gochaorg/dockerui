@@ -2,7 +2,7 @@ package xyz.cofe.lima.docker
 
 import org.scalatest.funsuite.AnyFunSuite
 import xyz.cofe.lima.docker.http.HttpResponseStream.Event
-import xyz.cofe.lima.docker.http.{DecodeReader, Decoder, HttpLogger, HttpRequest, HttpResponseStream, SocketLogger}
+import xyz.cofe.lima.docker.http.{DelaiedReader, Decoder, HttpLogger, HttpRequest, HttpResponseStream, SocketLogger}
 import xyz.cofe.lima.docker.log.Logger
 import xyz.cofe.lima.docker.model.CreateContainerRequest
 

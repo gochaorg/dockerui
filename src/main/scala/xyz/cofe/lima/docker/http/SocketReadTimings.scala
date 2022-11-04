@@ -1,13 +1,16 @@
 package xyz.cofe.lima.docker.http
 
+import Duration._
+
 /**
  * Тайминги чтения данных из сокета
- * @param sourceTimeout
+ * @param sourceTimeout (мс) максимальная задерждка данных очередного байта из сокета, после которого будет отказ/завершение
+ * @param readTimeout (мс) максимальное допустимое время
  */
 case class SocketReadTimings(
-                              sourceTimeout: Long = 1000L,
-                              readTimeout: Long = 1000L * 30L,
-                              cpuThrottling: Long = 1,
-                              streamReadTimeout: Long = (-1),
-                              streamSourceTimeout: Long = 1000L * 30L,
+                              sourceTimeout: Option[Duration] = 1.seconds.some,
+                              readTimeout: Option[Duration] = 30.seconds.some,
+                              cpuThrottling: Option[Duration] = 1.milliseconds.some,
+                              streamReadTimeout: Option[Duration] = None,
+                              streamSourceTimeout: Option[Duration] = 30.seconds.some,
                             )

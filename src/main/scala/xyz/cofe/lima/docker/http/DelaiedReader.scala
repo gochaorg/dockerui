@@ -1,8 +1,11 @@
 package xyz.cofe.lima.docker.http
 
+import Duration._
+
 /**
  * Чтение данных из некого сокета,
  * читает данные ожидая их поступление, с приемлеменными задержками
+ *
  * @param source источник данных
  * @param decoder декодер данных
  * @param sourceTimeout (мс) максимальная задерждка данных очередного байта из сокета, после которого будет отказ/завершение
@@ -11,11 +14,11 @@ package xyz.cofe.lima.docker.http
  * @tparam I тип исходных данных
  * @tparam O тип результирущих данных
  */
-case class DecodeReader[I,O](source:()=>Option[I],
-                             decoder: Decoder[I,O,_],
-                             sourceTimeout:Long=0,
-                             readTimeout:Long=0,
-                             cpuThrottling:Long=1
+case class DelaiedReader[I,O](source:()=>Option[I],
+                              decoder: Decoder[I,O,_],
+                              sourceTimeout:Option[Duration]=None,
+                              readTimeout:  Option[Duration]=None,
+                              cpuThrottling:Option[Duration]=None
                             ) extends Function0[Option[O]] {
   var buffer: Seq[O] = Seq[O]()
   def read:Option[O] = {
@@ -24,14 +27,14 @@ case class DecodeReader[I,O](source:()=>Option[I],
       buffer = buffer.tail
       Some(el)
     }else{
-      var readStart = System.currentTimeMillis()
+      val readStart = TimePoint.now
       var stop = false
-      var waitStart = 0L
+      var waitStart:Option[TimePoint] = None
       var result = None:Option[O]
       while(!stop) {
         source() match {
           case Some(value) =>
-            waitStart = 0
+            waitStart = None
             decoder.accept(List(value))
             val decodedResult = decoder.fetch
             if( decodedResult.nonEmpty ){
@@ -39,22 +42,20 @@ case class DecodeReader[I,O](source:()=>Option[I],
               buffer = result.tail.toList
               stop = true
             }else{
-              if( (System.currentTimeMillis()-readStart)>readTimeout && readTimeout>0 ){
+              if( (TimePoint.now-readStart)>readTimeout ){
                 stop = true
               }
             }
           case None =>
-            if( waitStart==0 ) {
-              waitStart = System.currentTimeMillis()
-            } else if( (System.currentTimeMillis() - waitStart)>sourceTimeout ){
+            if( waitStart.isEmpty ) {
+              waitStart = TimePoint.now.some
+            } else if( (TimePoint.now - waitStart.getOrElse(TimePoint(0)))>sourceTimeout ){
               stop = true
             } else {
-              if( (System.currentTimeMillis()-readStart)>readTimeout && readTimeout>0 ){
+              if( (TimePoint.now-readStart)>readTimeout ){
                 stop = true
               } else {
-                if (cpuThrottling > 0) {
-                  Thread.sleep(cpuThrottling)
-                }
+                cpuThrottling.sleep()
               }
             }
         }

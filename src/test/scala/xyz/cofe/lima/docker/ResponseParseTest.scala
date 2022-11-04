@@ -3,7 +3,7 @@ package xyz.cofe.lima.docker
 import org.scalatest.funsuite.AnyFunSuite
 import tethys._
 import tethys.jackson._
-import xyz.cofe.lima.docker.http.{DecodeReader, Decoder, HttpResponseReader, SingleSupplier}
+import xyz.cofe.lima.docker.http.{DelaiedReader, Decoder, HttpResponseReader, SingleSupplier}
 
 import java.nio.ByteBuffer
 import java.nio.charset.{CharsetDecoder, StandardCharsets}
@@ -103,7 +103,7 @@ class ResponseParseTest extends AnyFunSuite {
   }
 
   test("sequence reader") {
-    val reader = DecodeReader[Int,Int](
+    val reader = DelaiedReader[Int,Int](
       SingleSupplier[Int](List(1,2,3,4,5,6,7,8,9)),
       Decoder.Buffer[Int]()
     )
@@ -119,7 +119,7 @@ class ResponseParseTest extends AnyFunSuite {
       Decoder.Byte2Char(StandardCharsets.UTF_8.newDecoder())
     )
 
-    val reader = DecodeReader[Byte,String](byteSupplier, lineDec, sourceTimeout = 1L, readTimeout = 100L)
+    val reader = DelaiedReader[Byte,String](byteSupplier, lineDec, sourceTimeout = 1L, readTimeout = 100L)
     println( reader.read )
     println( reader.read )
     println( reader.read )

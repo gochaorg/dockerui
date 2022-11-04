@@ -1,31 +1,32 @@
 package xyz.cofe.lima.docker.http
 
-import tethys.{JsonObjectWriter, JsonReader, JsonWriter}
 import tethys.derivation.semiauto.{jsonReader, jsonWriter}
 import tethys.writers.tokens.TokenWriter
+import tethys.{JsonReader, JsonWriter}
+import xyz.cofe.lima.docker.http.Duration._
+import xyz.cofe.lima.store.json._
 
 import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
 import java.util.regex.Pattern
-import xyz.cofe.lima.store.json._
 
-case class HttpResponseStream(source:()=>Option[Byte],
-                              sourceTimeout:Long=1000L*10L,
-                              readTimeout:  Long=1000L*60L,
-                              cpuThrottling:Long=1,
-                              pid:Long = -1
+case class HttpResponseStream(source        :()=>Option[Byte],
+                              sourceTimeout :Option[Duration]=10.seconds.some,
+                              readTimeout   :Option[Duration]=60.seconds.some,
+                              cpuThrottling :Option[Duration]=1.milliseconds.some,
+                              pid           :Long = -1
                              )(implicit httpLogger: HttpLogger)
 {
   import HttpResponseStream._
 
   lazy val byte2charDecoder: Decoder.Byte2Char = Decoder.Byte2Char(StandardCharsets.UTF_8.newDecoder())
   lazy val lineDecoder: Decoder[Byte, String, String] = Decoder.Char2Line().compose( byte2charDecoder )
-  lazy val lineReader: DecodeReader[Byte, String] = DecodeReader[Byte,String](
+  lazy val lineReader: DelaiedReader[Byte, String] = DelaiedReader[Byte,String](
     source,
     lineDecoder,
     readTimeout=readTimeout, sourceTimeout=sourceTimeout, cpuThrottling=cpuThrottling
   )
-  lazy val byteReader: DecodeReader[Byte, Byte] = DecodeReader[Byte,Byte](
+  lazy val byteReader: DelaiedReader[Byte, Byte] = DelaiedReader[Byte,Byte](
     source,
     Decoder.Buffer[Byte](),
     readTimeout=readTimeout, sourceTimeout=sourceTimeout, cpuThrottling=cpuThrottling
