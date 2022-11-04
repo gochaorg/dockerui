@@ -565,7 +565,7 @@ case class DockerClient( socketChannel: SocketChannel,
         )
     ) { ev =>
       ev match {
-        case Event.Error(pid,string) => ()
+        case _:Event.Error => ()
         case Event.FirstLine(pid,string) => ()
         case Event.Header(pid,name,value) => ()
         case Event.HeaderEnd(pid) => ()

@@ -38,7 +38,7 @@ object HttpLogger {
     }
     override def event(ev: HttpResponseStream.Event): HttpResponseStream.Event = {
       ev match {
-        case Event.Error(pid,string) => println(s"ev.err $string")
+        case e:Event.Error => println(s"ev.err $e")
         case Event.FirstLine(pid,string) => println(s"ev.firstLine $string")
         case Event.Header(pid,name, value) => println(s"ev.header $name: $value")
         case Event.HeaderEnd(pid) => println("ev.header end")

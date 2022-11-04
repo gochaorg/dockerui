@@ -4,6 +4,7 @@ import tethys.derivation.semiauto.{jsonReader, jsonWriter}
 import tethys.writers.tokens.TokenWriter
 import tethys.{JsonReader, JsonWriter}
 import xyz.cofe.lima.docker.http.Duration._
+import xyz.cofe.lima.docker.http.HttpResponseStream.Event.Error.UndefinedBehavior
 import xyz.cofe.lima.store.json._
 
 import java.io.ByteArrayOutputStream
@@ -43,8 +44,8 @@ case class HttpResponseStream(source        :()=>Option[Byte],
         var hasError = false
         while( !stop ){
           (readHeader {
-            case Event.Error(pis,string) =>
-              consumer(Event.Error(pid,string))
+            case err:Event.Error =>
+              consumer(err)
               hasError = true
               Behavior.Stop
             case Event.Header(pid, name, value) =>
@@ -55,7 +56,7 @@ case class HttpResponseStream(source        :()=>Option[Byte],
               Behavior.Stop
             case _ =>
               hasError = true
-              consumer(Event.Error(pid,s"undefined Behavior"))
+              consumer(Event.Error.UndefinedBehavior(pid))
               Behavior.Stop
           }) match {
             case Behavior.Continue =>
@@ -80,11 +81,11 @@ case class HttpResponseStream(source        :()=>Option[Byte],
         if (line.matches(firstLineRegex)) {
           consumer(httpLogger.event(Event.FirstLine(pid,line)))
         } else {
-          consumer(httpLogger.event(Event.Error(pid,s"first line ($line) not match $firstLineRegex")))
+          consumer(httpLogger.event(Event.Error.FirstLineFormat(pid,s"first line ($line) not match $firstLineRegex")))
           Behavior.Stop
         }
       case None =>
-        consumer(Event.Error(pid,HttpResponse.NO_RESPONSE))
+        consumer(Event.Error.NoResponse(pid))
         Behavior.Stop
     }
 
@@ -96,7 +97,7 @@ case class HttpResponseStream(source        :()=>Option[Byte],
         }else{
           val idx = line.indexOf(":")
           if( idx<1 || idx>=line.length ){
-            consumer(httpLogger.event(Event.Error(pid,s"expect header, line with: name \":\" value, but accept $line")))
+            consumer(httpLogger.event(Event.Error.HeaderFormat(pid,s"expect header, line with: name \":\" value, but accept $line")))
             Behavior.Stop
           }else{
             val name = line.substring(0,idx).trim
@@ -105,7 +106,7 @@ case class HttpResponseStream(source        :()=>Option[Byte],
           }
         }
       case None =>
-        consumer(httpLogger.event(Event.Error(pid,s"No response: header not readed")))
+        consumer(httpLogger.event(Event.Error.NoDataExpectHeader(pid)))
         Behavior.Stop
     }
   }
@@ -119,7 +120,8 @@ case class HttpResponseStream(source        :()=>Option[Byte],
   private def readWithDefinedContentLength(consumer: Consumer, contentLength:Long):Unit = {
     var reads = 0L
     var stop = false
-    var err:Option[String] = None
+    var errOpt:Option[Event.Error] = None
+
     val ba = new Array[Byte](1)
     while( !stop && reads<contentLength ){
       byteReader.read match {
@@ -133,12 +135,12 @@ case class HttpResponseStream(source        :()=>Option[Byte],
           }
         case None =>
           stop = true
-          err = Some(s"no data, reads $reads bytes, expect $contentLength")
+          errOpt = Some(Event.Error.NoDataThanExpected(pid,contentLength,reads))
       }
     }
 
-    err match {
-      case Some(value) => consumer(httpLogger.event(Event.Error(pid,value)))
+    errOpt match {
+      case Some(err) => consumer(httpLogger.event(err))
       case None => consumer(httpLogger.event(Event.DataEnd(pid)))
     }
   }
@@ -210,12 +212,13 @@ case class HttpResponseStream(source        :()=>Option[Byte],
   }
   private def isCR(b: Byte) = b == 13
   private def isLF(b: Byte) = b == 10
-  private def readChunkSize(bytes:()=>Option[Byte]):()=>Either[String,Int] = {
-    def readChunkSize:Either[String,List[Int]] =
+
+  private def readChunkSize(bytes:()=>Option[Byte]):()=>Either[Event.Error,Int] = {
+    def readChunkSize:Either[Event.Error,List[Int]] =
       for {
         b0 <- bytes() match {
           case Some(value) => Right(value)
-          case None => Left("no data")
+          case None => Left(Event.Error.NoDataChunk(pid))
         }
         digits <- fromHex(b0) match {
           case Some(d) =>
@@ -224,12 +227,12 @@ case class HttpResponseStream(source        :()=>Option[Byte],
               res <- dig match {
                 case Nil =>
                   bytes() match {
-                    case None => Left("no data, expect LF (\\n)")
+                    case None => Left(Event.Error.NoDataExpectLF(pid))
                     case Some(b1) =>
                       if( isLF(b1) ){
                         Right( d :: dig )
                       }else{
-                        Left("expect LF (\\n)")
+                        Left( Event.Error.ExpectLF(pid))
                       }
                   }
                 case _ => Right( d :: dig )
@@ -238,11 +241,10 @@ case class HttpResponseStream(source        :()=>Option[Byte],
           case None => if (isCR(b0)) {
             Right(Nil)
           } else {
-            Left("expect CR (\\r)")
+            Left(Event.Error.ExpectCR(pid))
           }
         }
       } yield digits
-
     () => readChunkSize.map { digits =>
       digits.reverse.zipWithIndex.foldLeft(0){ case(sum,(digit, pos)) =>
         pos match {
@@ -252,8 +254,9 @@ case class HttpResponseStream(source        :()=>Option[Byte],
       }
     }
   }
-  private def readChunkData(bytes:()=>Option[Byte]):(Int)=>Either[String,Array[Byte]] = {
-    def reader(expectSize:Int):Either[String,Array[Byte]] = {
+
+  private def readChunkData(bytes:()=>Option[Byte]):(Int)=>Either[Event.Error,Array[Byte]] = {
+    def reader(expectSize:Int):Either[Event.Error,Array[Byte]] = {
       val data = new ByteArrayOutputStream()
       var reads = 0
       var stop = false
@@ -272,12 +275,12 @@ case class HttpResponseStream(source        :()=>Option[Byte],
 
       (bytes(), bytes()) match {
         case (Some(13), Some(10)) =>
-          if( readsBytes.length < expectSize )
-            Left(s"reads ${readsBytes.length} less then expected ${expectSize}")
-          else
+          if( readsBytes.length < expectSize ) {
+            Left(Event.Error.ExpectMoreChunckData(pid,expectSize,readsBytes.length))
+          } else
             Right(readsBytes)
         case (b0,b1) =>
-          Left(s"expect CRLF, but found ${b0}, ${b1}")
+          Left(Event.Error.ExpectCRLF(pid,b0,b1))
       }
     }
     reader
@@ -301,28 +304,29 @@ case class HttpResponseStream(source        :()=>Option[Byte],
   private def readChunked(consumer: Consumer):Unit = {
     val chunkSizeReader = readChunkSize(byteReader)
     val chunkDataReader = readChunkData(byteReader)
-    def reader():Either[String,Unit] = for {
-      chunkSize <- chunkSizeReader()
-      chunkData <- chunkSize match {
-        case 0 => Right(new Array[Byte](0))
-        case _ => chunkDataReader(chunkSize)
-      }
-      _ = chunkSize match {
-        case 0 => Right(())
-        case _ =>
-          consumer(httpLogger.event(Event.Data(pid,chunkData))) match {
-            case Behavior.Stop => Right(())
-            case Behavior.Continue =>
-              reader()
+
+    var stop = false
+    while( !stop ){
+      chunkSizeReader() match {
+        case Left(err) =>
+          consumer(httpLogger.event(err))
+          stop = true
+        case Right(chunkSize) =>
+          chunkDataReader(chunkSize) match {
+            case Left(err) =>
+              consumer(httpLogger.event(err))
+              stop = true
+            case Right(chunkData) =>
+              consumer(httpLogger.event(Event.Data(pid, chunkData))) match {
+                case Behavior.Stop =>
+                  stop = true
+                case Behavior.Continue =>
+              }
+              if( chunkSize==0 ){
+                stop = true
+              }
           }
       }
-    } yield ()
-
-    reader() match {
-      case Left(errMessage) =>
-        consumer(httpLogger.event(Event.Error(pid,errMessage)))
-      case Right(_) =>
-        consumer(httpLogger.event(Event.DataEnd(pid)))
     }
   }
 
@@ -340,10 +344,170 @@ object HttpResponseStream {
   object Event {
     //#region Error
 
-    case class Error(pid:Long, string: String) extends Event
+    sealed trait Error extends Event {
+      def pid:Long
+      def errorMessage:String
+    }
+
     object Error {
-      implicit val reader: JsonReader[Error] = jsonReader[Error]
-      implicit val writer: JsonWriter[Error] = classWriter[Error] ++ jsonWriter[Error]
+      //#region NoDataExpectLF
+
+      case class NoDataExpectLF(pid:Long) extends Error { val errorMessage="no data, expect LF (\\n)" }
+      object NoDataExpectLF {
+        implicit val reader:JsonReader[NoDataExpectLF] = jsonReader[NoDataExpectLF]
+        implicit val writer:JsonWriter[NoDataExpectLF] = classWriter[NoDataExpectLF] ++ jsonWriter[NoDataExpectLF]
+      }
+
+      //#endregion
+      //#region ExpectLF
+
+      case class ExpectLF(pid:Long) extends Error { val errorMessage="expect LF (\\n)" }
+      object ExpectLF {
+        implicit val reader: JsonReader[ExpectLF] = jsonReader[ExpectLF]
+        implicit val writer: JsonWriter[ExpectLF] = classWriter[ExpectLF] ++ jsonWriter[ExpectLF]
+      }
+
+      //#endregion
+      //#region ExpectCR
+
+      case class ExpectCR(pid:Long) extends Error { val errorMessage="expect CR (\\r)" }
+      object ExpectCR {
+        implicit val reader: JsonReader[ExpectCR] = jsonReader[ExpectCR]
+        implicit val writer: JsonWriter[ExpectCR] = classWriter[ExpectCR] ++ jsonWriter[ExpectCR]
+      }
+
+      //#endregion
+      //#region ExpectCRLF
+
+      case class ExpectCRLF(pid:Long,b0:Option[Byte],b1:Option[Byte]) extends Error { val errorMessage=s"expect CRLF, but found ${b0}, ${b1}" }
+
+      object ExpectCRLF {
+        case class ExpectCRLFView(pid:Long,b0:Option[Int],b1:Option[Int],`_type`:String="ExpectCRLF")
+        object ExpectCRLFView {
+          implicit val reader: JsonReader[ExpectCRLFView] = jsonReader[ExpectCRLFView]
+          implicit val writer: JsonWriter[ExpectCRLFView] = jsonWriter[ExpectCRLFView]
+        }
+
+        implicit val reader: JsonReader[ExpectCRLF] = ExpectCRLFView.reader.map( o => ExpectCRLF(o.pid, o.b0.map(_.toByte), o.b1.map(_.toByte)) )
+        implicit val writer: JsonWriter[ExpectCRLF] = ExpectCRLFView.writer.contramap( o => ExpectCRLFView(o.pid, o.b0.map(_.toInt), o.b1.map(_.toInt)) )
+      }
+
+      //#endregion
+      //#region ExpectMoreChunckData
+
+      case class ExpectMoreChunckData(pid:Long,expect:Int,actual:Int) extends Error {
+        val errorMessage=s"reads ${actual} less then expected ${expect}"
+      }
+
+      object ExpectMoreChunckData {
+        implicit val reader: JsonReader[ExpectMoreChunckData] = jsonReader[ExpectMoreChunckData]
+        implicit val writer: JsonWriter[ExpectMoreChunckData] = classWriter[ExpectMoreChunckData] ++ jsonWriter[ExpectMoreChunckData]
+      }
+
+      //#endregion
+      //#region NoDataChunk
+
+      case class NoDataChunk(pid:Long) extends Error {
+        val errorMessage="no data"
+      }
+
+      object NoDataChunk {
+        implicit val reader: JsonReader[NoDataChunk] = jsonReader[NoDataChunk]
+        implicit val writer: JsonWriter[NoDataChunk] = classWriter[NoDataChunk] ++ jsonWriter[NoDataChunk]
+      }
+
+      //#endregion
+      //#region NoDataThanExpected
+
+      case class NoDataThanExpected(pid:Long,expect:Long,actual:Long) extends Error { val errorMessage=s"no data, reads $actual bytes, expect $expect" }
+
+      object NoDataThanExpected {
+        implicit val reader: JsonReader[NoDataThanExpected] = jsonReader[NoDataThanExpected]
+        implicit val writer: JsonWriter[NoDataThanExpected] = classWriter[NoDataThanExpected] ++ jsonWriter[NoDataThanExpected]
+      }
+
+      //#endregion
+      //#region NoDataExpectHeader
+
+      case class NoDataExpectHeader(pid:Long) extends Error { val errorMessage = "No response: header not read" }
+
+      object NoDataExpectHeader {
+        implicit val reader: JsonReader[NoDataExpectHeader] = jsonReader[NoDataExpectHeader]
+        implicit val writer: JsonWriter[NoDataExpectHeader] = classWriter[NoDataExpectHeader] ++ jsonWriter[NoDataExpectHeader]
+      }
+
+      //#endregion
+      //#region HeaderFormat
+
+      case class HeaderFormat(pid:Long,errorMessage:String) extends Error
+
+      object HeaderFormat {
+        implicit val reader: JsonReader[HeaderFormat] = jsonReader[HeaderFormat]
+        implicit val writer: JsonWriter[HeaderFormat] = classWriter[HeaderFormat] ++ jsonWriter[HeaderFormat]
+      }
+
+      //#endregion
+      //#region NoResponse
+
+      case class NoResponse(pid:Long) extends Error { val errorMessage = "No response" }
+
+      object NoResponse {
+        implicit val reader: JsonReader[NoResponse] = jsonReader[NoResponse]
+        implicit val writer: JsonWriter[NoResponse] = classWriter[NoResponse] ++ jsonWriter[NoResponse]
+      }
+
+      //#endregion
+      //#region FirstLineFormat
+
+      case class FirstLineFormat(pid:Long,errorMessage:String) extends Error
+
+      object FirstLineFormat {
+        implicit val reader: JsonReader[FirstLineFormat] = jsonReader[FirstLineFormat]
+        implicit val writer: JsonWriter[FirstLineFormat] = classWriter[FirstLineFormat] ++ jsonWriter[FirstLineFormat]
+      }
+
+      //#endregion
+      //#region UndefinedBehavior
+
+      case class UndefinedBehavior(pid:Long) extends Error { val errorMessage = "Undefined behavior! bug!" }
+
+      object UndefinedBehavior {
+        implicit val reader: JsonReader[UndefinedBehavior] = jsonReader[UndefinedBehavior]
+        implicit val writer: JsonWriter[UndefinedBehavior] = classWriter[UndefinedBehavior] ++ jsonWriter[UndefinedBehavior]
+      }
+
+      //#endregion
+
+      implicit val writer:JsonWriter[Error] = (value: Error, tokenWriter: TokenWriter) => {
+        value match {
+          case e:NoDataExpectLF => NoDataExpectLF.writer.write(e,tokenWriter)
+          case e:ExpectLF => ExpectLF.writer.write(e,tokenWriter)
+          case e:ExpectCR => ExpectCR.writer.write(e,tokenWriter)
+          case e:ExpectCRLF => ExpectCRLF.writer.write(e,tokenWriter)
+          case e:ExpectMoreChunckData => ExpectMoreChunckData.writer.write(e,tokenWriter)
+          case e:NoDataChunk => NoDataChunk.writer.write(e,tokenWriter)
+          case e:NoDataThanExpected => NoDataThanExpected.writer.write(e,tokenWriter)
+          case e:NoDataExpectHeader => NoDataExpectHeader.writer.write(e,tokenWriter)
+          case e:HeaderFormat => HeaderFormat.writer.write(e,tokenWriter)
+          case e:NoResponse => NoResponse.writer.write(e,tokenWriter)
+          case e:FirstLineFormat => FirstLineFormat.writer.write(e,tokenWriter)
+          case e:UndefinedBehavior => UndefinedBehavior.writer.write(e,tokenWriter)
+        }
+      }
+
+      implicit val reader:JsonReader[Error] = JsonReader.builder.addField[String]("_type").selectReader[Error] {
+        case "NoDataExpectLF" => NoDataExpectLF.reader
+        case "ExpectLF" => ExpectLF.reader
+        case "ExpectCR" => ExpectCR.reader
+        case "ExpectCRLF" => ExpectCRLF.reader
+        case "ExpectMoreChunckData" => ExpectMoreChunckData.reader
+        case "NoDataThanExpected" => NoDataThanExpected.reader
+        case "NoDataExpectHeader" => NoDataExpectHeader.reader
+        case "HeaderFormat" => HeaderFormat.reader
+        case "NoResponse" => NoResponse.reader
+        case "FirstLineFormat" => FirstLineFormat.reader
+        case "UndefinedBehavior" => UndefinedBehavior.reader
+      }
     }
 
     //#endregion
@@ -426,7 +590,20 @@ object HttpResponseStream {
 
     implicit val writer:JsonWriter[Event] = (value: Event, tokenWriter: TokenWriter) => {
       value match {
-        case ev: Error => Error.writer.write(ev, tokenWriter)
+        //case ev: Error => Error.writer.write(ev, tokenWriter) //todo !!
+        case e: Error.NoDataExpectLF => Error.NoDataExpectLF.writer.write(e, tokenWriter)
+        case e: Error.ExpectLF => Error.ExpectLF.writer.write(e, tokenWriter)
+        case e: Error.ExpectCR => Error.ExpectCR.writer.write(e, tokenWriter)
+        case e: Error.ExpectCRLF => Error.ExpectCRLF.writer.write(e, tokenWriter)
+        case e: Error.ExpectMoreChunckData => Error.ExpectMoreChunckData.writer.write(e, tokenWriter)
+        case e: Error.NoDataChunk => Error.NoDataChunk.writer.write(e, tokenWriter)
+        case e: Error.NoDataThanExpected => Error.NoDataThanExpected.writer.write(e, tokenWriter)
+        case e: Error.NoDataExpectHeader => Error.NoDataExpectHeader.writer.write(e, tokenWriter)
+        case e: Error.HeaderFormat => Error.HeaderFormat.writer.write(e, tokenWriter)
+        case e: Error.NoResponse => Error.NoResponse.writer.write(e, tokenWriter)
+        case e: Error.FirstLineFormat => Error.FirstLineFormat.writer.write(e, tokenWriter)
+        case e: Error.UndefinedBehavior => Error.UndefinedBehavior.writer.write(e, tokenWriter)
+
         case ev: FirstLine => FirstLine.writer.write(ev, tokenWriter)
         case ev: Header => Header.writer.write(ev, tokenWriter)
         case ev: HeaderEnd => HeaderEnd.writer.write(ev, tokenWriter)
@@ -435,7 +612,19 @@ object HttpResponseStream {
       }
     }
     implicit val reader:JsonReader[Event] = JsonReader.builder.addField[String]("_type").selectReader[Event] {
-      case "Error" => Error.reader
+      // case "Error" => Error.reader // todo !!
+      case "NoDataExpectLF" => Error.NoDataExpectLF.reader
+      case "ExpectLF" => Error.ExpectLF.reader
+      case "ExpectCR" => Error.ExpectCR.reader
+      case "ExpectCRLF" => Error.ExpectCRLF.reader
+      case "ExpectMoreChunckData" => Error.ExpectMoreChunckData.reader
+      case "NoDataThanExpected" => Error.NoDataThanExpected.reader
+      case "NoDataExpectHeader" => Error.NoDataExpectHeader.reader
+      case "HeaderFormat" => Error.HeaderFormat.reader
+      case "NoResponse" => Error.NoResponse.reader
+      case "FirstLineFormat" => Error.FirstLineFormat.reader
+      case "UndefinedBehavior" => Error.UndefinedBehavior.reader
+
       case "FirstLine" => FirstLine.reader
       case "Header" => Header.reader
       case "HeaderEnd" => HeaderEnd.reader
