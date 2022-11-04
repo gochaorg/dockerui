@@ -13,7 +13,6 @@ import xyz.cofe.lima.store.json._
 case class HttpResponse( firstLine: String,
                          headers: List[(String,String)],
                          body: Seq[Byte],
-                         bodyError:Option[String] = None,
                          bodyDecoded:Boolean = false,
                          id:Long = HttpRequest.idSeq.incrementAndGet(),
                          pid:Long = -1,
@@ -25,7 +24,6 @@ case class HttpResponse( firstLine: String,
     sb ++= s"firstLine $firstLine\n"
     headers.foreach { case(k,v) => sb ++= s"header $k $v\n" }
 
-    bodyError.foreach(err => sb ++= s"bodyError $err")
     sb ++= s"bodyDecoded ${bodyDecoded}"
 
     sb ++= s"body-size ${body.size}\n"
@@ -239,7 +237,6 @@ object HttpResponse {
       var firstLine = None:Option[String]
       var headers = List[(String,String)]()
       val body = new ByteArrayOutputStream()
-      var bodyError = None:Option[String]
       var id = None:Option[String]
       var bodyDecoded = false
 
@@ -248,8 +245,6 @@ object HttpResponse {
           firstLine = Some(line.substring("firstLine ".length))
         }else if( line.startsWith("id ")){
           id = Some(line.substring("id ".length))
-        }else if( line.startsWith("bodyError ")){
-          bodyError = Some(line.substring("bodyError ".length))
         }else if( line.startsWith("bodyDecoded ")){
           bodyDecoded = line.substring("bodyDecoded ".length).trim.toBoolean
         }else if( line.startsWith("header ")){
@@ -271,7 +266,6 @@ object HttpResponse {
             firstLine.get,
             headers.reverse,
             body.toByteArray,
-            bodyError = bodyError,
             bodyDecoded = bodyDecoded,
             id = id.map( str => str.toLong ).getOrElse(-1L)
           )
@@ -291,7 +285,6 @@ object HttpResponse {
                                   firstLine: String,
                                   headers: List[HttpHeaderLogView],
                                   body: Option[String],
-                                  bodyError: Option[String],
                                   bodyDecoded: Boolean,
                                   id: Long,
                                   pid: Long,
@@ -304,7 +297,6 @@ object HttpResponse {
           case Some(value) => HexDump.bytesFrom(value)
           case None => null
         },
-        bodyError = bodyError,
         bodyDecoded = bodyDecoded,
         id = id,
         pid = pid)
@@ -322,7 +314,6 @@ object HttpResponse {
           case some: Seq[Byte] => Some(HexDump.toString(some))
           case null => None
         },
-        bodyError = req.bodyError,
         bodyDecoded = req.bodyDecoded,
         id = req.id,
         pid = req.pid
