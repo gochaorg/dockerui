@@ -1,6 +1,6 @@
 package xyz.cofe.lima.docker
 
-import xyz.cofe.lima.docker.http.{Decoder, HttpLogger, HttpRequest, HttpResponse, HttpResponseReader, HttpResponseStream, SocketChannelSupplier, SocketLogger}
+import xyz.cofe.lima.docker.http.{Decoder, HttpLogger, HttpRequest, HttpResponse, HttpResponseReader, HttpResponseStream, SocketChannelSupplier, SocketLogger, SocketReadTimings}
 
 import java.nio.ByteBuffer
 import java.nio.channels.SocketChannel
@@ -18,11 +18,7 @@ import java.util.concurrent.locks.{Lock, ReentrantLock}
 
 case class DockerClient( socketChannel: SocketChannel,
                          openSocket: ()=>SocketChannel,
-                         sourceTimeout:Long=1000L,
-                         readTimeout:  Long=1000L*30L,
-                         cpuThrottling:Long=1,
-                         streamReadTimeout:Long=(-1),
-                         streamSourceTimeout:Long=1000L*30L,
+                         socketReadTimings: SocketReadTimings = SocketReadTimings(),
                          socketLock: Lock = new ReentrantLock(),
                          clientId:Int = DockerClient.idSeq.incrementAndGet(),
                        )
@@ -36,11 +32,7 @@ case class DockerClient( socketChannel: SocketChannel,
     DockerClient(
       openSocket(),
       openSocket,
-      sourceTimeout,
-      readTimeout,
-      cpuThrottling,
-      streamReadTimeout,
-      streamSourceTimeout,
+      socketReadTimings,
       socketLock = new ReentrantLock(),
       clientId = DockerClient.idSeq.incrementAndGet()
     )(httpLogger,socketLogger,logger)
@@ -49,7 +41,7 @@ case class DockerClient( socketChannel: SocketChannel,
     DockerClient(
       socketChannel,
       openSocket,
-      sourceTimeout, readTimeout, cpuThrottling, streamReadTimeout, streamSourceTimeout,
+      socketReadTimings,
       socketLock
     )(httpLogger,socketLogger,logger)
 
@@ -57,7 +49,7 @@ case class DockerClient( socketChannel: SocketChannel,
     DockerClient(
       socketChannel,
       openSocket,
-      sourceTimeout, readTimeout, cpuThrottling, streamReadTimeout, streamSourceTimeout,
+      socketReadTimings,
       socketLock
     )(httpLogger,socketLogger,logger)
 
@@ -122,9 +114,9 @@ case class DockerClient( socketChannel: SocketChannel,
       sendRequest(request)
       HttpResponseStream(
         SocketChannelSupplier(socketChannel),
-        sourceTimeout = streamSourceTimeout,
-        readTimeout = streamReadTimeout,
-        cpuThrottling = cpuThrottling,
+        sourceTimeout = socketReadTimings.streamSourceTimeout,
+        readTimeout = socketReadTimings.streamReadTimeout,
+        cpuThrottling = socketReadTimings.cpuThrottling,
         pid = request.id
       ).read(consumer)
     }
@@ -137,9 +129,9 @@ case class DockerClient( socketChannel: SocketChannel,
       val socketChannelSupplier = SocketChannelSupplier(socketChannel)
       HttpResponseReader(
         socketChannelSupplier,
-        sourceTimeout = sourceTimeout,
-        readTimeout = readTimeout,
-        cpuThrottling = cpuThrottling,
+        sourceTimeout = socketReadTimings.sourceTimeout,
+        readTimeout = socketReadTimings.readTimeout,
+        cpuThrottling = socketReadTimings.cpuThrottling,
         pid = request.id
       ).read.left.map(err => {
         httpLogger.error(err)

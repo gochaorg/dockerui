@@ -31,11 +31,7 @@ class HttpClientImpl
   (
     val socketChannel: SocketChannel,
     val socketLock: Lock = new ReentrantLock(),
-    val sourceTimeout: Long = 1000L,
-    val readTimeout: Long = 1000L * 30L,
-    val cpuThrottling: Long = 1,
-    val streamReadTimeout: Long = (-1),
-    val streamSourceTimeout: Long = 1000L * 30L,
+    val socketTiming: SocketReadTimings = SocketReadTimings()
   )(implicit
     val socketLogger: SocketLogger
   )
