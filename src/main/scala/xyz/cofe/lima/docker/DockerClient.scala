@@ -120,6 +120,13 @@ case class DockerClient( socketChannel: SocketChannel,
       }
     }
 
+    def map(successStatusCode: Int*)( mapper:HttpResponse=>HttpResponse ):Either[errors.DockerError,HttpResponse] = {
+      responseEt match {
+        case Left(httpErr) => Left(errors.HttpErr(httpErr))
+        case Right(response) => validateStatusCode(successStatusCode, response).map(mapper)
+      }
+    }
+
     def body(successStatusCode: Int*): Either[errors.DockerError,Seq[Byte]] = {
       responseEt match {
         case Left(httpErr) => Left(errors.HttpErr(httpErr))
@@ -250,7 +257,7 @@ case class DockerClient( socketChannel: SocketChannel,
                     since:Option[Long]=None,
                     timestamps:Option[Boolean]=Some(true),
                     tail:Option[String]=None
-          ): Either[String, Array[String]] = {
+          ): Either[errors.DockerError, Array[String]] = {
     logger(ContainerLogs(id, follow, stdout, stderr, since, timestamps, tail)).run {
       http(
         HttpRequest(s"/containers/${id}/logs")
@@ -264,20 +271,26 @@ case class DockerClient( socketChannel: SocketChannel,
             "tail" -> tail
           )
       )
-        .validStatusCode(200)
-        .map( resp => resp.copy(headers = resp.headers ::: List(("Content-type", "text/plain"))))
-        .text.map(rawText =>
-        rawText
-          .split("\\r?\\n")
-          .map { line =>
-            // [1,0,0,0,0,0,0,109,50,48,50,50,45,49,48]      m
-            if (line.length >= 8 && line.charAt(0).toInt == 1) {
-              line.substring(8)
-            } else {
-              line
-            }
+        .expect
+        .fail(404, errors.NotFound(_))
+        .fail(500, errors.ServerErr(_))
+        .map(200)( resp => resp.copy(headers = resp.headers ::: List(("Content-type", "text/plain"))) )
+        .flatMap { response =>
+          response.text match {
+            case None => Left(errors.CantExtractText(response))
+            case Some(rawText) =>
+              Right(rawText
+                .split("\\r?\\n")
+                .map { line =>
+                  // [1,0,0,0,0,0,0,109,50,48,50,50,45,49,48]      m
+                  if (line.length >= 8 && line.charAt(0).toInt == 1) {
+                    line.substring(8)
+                  } else {
+                    line
+                  }
+                })
           }
-      ).left.map(_.message)
+        }
     }
   }
 
@@ -286,14 +299,14 @@ case class DockerClient( socketChannel: SocketChannel,
    * @param containerId контейнер ид или имя
    * @return контейнер запускается и может быть еще не запущен
    */
-  def containerStart(containerId:String): Either[String, Unit] = {
+  def containerStart(containerId:String): Either[errors.DockerError, Unit] = {
     logger(ContainerStart(containerId)).run {
       http(
         HttpRequest(s"/containers/${containerId}/start").post()
-      ).validStatusCode(204)
-        .left
-        .map { e => e.message }
-        .map { _ => () }
+      ).expect
+        .fail(404,errors.NotFound(_))
+        .fail(500,errors.ServerErr(_))
+        .body(204,304).map(_=>())
     }
   }
 
@@ -302,14 +315,15 @@ case class DockerClient( socketChannel: SocketChannel,
    * @param containerId контейнер ид или имя
    * @return остановка контейнера
    */
-  def containerStop(containerId:String): Either[String, Unit] = {
+  def containerStop(containerId:String): Either[errors.DockerError, Unit] = {
     logger(ContainerStart(containerId)).run {
       http(
         HttpRequest(s"/containers/${containerId}/stop").post()
-      ).validStatusCode(204)
-        .left
-        .map { e => e.message }
-        .map { _ => () }
+      )
+        .expect
+        .fail(404, errors.NotFound(_))
+        .fail(500, errors.ServerErr(_))
+        .body(204, 304).map(_ => ())
     }
   }
 
@@ -324,16 +338,19 @@ case class DockerClient( socketChannel: SocketChannel,
                        createContainerRequest: CreateContainerRequest,
                        name:Option[String]=None,
                        platform:Option[String]=None
-                     ): Either[String, CreateContainerResponse] = {
+                     ): Either[errors.DockerError, CreateContainerResponse] = {
     logger(ContainerCreate(createContainerRequest,name, platform)).run {
       http(
         HttpRequest("/containers/create")
         .post()
         .json(createContainerRequest)
         .queryString("name" -> name, "platform" -> platform)
-      )
-        .validStatusCode(200)
-        .json[CreateContainerResponse].left.map(_.message)
+      ).expect
+        .fail(401, errors.BadRequest(_))
+        .fail(404, errors.NotFound(_))
+        .fail(409, errors.Conflict(_))
+        .fail(500, errors.ServerErr(_))
+        .json[CreateContainerResponse](201)
     }
   }
 
@@ -342,11 +359,15 @@ case class DockerClient( socketChannel: SocketChannel,
    * @param containerId имя или id контейнера
    * @return результат остановки
    */
-  def containerKill(containerId:String): Either[String, Unit] = {
+  def containerKill(containerId:String): Either[errors.DockerError, Unit] = {
     logger(ContainerKill(containerId)).run {
       http(
         HttpRequest((s"/containers/$containerId/kill")).post()
-      ).validStatusCode(200,204,304).left.map(_.message).map(_ => ())
+      ).expect
+        .fail(404, errors.NotFound(_))
+        .fail(500, errors.ServerErr(_))
+        .fail(409, errors.Conflict(_))
+        .body(204).map(_ => ())
     }
   }
 
@@ -358,12 +379,22 @@ case class DockerClient( socketChannel: SocketChannel,
    * @param link Remove the specified link associated with the container.
    * @return результат
    */
-  def containerRemove(containerId:String, anonVolumesRemove:Option[Boolean]=None, force:Option[Boolean]=None, link:Option[Boolean]=None ): Either[String, Unit] = {
+  def containerRemove(
+                       containerId:String,
+                       anonVolumesRemove:Option[Boolean]=None,
+                       force:Option[Boolean]=None,
+                       link:Option[Boolean]=None
+                     ): Either[errors.DockerError, Unit] = {
     logger(ContainerRemove(containerId, anonVolumesRemove, force, link)).run {
       http(
         HttpRequest((s"/containers/$containerId")).delete()
           .queryString("v"->anonVolumesRemove, "force"->force, "link"->link)
-      ).validStatusCode(200, 204, 304).left.map(_.message).map(_ => ())
+      ).expect
+        .fail(400, errors.BadRequest(_))
+        .fail(404, errors.NotFound(_))
+        .fail(409, errors.Conflict(_))
+        .fail(500, errors.ServerErr(_))
+        .body(204).map(_ => ())
     }
   }
 
@@ -372,14 +403,15 @@ case class DockerClient( socketChannel: SocketChannel,
    * @param containerId  имя или id контейнера
    * @return список файлов
    */
-  def containerFsChanges(containerId:String): Either[String, List[ContainerFileChanges]] =
+  def containerFsChanges(containerId:String): Either[errors.DockerError, List[ContainerFileChanges]] =
     logger(ContainerFsChanges(containerId)).run {
       http(
         HttpRequest(s"/containers/$containerId/changes").get()
       )
-        .validStatusCode(200)
-        .json[List[ContainerFileChanges]]
-        .left.map(_.message)
+        .expect
+        .fail(404, errors.NotFound(_))
+        .fail(500, errors.ServerErr(_))
+        .json[List[ContainerFileChanges]](200)
     }
 
   /**
@@ -388,16 +420,18 @@ case class DockerClient( socketChannel: SocketChannel,
    * @param newName новое имя
    * @return результат
    */
-  def containerRename(containerId:String, newName:String): Either[String, Unit] =
+  def containerRename(containerId:String, newName:String): Either[errors.DockerError, Unit] =
     logger(ContainerRename(containerId,newName)).run {
       http(
         HttpRequest(s"/containers/$containerId/rename")
           .delete()
           .queryString("id" -> containerId, "name" -> newName)
       )
-        .validStatusCode(204)
-        .map(_ => ())
-        .left.map(_.message)
+        .expect
+        .fail(404, errors.NotFound(_))
+        .fail(409, errors.Conflict(_))
+        .fail(500, errors.ServerErr(_))
+        .body(204).map(_ => ())
     }
 
   //#endregion
@@ -407,12 +441,12 @@ case class DockerClient( socketChannel: SocketChannel,
    * Получение списка образов
    * @return список образов
    */
-  def images(): Either[String, List[Image]] =
+  def images(): Either[errors.DockerError, List[Image]] =
     logger(Images()).run {
       http(HttpRequest("/images/json").get())
-        .validStatusCode(200)
-        .json[List[model.Image]]
-        .left.map(_.message)
+        .expect
+        .fail(500, errors.ServerErr(_))
+        .json[List[Image]](200)
     }
 
   /**
@@ -420,12 +454,13 @@ case class DockerClient( socketChannel: SocketChannel,
    * @param imageId ид образа
    * @return информация по образу
    */
-  def imageInspect(imageId:String): Either[String, model.ImageInspect] =
+  def imageInspect(imageId:String): Either[errors.DockerError, model.ImageInspect] =
     logger(Logger.ImageInspect(imageId)).run {
       http(HttpRequest(s"/images/${imageId}/json").get())
-        .validStatusCode(200)
-        .json[model.ImageInspect]
-        .left.map(_.message)
+        .expect
+        .fail(404, errors.NotFound(_))
+        .fail(500, errors.ServerErr(_))
+        .json[model.ImageInspect](200)
     }
 
   /**
@@ -444,7 +479,7 @@ case class DockerClient( socketChannel: SocketChannel,
                    tag:Option[String] = None,
                    message:Option[String] = None,
                    platform:Option[String] = None
-                 )(progress:ImagePullStatusEntry=>Unit):Unit =
+                 )(progress:ImagePullStatusEntry=>Unit):Unit = //todo error
   {
     val logReq = logger(Logger.ImageCreate(fromImage, fromSrc, repo, tag, message, platform))
     var logEvents = List[model.ImagePullStatusEntry]()
@@ -490,34 +525,40 @@ case class DockerClient( socketChannel: SocketChannel,
    * @param force Remove the image even if it is being used by stopped containers or has other tags
    * @param noprune Do not delete untagged parent images
    */
-  def imageRemove(nameOrId:String,force:Option[Boolean]=None,noprune:Option[Boolean]=None): Either[String, List[model.ImageRemove]] =
+  def imageRemove(nameOrId:String,force:Option[Boolean]=None,noprune:Option[Boolean]=None): Either[errors.DockerError, List[model.ImageRemove]] =
     logger(Logger.ImageRemove(nameOrId, force, noprune)).run {
       http(
         HttpRequest(s"/images/${nameOrId}").delete().queryString("force" -> force, "noprune" -> noprune)
-      ).validStatusCode(200)
-        .json[List[model.ImageRemove]]
-        .left.map(_.message)
+      )
+        .expect
+        .fail(404, errors.NotFound(_))
+        .fail(409, errors.Conflict(_))
+        .fail(500, errors.ServerErr(_))
+        .json[List[model.ImageRemove]](200)
     }
 
-  def imageTag(nameOrId:String,repo:Option[String]=None,tag:Option[String]=None): Either[String, Unit] =
+  def imageTag(nameOrId:String,repo:Option[String]=None,tag:Option[String]=None): Either[errors.DockerError, Unit] =
     logger(Logger.ImageTag(nameOrId, repo, tag)).run {
       http(
         HttpRequest(path = s"/images/${nameOrId}/tag")
           .post()
           .queryString("repo" -> repo, "tag" -> tag)
-      )
-        .validStatusCode(201)
-        .left.map(_.message)
-        .map(_ => ())
+      ) .expect
+        .fail(400, errors.BadRequest(_))
+        .fail(404, errors.NotFound(_))
+        .fail(409, errors.Conflict(_))
+        .fail(500, errors.ServerErr(_))
+        .body(201).map(_=>())
     }
 
 
-  def imageHistory(nameOrId:String): Either[String, List[ImageHistory]] = {
+  def imageHistory(nameOrId:String): Either[errors.DockerError, List[model.ImageHistory]] = {
     logger(Logger.ImageHistory(nameOrId)).run {
       http(HttpRequest(s"/images/$nameOrId/history").get())
-        .validStatusCode(200)
-        .json[List[ImageHistory]]
-        .left.map(_.message)
+        .expect
+        .fail(404, errors.NotFound(_))
+        .fail(500, errors.ServerErr(_))
+        .json[List[model.ImageHistory]](200)
     }
   }
   //#endregion

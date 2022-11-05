@@ -85,6 +85,18 @@ object errors {
   }
 
   /**
+   * какой-то конфликт состояния docker
+   * @param message сообщение от docker
+   */
+  case class Conflict(message:String) extends DockerError
+  object Conflict {
+    def apply(message:String):Conflict = new Conflict(message)
+    def apply(message:ErrorResponse):Conflict = new Conflict(message.message)
+    implicit val reader:JsonReader[Conflict] = jsonReader[Conflict]
+    implicit val writer:JsonWriter[Conflict] = classWriter[Conflict] ++ jsonWriter[Conflict]
+  }
+
+  /**
    * не найден контейнер
    * @param message сообщение от docker
    */
