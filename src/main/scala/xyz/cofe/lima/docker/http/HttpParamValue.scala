@@ -14,5 +14,5 @@ object HttpParamValue {
   implicit val int:HttpParamValue[Int] = value => Some(value.toString)
 
   implicit val longOpt:HttpParamValue[Option[Long]] = value => value.map(_.toString)
-  implicit val long:HttpParamValue[Option[Long]] = value => Some(value.toString)
+  implicit val long:HttpParamValue[Long] = value => Some(value.toString)
 }

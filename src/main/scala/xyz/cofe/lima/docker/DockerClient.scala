@@ -222,10 +222,6 @@ case class DockerClient( socketChannel: SocketChannel,
    */
   def containerInspect(id:String): Either[String, model.ContainerInspect] =
     logger(Logger.ContainerInspect(id)).run {
-//      sendForJson[model.ContainerInspect](
-//        HttpRequest(path = s"/containers/${id}/json")
-//      )
-
       http(HttpRequest(s"/containers/${id}/json").get()).validStatusCode(200).json[model.ContainerInspect].left.map { err =>
         //println(err)
         err.message
@@ -274,12 +270,12 @@ case class DockerClient( socketChannel: SocketChannel,
    * Read the extracted size and output it on the correct output.
    * Goto 1.
    * @param id идентификатор контейнера
-   * @param follow
-   * @param stdout
-   * @param stderr
-   * @param since
-   * @param timestamps
-   * @param tail
+   * @param follow bla
+   * @param stdout bla
+   * @param stderr bla
+   * @param since bla
+   * @param timestamps bla
+   * @param tail bla
    * @return
    */
   def containerLogs(id:String,
@@ -291,34 +287,32 @@ case class DockerClient( socketChannel: SocketChannel,
                     tail:Option[String]=None
           ): Either[String, Array[String]] = {
     logger(ContainerLogs(id, follow, stdout, stderr, since, timestamps, tail)).run {
-      sendForText(
-        HttpRequest(path = s"/containers/${id}/logs")
+      http(
+        HttpRequest(s"/containers/${id}/logs")
+          .get()
           .queryString(
-            Map(
-              "follow" -> follow.map(_.toString),
-              "stdout" -> stdout.map(_.toString),
-              "stderr" -> stderr.map(_.toString),
-              "since" -> since.map(_.toString),
-              "timestamps" -> timestamps.map(_.toString),
-              "tail" -> tail.map(_.toString),
-            ).filter { case (k, v) => v.isDefined }.map { case (k, v) => (k, v.get) }
-          ),
-        responseWrapper = resp =>
-          resp.copy(
-            headers = resp.headers ::: List(("Content-type", "text/plain"))
+            "follow"->follow,
+            "stdout" -> stdout,
+            "stderr" -> stderr,
+            "since" -> since,
+            "timestamps" -> timestamps,
+            "tail" -> tail
           )
-      ).map(rawText =>
+      )
+        .validStatusCode(200)
+        .map( resp => resp.copy(headers = resp.headers ::: List(("Content-type", "text/plain"))))
+        .text.map(rawText =>
         rawText
           .split("\\r?\\n")
           .map { line =>
-            // [1,0,0,0,0,0,0,109,50,48,50,50,45,49,48]      m
+            // [1,0,0,0,0,0,0,109,50,48,50,50,45,49,48]      m
             if (line.length >= 8 && line.charAt(0).toInt == 1) {
               line.substring(8)
             } else {
               line
             }
           }
-      )
+      ).left.map(_.message)
     }
   }
 
@@ -367,13 +361,14 @@ case class DockerClient( socketChannel: SocketChannel,
                        platform:Option[String]=None
                      ): Either[String, CreateContainerResponse] = {
     logger(ContainerCreate(createContainerRequest,name, platform)).run {
-      sendForJson[CreateContainerResponse](
+      http(
         HttpRequest("/containers/create")
-          .post()
-          .json(createContainerRequest)
-          .queryString("name" -> name, "platform" -> platform),
-        successHttpCode = r => r.code.exists(c => c >= 200 && c < 300)
+        .post()
+        .json(createContainerRequest)
+        .queryString("name" -> name, "platform" -> platform)
       )
+        .validStatusCode(200)
+        .json[CreateContainerResponse].left.map(_.message)
     }
   }
 
@@ -384,22 +379,9 @@ case class DockerClient( socketChannel: SocketChannel,
    */
   def containerKill(containerId:String): Either[String, Unit] = {
     logger(ContainerKill(containerId)).run {
-      sendForHttp(HttpRequest(s"/containers/$containerId/kill").post()) match {
-        case Left(errMessage) =>
-          errMessage match {
-            case HttpResponse.NO_RESPONSE =>
-              Right(())
-            case _ =>
-              Left(errMessage)
-          }
-        case Right(response) =>
-          response.code match {
-            case Some(200) => Right(())
-            case Some(304) => Right(()) // already started
-            case Some(code) => Left(s"code = $code")
-            case None => Left(s"some wrong\n$response")
-          }
-      }
+      http(
+        HttpRequest((s"/containers/$containerId/kill")).post()
+      ).validStatusCode(200,204,304).left.map(_.message).map(_ => ())
     }
   }
 
@@ -413,26 +395,10 @@ case class DockerClient( socketChannel: SocketChannel,
    */
   def containerRemove(containerId:String, anonVolumesRemove:Option[Boolean]=None, force:Option[Boolean]=None, link:Option[Boolean]=None ): Either[String, Unit] = {
     logger(ContainerRemove(containerId, anonVolumesRemove, force, link)).run {
-      sendForHttp(
-        HttpRequest(s"/containers/$containerId")
-          .delete()
-          .queryString("v" -> anonVolumesRemove, "force" -> force, "link" -> link)
-      ) match {
-        case Left(errMessage) =>
-          errMessage match {
-            case HttpResponse.NO_RESPONSE =>
-              Right(())
-            case _ =>
-              Left(errMessage)
-          }
-        case Right(response) =>
-          response.code match {
-            case Some(200) => Right(())
-            case Some(304) => Right(()) // already started
-            case Some(code) => Left(s"code = $code")
-            case None => Left(s"some wrong\n$response")
-          }
-      }
+      http(
+        HttpRequest((s"/containers/$containerId")).delete()
+          .queryString("v"->anonVolumesRemove, "force"->force, "link"->link)
+      ).validStatusCode(200, 204, 304).left.map(_.message).map(_ => ())
     }
   }
 
@@ -443,9 +409,12 @@ case class DockerClient( socketChannel: SocketChannel,
    */
   def containerFsChanges(containerId:String): Either[String, List[ContainerFileChanges]] =
     logger(ContainerFsChanges(containerId)).run {
-      sendForJson[List[model.ContainerFileChanges]](
+      http(
         HttpRequest(s"/containers/$containerId/changes").get()
       )
+        .validStatusCode(200)
+        .json[List[ContainerFileChanges]]
+        .left.map(_.message)
     }
 
   /**
@@ -476,6 +445,15 @@ case class DockerClient( socketChannel: SocketChannel,
             case None => Left(s"some wrong\n$response")
           }
       }
+
+      http(
+        HttpRequest(s"/containers/$containerId/rename")
+          .delete()
+          .queryString("id" -> containerId, "name" -> newName)
+      )
+        .validStatusCode(204)
+        .map(_ => ())
+        .left.map(_.message)
     }
 
   //#endregion
@@ -487,9 +465,10 @@ case class DockerClient( socketChannel: SocketChannel,
    */
   def images(): Either[String, List[Image]] =
     logger(Images()).run {
-      sendForJson[List[model.Image]](
-        HttpRequest("/images/json").get()
-      )
+      http(HttpRequest("/images/json").get())
+        .validStatusCode(200)
+        .json[List[model.Image]]
+        .left.map(_.message)
     }
 
   /**
