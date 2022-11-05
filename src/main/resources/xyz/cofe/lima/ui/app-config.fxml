@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.TreeTableColumn?>
+<?import javafx.scene.control.TreeTableView?>
+<?import javafx.scene.layout.AnchorPane?>
+
+
+<AnchorPane prefHeight="400.0" prefWidth="600.0" xmlns="http://javafx.com/javafx/19" xmlns:fx="http://javafx.com/fxml/1" fx:controller="xyz.cofe.lima.ui.AppConfigController">
+   <children>
+      <TreeTableView layoutX="14.0" layoutY="14.0" prefHeight="343.0" prefWidth="575.0" AnchorPane.bottomAnchor="43.0" AnchorPane.leftAnchor="14.0" AnchorPane.rightAnchor="11.0" AnchorPane.topAnchor="14.0">
+        <columns>
+          <TreeTableColumn prefWidth="75.0" text="C1" />
+          <TreeTableColumn prefWidth="75.0" text="C2" />
+        </columns>
+      </TreeTableView>
+      <Button layoutX="528.0" layoutY="362.0" mnemonicParsing="false" text="Save" AnchorPane.bottomAnchor="13.0" AnchorPane.rightAnchor="11.0" />
+   </children>
+</AnchorPane>
