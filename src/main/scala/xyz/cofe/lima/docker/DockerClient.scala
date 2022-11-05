@@ -84,117 +84,6 @@ case class DockerClient( socketChannel: SocketChannel,
   private lazy val httpClient = HttpClient(socketChannel,socketReadTimings,socketLock)
   private def http(request:HttpRequest) = httpClient.http(request)
 
-  //#region http tasks
-
-  socketChannel.configureBlocking(false)
-
-  private def sendRequest(request:HttpRequest):Unit = {
-    lockAndRun {
-      val headerBlock =
-        ((request.method + " " + request.path + " " + request.proto + "\n") +
-          ("HOST: " + request.host + "\n") +
-          ("User-Agent: " + request.`User-Agent` + "\n") +
-          ("Accept: " + request.Accept + "\n") +
-          (request.otherHeaders.map { case (k, v) => k + ": " + v }.mkString("\n")) +
-          "\n" + (if(request.body.nonEmpty) "\n" else "" )
-          ).getBytes(StandardCharsets.UTF_8)
-
-      val sendBB = ByteBuffer.allocate(headerBlock.size + request.body.size)
-      sendBB.put(headerBlock)
-
-      val bodyArr = request.body.toArray
-      sendBB.put(bodyArr)
-      sendBB.flip()
-
-      socketLogger.send(sendBB)
-      socketChannel.write(sendBB)
-    }
-  }
-
-  def stream(request:HttpRequest)(consumer:HttpResponseStream.Event=>HttpResponseStream.Behavior):Unit = {
-    lockAndRun {
-      httpLogger.send(request)
-      sendRequest(request)
-      HttpResponseStream(
-        SocketChannelSupplier(socketChannel),
-        sourceTimeout = socketReadTimings.streamSourceTimeout,
-        readTimeout = socketReadTimings.streamReadTimeout,
-        cpuThrottling = socketReadTimings.cpuThrottling,
-        pid = request.id
-      ).read(consumer)
-    }
-  }
-
-  def sendForHttp(request:HttpRequest):Either[String,HttpResponse] = {
-    lockAndRun {
-      httpLogger.send(request)
-      sendRequest(request)
-      val socketChannelSupplier = SocketChannelSupplier(socketChannel)
-      HttpResponseReader(
-        socketChannelSupplier,
-        sourceTimeout = socketReadTimings.sourceTimeout,
-        readTimeout = socketReadTimings.readTimeout,
-        cpuThrottling = socketReadTimings.cpuThrottling,
-        pid = request.id
-      ).read.left.map(err => {
-        httpLogger.error(err)
-        err
-      }).map(resp => {
-        httpLogger.receive(resp)
-        resp
-      })
-    }
-  }
-
-  def sendForText(
-    request:HttpRequest,
-    responseWrapper:HttpResponse=>HttpResponse = r=>r,
-    successHttpCode:HttpResponse=>Boolean = r=>r.isOk
-  ):Either[String,String] = {
-    lockAndRun {
-      for {
-        _ <- Right(httpLogger.send(request))
-        response0 <- sendForHttp(request)
-        response = responseWrapper(response0)
-        _ <- Right(httpLogger.receive(response))
-        _ <- if (successHttpCode(response)) {
-          Right(response)
-        } else {
-          Left(s"response not ok\ncode = ${response.code}\ntext = ${response.text}")
-        }
-        text <- response.text.map(
-          s => Right(s)
-        ).getOrElse(
-          Left("text response not available")
-        )
-      } yield text
-    }
-  }
-
-  def sendForJson[A:JsonReader](
-                          request:HttpRequest,
-                          responseWrapper:HttpResponse=>HttpResponse = r=>r,
-                          successHttpCode:HttpResponse=>Boolean = r=>r.isOk
-                        ):Either[String,A] = {
-    lockAndRun {
-      for {
-        response0 <- sendForHttp(request)
-        response = responseWrapper(response0)
-        _ <- if (successHttpCode(response)) {
-          Right(response)
-        } else {
-          Left(s"response not ok\ncode = ${response.code}\ntext = ${response.text}")
-        }
-        text <- response.text.map(
-          s => Right(s)
-        ).getOrElse(
-          Left("text response not available")
-        )
-        res <- text.jsonAs[A].left.map(err => err.getMessage)
-      } yield res
-    }
-  }
-  //#endregion
   //#region containers tasks
 
   /**
@@ -425,27 +314,6 @@ case class DockerClient( socketChannel: SocketChannel,
    */
   def containerRename(containerId:String, newName:String): Either[String, Unit] =
     logger(ContainerRename(containerId,newName)).run {
-      sendForHttp(
-        HttpRequest(s"/containers/$containerId/rename")
-          .delete()
-          .queryString("id" -> containerId, "name" -> newName)
-      ) match {
-        case Left(errMessage) =>
-          errMessage match {
-            case HttpResponse.NO_RESPONSE =>
-              Right(())
-            case _ =>
-              Left(errMessage)
-          }
-        case Right(response) =>
-          response.code match {
-            case Some(200) => Right(())
-            case Some(304) => Right(()) // already started
-            case Some(code) => Left(s"code = $code")
-            case None => Left(s"some wrong\n$response")
-          }
-      }
-
       http(
         HttpRequest(s"/containers/$containerId/rename")
           .delete()
@@ -570,7 +438,6 @@ case class DockerClient( socketChannel: SocketChannel,
 
   def imageHistory(nameOrId:String): Either[String, List[ImageHistory]] = {
     logger(Logger.ImageHistory(nameOrId)).run {
-      sendForJson[List[model.ImageHistory]](HttpRequest(s"/images/$nameOrId/history"))
       http(HttpRequest(s"/images/$nameOrId/history").get())
         .validStatusCode(200)
         .json[List[ImageHistory]]
