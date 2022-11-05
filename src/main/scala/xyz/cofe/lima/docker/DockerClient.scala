@@ -478,9 +478,10 @@ case class DockerClient( socketChannel: SocketChannel,
    */
   def imageInspect(imageId:String): Either[String, model.ImageInspect] =
     logger(Logger.ImageInspect(imageId)).run {
-      sendForJson[model.ImageInspect](
-        HttpRequest(s"/images/${imageId}/json").get()
-      )
+      http(HttpRequest(s"/images/${imageId}/json").get())
+        .validStatusCode(200)
+        .json[model.ImageInspect]
+        .left.map(_.message)
     }
 
   /**
@@ -491,7 +492,7 @@ case class DockerClient( socketChannel: SocketChannel,
    * @param tag Тег или подпись (digest). Если пусто при извлечении изображения, это приводит к извлечению всех тегов для данного образа.
    * @param message Set commit message for imported image.
    * @param platform Platform in the format os [/arch [/variant] ]
-   * @param progress
+   * @param progress куда слать прогресс
    */
   def imageCreate( fromImage:Option[String] = None,
                    fromSrc:Option[String] = None,
@@ -508,24 +509,20 @@ case class DockerClient( socketChannel: SocketChannel,
     lazy val char2json = Decoder.Char2JsonEntry()
     lazy val decoder = char2json.compose(byte2charDecoder)
 
-    stream(
+    val request =
       HttpRequest("/images/create").post()
         .queryString(
-          "fromImage"->fromImage,
-          "fromSrc"->fromSrc,
-          "repo"->repo,
-          "tag"->tag,
-          "message"->message,
-          "platform"->platform,
+          "fromImage" -> fromImage,
+          "fromSrc" -> fromSrc,
+          "repo" -> repo,
+          "tag" -> tag,
+          "message" -> message,
+          "platform" -> platform,
         )
-    ) { ev =>
+
+    httpClient.stream(request) { ev =>
       ev match {
-        case _:Event.Error => ()
-        case Event.FirstLine(pid,string) => ()
-        case Event.Header(pid,name,value) => ()
-        case Event.HeaderEnd(pid) => ()
-        case Event.DataEnd(pid) => ()
-        case Event.Data(pid,bytes) =>
+        case Event.Data(pid, bytes) =>
           decoder.accept(bytes)
           decoder.fetch.foreach { jsEntryString =>
             jsEntryString.trim.jsonAs[ImagePullStatusEntry].foreach { ent =>
@@ -533,6 +530,7 @@ case class DockerClient( socketChannel: SocketChannel,
               progress(ent)
             }
           }
+        case _ => ()
       }
       HttpResponseStream.Behavior.Continue
     }
