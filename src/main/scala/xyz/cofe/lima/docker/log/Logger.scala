@@ -1,19 +1,15 @@
 package xyz.cofe.lima.docker.log
 
+import tethys._
 import tethys.derivation.semiauto.{jsonReader, jsonWriter}
 import tethys.jackson._
-import tethys.readers.{FieldName, ReaderError}
+import tethys.readers.FieldName
 import tethys.readers.tokens.TokenIterator
 import tethys.writers.tokens.TokenWriter
-import tethys._
-import tethys.jackson._
 import xyz.cofe.lima.docker.model
 import xyz.cofe.lima.docker.model.{CreateContainerRequest, Image}
 import xyz.cofe.lima.store.json._
-import xyz.cofe.lima.store.json.Query._
-import xyz.cofe.lima.store.json.TethysToks._
 import xyz.cofe.lima.thread.ThreadID
-import xyz.cofe.lima.errors.DockerClientError
 
 import java.time.LocalDateTime
 

@@ -50,6 +50,7 @@ class DockerTest extends AnyFunSuite {
 
   test("inspect") {
     //implicit val log = HttpLogger.stdout()
+    implicit val log = Logger.JsonToWriter(System.out)
     DockerClient
       .unixSocket(socket)
       .containerInspect("53e9e78d58eff78b7e162c399284c195c4cdc3f793408d62ba336f9ef2dcedd4") match {

@@ -3,14 +3,9 @@ package xyz.cofe.lima.docker
 import tethys._
 import tethys.jackson._
 import xyz.cofe.lima.docker.http.HttpResponseStream.Event
-import xyz.cofe.lima.docker.http.HttpResponseStream
-import xyz.cofe.lima.docker.http.SocketReadTimings
-import xyz.cofe.lima.docker.http.HttpLogger
-import xyz.cofe.lima.docker.http.SocketLogger
-import xyz.cofe.lima.docker.http.HttpClient
-import xyz.cofe.lima.docker.http.HttpClientImpl
-import xyz.cofe.lima.docker.http.HttpRequest
-import xyz.cofe.lima.docker.http.Decoder
+import xyz.cofe.lima.docker.http.{Decoder, HttpClient, HttpLogger, HttpRequest, HttpResponse, HttpResponseStream, SocketLogger, SocketReadTimings}
+import xyz.cofe.lima.docker.http.errors.HttpError
+import xyz.cofe.lima.docker.http.HttpResponse
 import xyz.cofe.lima.docker.log.Logger
 import xyz.cofe.lima.docker.log.Logger._
 import xyz.cofe.lima.docker.model.{ImageHistory, _}
@@ -20,6 +15,7 @@ import java.nio.channels.SocketChannel
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.{Lock, ReentrantLock}
+import scala.reflect.ClassTag
 
 case class DockerClient( socketChannel: SocketChannel,
                          openSocket: ()=>SocketChannel,
@@ -49,7 +45,6 @@ case class DockerClient( socketChannel: SocketChannel,
       socketReadTimings,
       socketLock
     )(httpLogger,socketLogger,logger)
-
   def withLogger(logger: Logger):DockerClient =
     DockerClient(
       socketChannel,
@@ -65,6 +60,65 @@ case class DockerClient( socketChannel: SocketChannel,
   private lazy val httpClient = HttpClient(socketChannel,socketReadTimings,socketLock)
   private def http(request:HttpRequest) = httpClient.http(request)
 
+  implicit class HttpResponseOps(responseEt:Either[HttpError,HttpResponse] ) {
+    def expect: Expectation = Expectation(responseEt)
+  }
+
+  case class Expectation(
+                          responseEt:Either[HttpError,HttpResponse],
+                          successCodes:List[Int]=List(),
+                          failCodeMap:Map[Int,ErrorResponse=>errors.DockerError]=Map()
+                        ) {
+    def fail(code:Int,err:ErrorResponse=>errors.DockerError): Expectation = copy(
+      failCodeMap = failCodeMap + (code -> err)
+    )
+    def json[A: JsonReader](successStatusCode: Int)(implicit ct: ClassTag[A]): Either[errors.DockerError,A] = {
+      responseEt match {
+        case Left(httpErr) => Left(errors.HttpErr(httpErr))
+        case Right(response) =>
+          val responseContentTypeJson: HttpResponse = if (response.contentType.isDefined) {
+            response
+          } else {
+            response.copy(
+              headers = ("Content-Type" -> "application/json") :: response.headers
+            )
+          }
+
+          response.code match {
+            case Some(statusCode) =>
+              failCodeMap.get(statusCode) match {
+                case Some(createErr) =>
+                  // код ответа ожидаемой ошибки
+                  responseContentTypeJson.text match {
+                    case Some(bodyText) => bodyText.jsonAs[ErrorResponse] match {
+                      case Left(errJsonParse) => Left(createErr(ErrorResponse(s"DockerClient: can't parse ErrorResponse:$errJsonParse")))
+                      case Right(errResponse) => Left(createErr(errResponse))
+                    }
+                    case None => Left(createErr(ErrorResponse("DockerClient: error message not available")))
+                  }
+                case None =>
+                  // код ответа - не ошибка
+                  if( statusCode!=successStatusCode ){
+                    // хз что за код,
+                    Left(errors.UnExpectedStatusCode(responseContentTypeJson,successStatusCode))
+                  }else{
+                    responseContentTypeJson.text match {
+                      case Some(plainText) => plainText.jsonAs[A] match {
+                        case Left(jsonParseErr) =>
+                          val cname = ct.runtimeClass.toGenericString
+                          Left(errors.CantExtractJson(plainText, cname, jsonParseErr))
+                        case Right(value) => Right(value)
+                      }
+                      case None => Left(errors.CantExtractText(responseContentTypeJson))
+                    }
+                  }
+              }
+            case None => Left(errors.StatusCodeNotAvailable(response))
+          }
+      }
+    }
+  }
+
   //#region containers tasks
 
   /**
@@ -75,16 +129,16 @@ case class DockerClient( socketChannel: SocketChannel,
    * @return контейнеры
    */
   def containers(all:Boolean=false, limit:Option[Int]=None, size:Boolean=false)
-  : Either[String, List[model.ContainerStatus]] = {
+  : Either[errors.DockerError, List[model.ContainerStatus]] = {
     logger(Logger.Containers(all, limit, size)).run {
       http(HttpRequest(path = "/containers/json").queryString(
         "all" -> all,
         "limit" -> limit,
         "size" -> size
       ).get())
-        .validStatusCode(200)
-        .json[List[model.ContainerStatus]]
-        .left.map(_.message)
+        .expect
+        .fail(400, msg=>errors.BadRequest(msg.message))
+        .json[List[model.ContainerStatus]](200)
     }
   }
 
@@ -93,12 +147,12 @@ case class DockerClient( socketChannel: SocketChannel,
    * @param id идентификатор контейнера
    * @return инфа
    */
-  def containerInspect(id:String): Either[String, model.ContainerInspect] =
+  def containerInspect(id:String): Either[errors.DockerError, model.ContainerInspect] =
     logger(Logger.ContainerInspect(id)).run {
-      http(HttpRequest(s"/containers/${id}/json").get()).validStatusCode(200).json[model.ContainerInspect].left.map { err =>
-        //println(err)
-        err.message
-      }
+      http(HttpRequest(s"/containers/${id}/json").get())
+        .validStatusCode(200)
+        .json[model.ContainerInspect]
+        .left.map(e => errors.HttpErr(e))
     }
 
   /**
