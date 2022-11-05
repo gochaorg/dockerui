@@ -3,14 +3,19 @@ package xyz.cofe.lima.docker
 import tethys._
 import tethys.jackson._
 import xyz.cofe.lima.docker.http.HttpResponseStream.Event
-import xyz.cofe.lima.docker.http._
-import xyz.cofe.lima.docker.http.errors.HttpError
+import xyz.cofe.lima.docker.http.HttpResponseStream
+import xyz.cofe.lima.docker.http.SocketReadTimings
+import xyz.cofe.lima.docker.http.HttpLogger
+import xyz.cofe.lima.docker.http.SocketLogger
+import xyz.cofe.lima.docker.http.HttpClient
+import xyz.cofe.lima.docker.http.HttpClientImpl
+import xyz.cofe.lima.docker.http.HttpRequest
+import xyz.cofe.lima.docker.http.Decoder
 import xyz.cofe.lima.docker.log.Logger
 import xyz.cofe.lima.docker.log.Logger._
 import xyz.cofe.lima.docker.model.{ImageHistory, _}
 
 import java.net.UnixDomainSocketAddress
-import java.nio.ByteBuffer
 import java.nio.channels.SocketChannel
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.atomic.AtomicInteger
@@ -76,7 +81,10 @@ case class DockerClient( socketChannel: SocketChannel,
         "all" -> all,
         "limit" -> limit,
         "size" -> size
-      ).get()).validStatusCode(200).json[List[model.ContainerStatus]].left.map(_.message)
+      ).get())
+        .validStatusCode(200)
+        .json[List[model.ContainerStatus]]
+        .left.map(_.message)
     }
   }
 
