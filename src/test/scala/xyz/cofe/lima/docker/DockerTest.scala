@@ -1,12 +1,8 @@
 package xyz.cofe.lima.docker
 
 import org.scalatest.funsuite.AnyFunSuite
-import xyz.cofe.lima.docker.http.HttpResponseStream.Event
-import xyz.cofe.lima.docker.http.{DelaiedReader, Decoder, HttpLogger, HttpRequest, HttpResponseStream, SocketLogger}
+import xyz.cofe.lima.docker.http.HttpLogger
 import xyz.cofe.lima.docker.log.Logger
-import xyz.cofe.lima.docker.model.CreateContainerRequest
-
-import java.nio.charset.StandardCharsets
 
 class DockerTest extends AnyFunSuite {
   val socket = "/var/run/docker.sock"
@@ -49,6 +45,8 @@ class DockerTest extends AnyFunSuite {
   }
 
   test("inspect") {
+    import tethys._
+    import tethys.jackson.pretty._
     //implicit val log = HttpLogger.stdout()
     implicit val log = Logger.JsonToWriter(System.out)
     DockerClient
@@ -56,6 +54,8 @@ class DockerTest extends AnyFunSuite {
       .containerInspect("53e9e78d58eff78b7e162c399284c195c4cdc3f793408d62ba336f9ef2dcedd4") match {
       case Left(err) =>
         println(s"error $err")
+        println("---")
+        println(err.asJson)
       case Right(ci) =>
         println(ci)
     }

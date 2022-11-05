@@ -21,7 +21,7 @@ class RestoreLogTest extends AnyFunSuite {
     }
   }
 
-  test("try read http log") {
+  test("try read http log 1") {
     if(testFileOpt.isEmpty){
       println("test file not found")
     }else{
