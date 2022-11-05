@@ -109,7 +109,7 @@ case class DockerClient( socketChannel: SocketChannel,
               }
             case None =>
               // код ответа - не ошибка
-              if (successStatusCodes.contains(statusCode)) {
+              if (!successStatusCodes.contains(statusCode)) {
                 // хз что за код,
                 Left(errors.UnExpectedStatusCode(response, successStatusCodes))
               } else {

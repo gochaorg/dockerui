@@ -25,6 +25,7 @@ class DockerTest extends AnyFunSuite {
 
   test("containers") {
     //implicit val log = HttpLogger.stdout
+    implicit val dlog = new Logger.JsonToWriter(System.out)
     DockerClient.unixSocket(socket).containers(all = true) match {
       case Left(err) => println(s"error $err")
       case Right(value) => value.foreach { c =>

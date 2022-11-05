@@ -134,26 +134,28 @@ object errors {
     implicit val writer: JsonWriter[HttpErr] = classWriter[HttpErr] ++ jsonWriter[HttpErr]
   }
 
-  implicit val writer:JsonWriter[DockerError] = (value: DockerError, tokenWriter: TokenWriter) => {
-    value match {
-      case e:GenericErr => GenericErr.writer.write(e,tokenWriter)
-      case e:HttpErr => HttpErr.writer.write(e,tokenWriter)
-      case e:StatusCodeNotAvailable => StatusCodeNotAvailable.writer.write(e,tokenWriter)
-      case e:UnExpectedStatusCode => UnExpectedStatusCode.writer.write(e,tokenWriter)
-      case e:CantExtractText => CantExtractText.writer.write(e,tokenWriter)
-      case e:CantExtractJson => CantExtractJson.writer.write(e,tokenWriter)
-      case e:BadRequest => BadRequest.writer.write(e,tokenWriter)
-      case e:NotFound => NotFound.writer.write(e,tokenWriter)
+  object DockerError {
+    implicit val writer: JsonWriter[DockerError] = (value: DockerError, tokenWriter: TokenWriter) => {
+      value match {
+        case e: GenericErr => GenericErr.writer.write(e, tokenWriter)
+        case e: HttpErr => HttpErr.writer.write(e, tokenWriter)
+        case e: StatusCodeNotAvailable => StatusCodeNotAvailable.writer.write(e, tokenWriter)
+        case e: UnExpectedStatusCode => UnExpectedStatusCode.writer.write(e, tokenWriter)
+        case e: CantExtractText => CantExtractText.writer.write(e, tokenWriter)
+        case e: CantExtractJson => CantExtractJson.writer.write(e, tokenWriter)
+        case e: BadRequest => BadRequest.writer.write(e, tokenWriter)
+        case e: NotFound => NotFound.writer.write(e, tokenWriter)
+      }
     }
-  }
-  implicit val reader:JsonReader[DockerError] = JsonReader.builder.addField[String]("_type").selectReader[DockerError] {
-    case "GenericErr" => GenericErr.reader
-    case "HttpErr" => HttpErr.reader
-    case "StatusCodeNotAvailable" => StatusCodeNotAvailable.reader
-    case "UnExpectedStatusCode" => UnExpectedStatusCode.reader
-    case "CantExtractText" => CantExtractText.reader
-    case "CantExtractJson" => CantExtractJson.reader
-    case "BadRequest" => BadRequest.reader
-    case "NotFound" => NotFound.reader
+    implicit val reader: JsonReader[DockerError] = JsonReader.builder.addField[String]("_type").selectReader[DockerError] {
+      case "GenericErr" => GenericErr.reader
+      case "HttpErr" => HttpErr.reader
+      case "StatusCodeNotAvailable" => StatusCodeNotAvailable.reader
+      case "UnExpectedStatusCode" => UnExpectedStatusCode.reader
+      case "CantExtractText" => CantExtractText.reader
+      case "CantExtractJson" => CantExtractJson.reader
+      case "BadRequest" => BadRequest.reader
+      case "NotFound" => NotFound.reader
+    }
   }
 }
