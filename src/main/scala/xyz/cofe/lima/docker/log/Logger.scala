@@ -6,12 +6,14 @@ import tethys.jackson._
 import tethys.readers.FieldName
 import tethys.readers.tokens.TokenIterator
 import tethys.writers.tokens.TokenWriter
+import xyz.cofe.lima.docker.errors.DockerError
 import xyz.cofe.lima.docker.model
 import xyz.cofe.lima.docker.model.{CreateContainerRequest, Image}
 import xyz.cofe.lima.store.json._
 import xyz.cofe.lima.thread.ThreadID
 
 import java.time.LocalDateTime
+import scala.util.Either
 
 /**
  * Логирование работы DockerClient
@@ -80,51 +82,43 @@ object Logger {
   //#endregion
   //#region errorCapture logger
 
-//  case class CapturedError(errorMessage:String, method:String, params:String)
-//  def errorCapture( capturedError: CapturedError=>Unit ):Logger = new Logger {
-//    case class ResultCapture[R,M <: MethodCall](methodWithParams:M) extends ResultCall[String,R] {
-//      override def success(result: R): R = result
-//      override def error(error: String): String = {
-//
-//        val (methodName,params) = methodWithParams.parameters
-//
-//        capturedError(
-//          CapturedError(
-//            errorMessage = error,
-//            method=methodName,
-//            params=params.productElementNames.zip(params.productIterator)
-//              .map {case(name,value)=>s"$name=$value"}
-//              .mkString("\n"),
-//          )
-//        )
-//        error
-//      }
-//      override def apply(code: => Either[String, R])(implicit clientId: ClientId): Either[String, R] = super.apply(code)
-//    }
-//    override def apply[M <: MethodCall](methodCall: M): ResultCall[String, methodCall.RESULT] = ResultCapture(methodCall)
-//  }
+  def filterLogger(logger:Logger)( filter:(_ >: MethodCall,Either[_, _])=>Boolean ):Logger = new Logger {
+    class FilterCatcher[M <: MethodCall](op:M, op1:CallCatcher[M]
+                                        )(implicit jw: JsonWriter[M], jwr: JsonWriter[M#RESULT]) extends CallCatcher(op) {
+      override def run[E](someResult: Either[E, M#RESULT])(implicit jwe: JsonWriter[E]): Either[E, M#RESULT] = {
+        if( filter(op,someResult) ){
+          op1.run(someResult)
+        }
+        super.run(someResult)
+      }
+    }
+
+    override def apply[M <: MethodCall](op: M)(implicit jw: JsonWriter[M], jwr: JsonWriter[M#RESULT]): CallCatcher[M] =
+      new FilterCatcher(op, logger(op))
+  }
+
+  def failLogger(logger:Logger):Logger = filterLogger(logger) ( (_:Any, res) => res.isLeft )
 
   //#endregion
   //#region joinLoggers
 
   def joinLoggers(left:Logger, right:Logger):Logger = new Logger {
-//    case class ResultCapture[M <: MethodCall:JsonWriter,R,E]( left:ResultCall[E,R], right:ResultCall[E,R] ) extends ResultCall[E,R] {
-//      override def success(result: R)(implicit jw: JsonWriter[R]): R = {
-//        left.success(result)
-//        right.success(result)
-//        super.success(result)
-//      }
-//      override def error(error: E)(implicit jw: JsonWriter[E]): E = {
-//        left.error(error)
-//        right.error(error)
-//        super.error(error)
-//      }
-//    }
-//    override def apply[M <: MethodCall,E](methodCall: M)(implicit jw: JsonWriter[M],jwe:JsonWriter[E]): ResultCall[E, methodCall.RESULT] = {
-//      val l: ResultCall[E, methodCall.RESULT] = left.apply[M,E](methodCall)
-//      val r: ResultCall[E, methodCall.RESULT] = right.apply[M,E](methodCall)
-//      ResultCapture(l,r)
-//    }
+    class JoinCallCatcher[M <: MethodCall](leftCc:CallCatcher[M], rightCc:CallCatcher[M],op:M)
+                                          (implicit jw: JsonWriter[M], jwr: JsonWriter[M#RESULT])
+      extends CallCatcher(op)
+    {
+      override def run[E](someResult: Either[E, M#RESULT])(implicit jwe: JsonWriter[E]): Either[E, M#RESULT] = {
+        leftCc.run(someResult)
+        rightCc.run(someResult)
+        someResult
+      }
+    }
+
+    override def apply[M <: MethodCall](op: M)(implicit jw: JsonWriter[M], jwr: JsonWriter[M#RESULT]): CallCatcher[M] = {
+      val leftCc = left.apply(op)
+      val rightCc = right.apply(op)
+      new JoinCallCatcher[M](leftCc, rightCc, op)
+    }
   }
   //#endregion
   //#region Json logger

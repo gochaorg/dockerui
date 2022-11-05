@@ -43,7 +43,7 @@ class ContainerController {
     containerId.foreach(cid => {
       DockerClientPool.submit( dc => {
         dc.containerInspect(cid) match {
-          case Left(err) => println(s"containerInspect $cid fail: "+err)
+          case Left(err) =>
           case Right(ci) => Platform.runLater(()=>{
             Prop(ci).foreach(root => {
               root.setExpanded(true)
@@ -52,6 +52,26 @@ class ContainerController {
           })
         }
       })
+
+      DockerClientPool.submit( dc => {
+        dc.containerLogs(cid, stdout = Some(true)) match {
+          case Left(err) =>
+          case Right(logs) =>
+            Platform.runLater(()=> {
+              logsStdOut.setText(logs.mkString("\n"))
+            })
+        }
+      })
+
+      DockerClientPool.submit( dc => {
+        dc.containerLogs(cid, stderr = Some(true)) match {
+          case Left(err) =>
+          case Right(logs) => Platform.runLater(()=> {
+            logsStdErr.setText(logs.mkString("\n"))
+          })
+        }
+      })
+
 //      dockerClient.foreach(dc => {
 //        dc.containerInspect(cid) match {
 //          case Left(err) =>
