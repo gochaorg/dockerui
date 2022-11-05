@@ -88,6 +88,7 @@ case class HttpResponseStream(source        :()=>Option[Byte],
           firstLine.flatMap { line => httpCode(line) } match {
             case Some(httpStatusCode) => httpStatusCode match {
               case 204 => readWithDefinedContentLength(consumer, 0)
+              case 304 => readWithDefinedContentLength(consumer, 0)
               case  _ =>
                 contentLength(headers) match {
                   case Some(length) => readWithDefinedContentLength(consumer, length)
