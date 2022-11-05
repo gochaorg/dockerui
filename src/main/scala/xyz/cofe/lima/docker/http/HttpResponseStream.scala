@@ -35,8 +35,26 @@ case class HttpResponseStream(source        :()=>Option[Byte],
 
   type Consumer = HttpResponseStream.Event=>HttpResponseStream.Behavior
 
+  private lazy val firstLinePattern = Pattern.compile(firstLineRegex)
+  private def httpCode(firstLine:String): Option[Int] = {
+    val m = firstLinePattern.matcher(firstLine)
+    if( m.matches() ){
+      Some(m.group("code").toInt)
+    }else{
+      None
+    }
+  }
   def read(consumer:Consumer):Unit = {
-    readFirstLine(consumer) match {
+    var firstLine:Option[String] = None
+
+    readFirstLine { ev =>
+      ev match {
+        case Event.FirstLine(pid, string) =>
+          firstLine = Some(string)
+        case _ =>
+      }
+      consumer(ev)
+    } match {
       case Behavior.Stop => ()
       case Behavior.Continue =>
         var headers = List[(String,String)]()
@@ -66,15 +84,27 @@ case class HttpResponseStream(source        :()=>Option[Byte],
         }
         if( !hasError ){
           headers = headers.reverse
-          contentLength(headers) match {
-            case Some(length) => readWithDefinedContentLength(consumer,length)
-            case None => readWithUndefinedContentLength(consumer,headers)
+
+          firstLine.flatMap { line => httpCode(line) } match {
+            case Some(httpStatusCode) => httpStatusCode match {
+              case 204 => readWithDefinedContentLength(consumer, 0)
+              case  _ =>
+                contentLength(headers) match {
+                  case Some(length) => readWithDefinedContentLength(consumer, length)
+                  case None => readWithUndefinedContentLength(consumer, headers)
+                }
+            }
+            case None =>
+              contentLength(headers) match {
+                case Some(length) => readWithDefinedContentLength(consumer, length)
+                case None => readWithUndefinedContentLength(consumer, headers)
+              }
           }
         }
     }
   }
 
-  private val firstLineRegex = "(?is)HTTPS?/\\d(\\.\\d)?\\s+\\d+(\\s+.*)?"
+  private val firstLineRegex = "(?is)HTTPS?/\\d(\\.\\d)?\\s+(?<code>\\d+)(\\s+.*)?"
   def readFirstLine(consumer: Consumer):Behavior =
     lineReader.read match {
       case Some(line) =>
@@ -323,6 +353,7 @@ case class HttpResponseStream(source        :()=>Option[Byte],
                 case Behavior.Continue =>
               }
               if( chunkSize==0 ){
+                consumer(httpLogger.event(Event.DataEnd(pid)))
                 stop = true
               }
           }

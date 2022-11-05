@@ -13,23 +13,10 @@ import tethys._
 import tethys.jackson._
 
 trait HttpClient {
-  type ERROR
+  type ERROR <: errors.HttpError
 
   def stream(request:HttpRequest)(consumer:HttpResponseStream.Event=>HttpResponseStream.Behavior):Unit
-
   def http(request:HttpRequest):Either[ERROR,HttpResponse]
-
-  def text(
-      request: HttpRequest,
-      responseWrapper: HttpResponse => HttpResponse = r => r,
-      successHttpCode: HttpResponse => Boolean = r => r.isOk
-    ): Either[ERROR, String]
-
-  def json[A: JsonReader](
-      request: HttpRequest,
-      responseWrapper: HttpResponse => HttpResponse = r => r,
-      successHttpCode: HttpResponse => Boolean = r => r.isOk
-    )(implicit ct: ClassTag[A]): Either[ERROR, A]
 }
 
 object HttpClient {
@@ -125,9 +112,12 @@ class HttpClientImpl
     override def apply(event: HttpResponseStream.Event): HttpResponseStream.Behavior = {
       event match {
         case err: Event.Error =>
+          println(err)
           consumer(Left(err))
           HttpResponseStream.Behavior.Stop
-        case Event.FirstLine(pid, string) => firstLine = Some(string); HttpResponseStream.Behavior.Continue
+        case Event.FirstLine(pid, string) =>
+          firstLine = Some(string);
+          HttpResponseStream.Behavior.Continue
         case Event.Header(pid, name, value) => headers = headers :+ (name,value); HttpResponseStream.Behavior.Continue
         case Event.HeaderEnd(pid) => HttpResponseStream.Behavior.Continue
         case Event.Data(pid, bytes) => body.write(bytes); HttpResponseStream.Behavior.Continue
@@ -174,38 +164,6 @@ class HttpClientImpl
       }.getOrElse(
         Left(errors.HttpError.HttpResponseNotParsed())
       )
-    }
-  }
-
-  override def text(request: HttpRequest, responseWrapper: HttpResponse => HttpResponse, successHttpCode: HttpResponse => Boolean): Either[errors.HttpError, String] = {
-    lockAndRun {
-      for {
-        response0 <- http(request)
-        response = responseWrapper(response0)
-        _ <- if (successHttpCode(response)) {
-          Right(response)
-        } else {
-          Left(errors.HttpError.HttpStatusCodeNotValid())
-        }
-        text <- response.text.map(
-          s => Right(s)
-        ).getOrElse(
-          Left(errors.HttpError.CantExtractText())
-        )
-      } yield text
-    }
-  }
-
-  override def json[A: JsonReader](
-                                    request: HttpRequest,
-                                    responseWrapper: HttpResponse => HttpResponse,
-                                    successHttpCode: HttpResponse => Boolean
-                                  )(implicit ct: ClassTag[A]): Either[errors.HttpError, A] = {
-    text(request,responseWrapper,successHttpCode).flatMap{ bodyText =>
-      val cname = ct.runtimeClass.toGenericString
-      bodyText.jsonAs[A].left.map { readerErr =>
-        errors.HttpError.CantExtractJson(bodyText, cname, readerErr)
-      }
     }
   }
 }
