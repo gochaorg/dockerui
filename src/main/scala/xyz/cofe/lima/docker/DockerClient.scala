@@ -64,57 +64,90 @@ case class DockerClient( socketChannel: SocketChannel,
     def expect: Expectation = Expectation(responseEt)
   }
 
+  /**
+   * Описывает ожидаемый ответ
+   * @param responseEt ответ от http
+   * @param successCodes код (http status) успешного ответа
+   * @param failCodeMap кода (http status) ошибок
+   */
   case class Expectation(
                           responseEt:Either[HttpError,HttpResponse],
                           successCodes:List[Int]=List(),
                           failCodeMap:Map[Int,ErrorResponse=>errors.DockerError]=Map()
                         ) {
+    /**
+     * ожидаемый код ошибки
+     * @param code код ошибки
+     * @param err представление ошибки
+     * @return ожидаемое поведение
+     */
     def fail(code:Int,err:ErrorResponse=>errors.DockerError): Expectation = copy(
       failCodeMap = failCodeMap + (code -> err)
     )
-    def json[A: JsonReader](successStatusCode: Int)(implicit ct: ClassTag[A]): Either[errors.DockerError,A] = {
+
+    private def attachApplicationJsonContentType(response:HttpResponse):HttpResponse =
+      if (response.contentType.isDefined) {
+        response
+      } else {
+        response.copy(
+          headers = ("Content-Type" -> "application/json") :: response.headers
+        )
+      }
+
+    private def validateStatusCode(successStatusCodes:Seq[Int], response:HttpResponse):Either[errors.DockerError,HttpResponse] = {
+      response.code match {
+        case Some(statusCode) =>
+          failCodeMap.get(statusCode) match {
+            case Some(createErr) =>
+              // код ответа ожидаемой ошибки
+              attachApplicationJsonContentType(response).text match {
+                case Some(bodyText) => bodyText.jsonAs[ErrorResponse] match {
+                  case Left(errJsonParse) => Left(createErr(ErrorResponse(s"DockerClient: can't parse ErrorResponse:$errJsonParse")))
+                  case Right(errResponse) => Left(createErr(errResponse))
+                }
+                case None => Left(createErr(ErrorResponse("DockerClient: error message not available")))
+              }
+            case None =>
+              // код ответа - не ошибка
+              if (successStatusCodes.contains(statusCode)) {
+                // хз что за код,
+                Left(errors.UnExpectedStatusCode(response, successStatusCodes))
+              } else {
+                Right(response)
+              }
+          }
+        case None => Left(errors.StatusCodeNotAvailable(response))
+      }
+    }
+
+    def body(successStatusCode: Int*): Either[errors.DockerError,Seq[Byte]] = {
+      responseEt match {
+        case Left(httpErr) => Left(errors.HttpErr(httpErr))
+        case Right(response) => validateStatusCode(successStatusCode,response).map(_.body)
+      }
+    }
+
+    def text(successStatusCode: Int*): Either[errors.DockerError,String] = {
       responseEt match {
         case Left(httpErr) => Left(errors.HttpErr(httpErr))
         case Right(response) =>
-          val responseContentTypeJson: HttpResponse = if (response.contentType.isDefined) {
-            response
-          } else {
-            response.copy(
-              headers = ("Content-Type" -> "application/json") :: response.headers
-            )
+          validateStatusCode(successStatusCode, response).flatMap { response =>
+            response.text match {
+              case Some(plainText) => Right(plainText)
+              case None => Left(errors.CantExtractText(response))
+            }
           }
+      }
+    }
 
-          response.code match {
-            case Some(statusCode) =>
-              failCodeMap.get(statusCode) match {
-                case Some(createErr) =>
-                  // код ответа ожидаемой ошибки
-                  responseContentTypeJson.text match {
-                    case Some(bodyText) => bodyText.jsonAs[ErrorResponse] match {
-                      case Left(errJsonParse) => Left(createErr(ErrorResponse(s"DockerClient: can't parse ErrorResponse:$errJsonParse")))
-                      case Right(errResponse) => Left(createErr(errResponse))
-                    }
-                    case None => Left(createErr(ErrorResponse("DockerClient: error message not available")))
-                  }
-                case None =>
-                  // код ответа - не ошибка
-                  if( statusCode!=successStatusCode ){
-                    // хз что за код,
-                    Left(errors.UnExpectedStatusCode(responseContentTypeJson,successStatusCode))
-                  }else{
-                    responseContentTypeJson.text match {
-                      case Some(plainText) => plainText.jsonAs[A] match {
-                        case Left(jsonParseErr) =>
-                          val cname = ct.runtimeClass.toGenericString
-                          Left(errors.CantExtractJson(plainText, cname, jsonParseErr))
-                        case Right(value) => Right(value)
-                      }
-                      case None => Left(errors.CantExtractText(responseContentTypeJson))
-                    }
-                  }
-              }
-            case None => Left(errors.StatusCodeNotAvailable(response))
-          }
+    def json[A: JsonReader](successStatusCode: Int*)(implicit ct: ClassTag[A]): Either[errors.DockerError,A] = {
+      text(successStatusCode:_*).flatMap { plainText =>
+        plainText.jsonAs[A] match {
+          case Left(jsonParseErr) =>
+            val cname = ct.runtimeClass.toGenericString
+            Left(errors.CantExtractJson(plainText, cname, jsonParseErr))
+          case Right(value) => Right(value)
+        }
       }
     }
   }
@@ -137,7 +170,7 @@ case class DockerClient( socketChannel: SocketChannel,
         "size" -> size
       ).get())
         .expect
-        .fail(400, msg=>errors.BadRequest(msg.message))
+        .fail(400, errors.BadRequest(_))
         .json[List[model.ContainerStatus]](200)
     }
   }
@@ -150,9 +183,10 @@ case class DockerClient( socketChannel: SocketChannel,
   def containerInspect(id:String): Either[errors.DockerError, model.ContainerInspect] =
     logger(Logger.ContainerInspect(id)).run {
       http(HttpRequest(s"/containers/${id}/json").get())
-        .validStatusCode(200)
-        .json[model.ContainerInspect]
-        .left.map(e => errors.HttpErr(e))
+        .expect
+        .fail(404,errors.NotFound(_))
+        .fail(500,errors.ServerErr(_))
+        .json[model.ContainerInspect](200)
     }
 
   /**
@@ -160,9 +194,13 @@ case class DockerClient( socketChannel: SocketChannel,
    * @param id идентификатор контейнера
    * @return процессы
    */
-  def containerProcesses(id:String): Either[String, model.Top] =
+  def containerProcesses(id:String): Either[errors.DockerError, model.Top] =
     logger(ContainerProcesses(id)).run {
-      http(HttpRequest(s"/containers/${id}/top").get()).validStatusCode(200).json[model.Top].left.map(_.message)
+      http(HttpRequest(s"/containers/${id}/top").get())
+        .expect
+        .fail(404,errors.NotFound(_))
+        .fail(500,errors.ServerErr(_))
+        .json[model.Top](200)
     }
 
   /**

@@ -3,6 +3,7 @@ package xyz.cofe.lima.docker
 import tethys.{JsonReader, JsonWriter}
 import tethys.derivation.semiauto.{jsonReader, jsonWriter}
 import tethys.writers.tokens.TokenWriter
+import xyz.cofe.lima.docker.model.ErrorResponse
 import xyz.cofe.lima.errors.{AppError, ThrowableView}
 import xyz.cofe.lima.store.json._
 
@@ -23,7 +24,11 @@ object errors {
    * Не ожиданный код ответа
    * @param response ответ
    */
-  case class UnExpectedStatusCode(response:http.HttpResponse, expectStatusCode:Int) extends DockerError { val message=s"UnExpectedStatusCode ${response.code}" }
+  case class UnExpectedStatusCode(response:http.HttpResponse, expectStatusCodes:Seq[Int]) extends DockerError
+  {
+    val message=s"UnExpectedStatusCode ${response.code}, expected ${expectStatusCodes}"
+  }
+
   object UnExpectedStatusCode {
     implicit val reader: JsonReader[UnExpectedStatusCode] = jsonReader[UnExpectedStatusCode]
     implicit val writer: JsonWriter[UnExpectedStatusCode] = classWriter[UnExpectedStatusCode] ++ jsonWriter[UnExpectedStatusCode]
@@ -54,16 +59,55 @@ object errors {
     implicit val writer: JsonWriter[CantExtractJson] = CantExtractJsonView.writer.contramap( v => CantExtractJsonView(v.bodyText, v.className, ThrowableView.from(v.jsonParseErr)) )
   }
 
+  /**
+   * Ощая ошибка - хз какая
+   * @param message сообщение
+   */
   case class GenericErr(message:String) extends DockerError
   object GenericErr {
+    def apply(message: String): GenericErr = new GenericErr(message)
+    def apply(message: ErrorResponse): GenericErr = new GenericErr(message.message)
+
     implicit val reader:JsonReader[GenericErr] = jsonReader[GenericErr]
     implicit val writer:JsonWriter[GenericErr] = classWriter[GenericErr] ++ jsonWriter[GenericErr]
   }
 
+  /**
+   * ошибка запроса, касячныые параметры
+   * @param message сообщение от docker
+   */
   case class BadRequest(message:String) extends DockerError
   object BadRequest {
+    def apply(message:String):BadRequest = new BadRequest(message)
+    def apply(message:ErrorResponse):BadRequest = new BadRequest(message.message)
     implicit val reader:JsonReader[BadRequest] = jsonReader[BadRequest]
     implicit val writer:JsonWriter[BadRequest] = classWriter[BadRequest] ++ jsonWriter[BadRequest]
+  }
+
+  /**
+   * не найден контейнер
+   * @param message сообщение от docker
+   */
+  case class NotFound(message:String) extends DockerError
+  object NotFound {
+    def apply(message: String): NotFound = new NotFound(message)
+    def apply(message: ErrorResponse): NotFound = new NotFound(message.message)
+
+    implicit val reader:JsonReader[NotFound] = jsonReader[NotFound]
+    implicit val writer:JsonWriter[NotFound] = classWriter[NotFound] ++ jsonWriter[NotFound]
+  }
+
+  /**
+   * что-то докер себя повел не так
+   * @param message сообщение от docker
+   */
+  case class ServerErr(message:String) extends DockerError
+  object ServerErr {
+    def apply(message: String): ServerErr = new ServerErr(message)
+    def apply(message: ErrorResponse): ServerErr = new ServerErr(message.message)
+
+    implicit val reader:JsonReader[ServerErr] = jsonReader[ServerErr]
+    implicit val writer:JsonWriter[ServerErr] = classWriter[ServerErr] ++ jsonWriter[ServerErr]
   }
 
   /**
@@ -87,6 +131,7 @@ object errors {
       case e:CantExtractText => CantExtractText.writer.write(e,tokenWriter)
       case e:CantExtractJson => CantExtractJson.writer.write(e,tokenWriter)
       case e:BadRequest => BadRequest.writer.write(e,tokenWriter)
+      case e:NotFound => NotFound.writer.write(e,tokenWriter)
     }
   }
   implicit val reader:JsonReader[DockerError] = JsonReader.builder.addField[String]("_type").selectReader[DockerError] {
@@ -97,5 +142,6 @@ object errors {
     case "CantExtractText" => CantExtractText.reader
     case "CantExtractJson" => CantExtractJson.reader
     case "BadRequest" => BadRequest.reader
+    case "NotFound" => NotFound.reader
   }
 }
