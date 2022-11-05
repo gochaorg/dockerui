@@ -110,9 +110,4 @@ object errors {
   trait AppError {
     def message:String
   }
-
-  trait DockerClientError extends AppError
-  object DockerClientError {
-    case class Simple(message:String) extends DockerClientError
-  }
 }
