@@ -206,9 +206,15 @@ object Logger {
     implicitly[JsonReader[List[String]]].map[Array[String]] { listArr => listArr.toArray }
   }
 
-  implicit def unit2Json: JsonWriter[Unit] = (_: Unit, _: TokenWriter) => {}
+  implicit def unit2Json: JsonWriter[Unit] = (_: Unit, tw: TokenWriter) => { tw.writeNull() }
   implicit def json2unit: JsonReader[Unit] = new JsonReader[Unit] {
-    override def read(it: TokenIterator)(implicit fieldName: FieldName): Unit = ()
+    override def read(it: TokenIterator)(implicit fieldName: FieldName): Unit = {
+      if(it.currentToken().isNullValue){
+        it.next()
+      }else{
+        throw new Error("expect null")
+      }
+    }
   }
 
   abstract class MethodWithParams[A:JsonWriter] extends Product with MethodCall {

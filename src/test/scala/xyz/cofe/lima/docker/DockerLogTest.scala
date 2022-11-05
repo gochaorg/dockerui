@@ -665,4 +665,25 @@ class DockerLogTest extends AnyFunSuite {
     assert(entry.isRight)
   }
 
+  val succUnitResult_LogEntry = """{
+                                  |  "_type": "SuccEvent",
+                                  |  "threadId": {
+                                  |    "id": 20,
+                                  |    "name": "JavaFX Application Thread"
+                                  |  },
+                                  |  "beginTime": "2022-11-06T04:03:51.307267582",
+                                  |  "endTime": "2022-11-06T04:03:51.5661465",
+                                  |  "args": {
+                                  |    "_type": "ContainerStart",
+                                  |    "containerId": "53e9e78d58eff78b7e162c399284c195c4cdc3f793408d62ba336f9ef2dcedd4"
+                                  |  },
+                                  |  "result": null
+                                  |}""".stripMargin
+
+  test("read succ with unit result") {
+    implicit val reader = JsonLogEventReader.reader
+    val entry = logEntry_Succ.jsonAs[LogEvent[_, _]]
+    println(entry)
+    assert(entry.isRight)
+  }
 }
