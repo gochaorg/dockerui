@@ -1,5 +1,6 @@
 package xyz.cofe.lima.ui
 
+import javafx.application.Platform
 import javafx.fxml.FXML
 import javafx.scene.control
 import javafx.scene.control.cell.TreeItemPropertyValueFactory
@@ -40,28 +41,39 @@ class ContainerController {
   def select(cId:Option[String]):Unit = {
     containerId = cId
     containerId.foreach(cid => {
-      dockerClient.foreach(dc => {
+      DockerClientPool.submit( dc => {
         dc.containerInspect(cid) match {
-          case Left(err) =>
-          case Right(ci) =>
+          case Left(err) => println(s"containerInspect $cid fail: "+err)
+          case Right(ci) => Platform.runLater(()=>{
             Prop(ci).foreach(root => {
               root.setExpanded(true)
               treeTable.setRoot(root)
             })
-        }
-
-        dc.containerLogs(cid, stdout = Some(true)) match {
-          case Left(err) =>
-          case Right(logs) =>
-            logsStdOut.setText(logs.mkString("\n"))
-        }
-
-        dc.containerLogs(cid, stderr = Some(true)) match {
-          case Left(err) =>
-          case Right(logs) =>
-            logsStdErr.setText(logs.mkString("\n"))
+          })
         }
       })
+//      dockerClient.foreach(dc => {
+//        dc.containerInspect(cid) match {
+//          case Left(err) =>
+//          case Right(ci) =>
+//            Prop(ci).foreach(root => {
+//              root.setExpanded(true)
+//              treeTable.setRoot(root)
+//            })
+//        }
+//
+//        dc.containerLogs(cid, stdout = Some(true)) match {
+//          case Left(err) =>
+//          case Right(logs) =>
+//            logsStdOut.setText(logs.mkString("\n"))
+//        }
+//
+//        dc.containerLogs(cid, stderr = Some(true)) match {
+//          case Left(err) =>
+//          case Right(logs) =>
+//            logsStdErr.setText(logs.mkString("\n"))
+//        }
+//      })
     })
   }
 

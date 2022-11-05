@@ -1,18 +1,18 @@
 package xyz.cofe.lima.docker
 
-import xyz.cofe.lima.docker.http.{Decoder, HttpLogger, HttpRequest, HttpResponse, HttpResponseReader, HttpResponseStream, SocketChannelSupplier, SocketLogger, SocketReadTimings}
-
-import java.nio.ByteBuffer
-import java.nio.channels.SocketChannel
-import java.nio.charset.StandardCharsets
 import tethys._
 import tethys.jackson._
 import xyz.cofe.lima.docker.http.HttpResponseStream.Event
+import xyz.cofe.lima.docker.http._
+import xyz.cofe.lima.docker.http.errors.HttpError
 import xyz.cofe.lima.docker.log.Logger
-import xyz.cofe.lima.docker.log.Logger.{defaultLogger, _}
-import xyz.cofe.lima.docker.model.{ContainerFileChanges, CreateContainerRequest, CreateContainerResponse, Image, ImageHistory, ImageInspect, ImagePullStatusEntry, ImageRemove}
+import xyz.cofe.lima.docker.log.Logger._
+import xyz.cofe.lima.docker.model.{ImageHistory, _}
 
 import java.net.UnixDomainSocketAddress
+import java.nio.ByteBuffer
+import java.nio.channels.SocketChannel
+import java.nio.charset.StandardCharsets
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.{Lock, ReentrantLock}
 
@@ -80,6 +80,9 @@ case class DockerClient( socketChannel: SocketChannel,
   implicit val clientIdProvide: ClientId = new Logger.ClientId {
     override def clientId: Int = DockerClient.this.clientId
   }
+
+  private lazy val httpClient = HttpClient(socketChannel,socketReadTimings,socketLock)
+  private def http(request:HttpRequest) = httpClient.http(request)
 
   //#region http tasks
 
@@ -204,17 +207,11 @@ case class DockerClient( socketChannel: SocketChannel,
   def containers(all:Boolean=false, limit:Option[Int]=None, size:Boolean=false)
   : Either[String, List[model.ContainerStatus]] = {
     logger(Logger.Containers(all, limit, size)).run {
-      val q = Map("all" -> all.toString) ++
-        (limit.map(l => Map("limit" -> l.toString)).getOrElse(Map())) ++
-        (if (size) Map("size" -> size.toString) else (Map()))
-
-      sendForJson[List[model.ContainerStatus]](
-        HttpRequest(path = "/containers/json").queryString(
-          "all" -> all,
-          "limit" -> limit,
-          "size" -> size
-        )
-      )
+      http(HttpRequest(path = "/containers/json").queryString(
+        "all" -> all,
+        "limit" -> limit,
+        "size" -> size
+      ).get()).validStatusCode(200).json[List[model.ContainerStatus]].left.map(_.message)
     }
   }
 
@@ -224,10 +221,15 @@ case class DockerClient( socketChannel: SocketChannel,
    * @return инфа
    */
   def containerInspect(id:String): Either[String, model.ContainerInspect] =
-    logger(ContainerInspect(id)).run {
-      sendForJson[model.ContainerInspect](
-        HttpRequest(path = s"/containers/${id}/json")
-      )
+    logger(Logger.ContainerInspect(id)).run {
+//      sendForJson[model.ContainerInspect](
+//        HttpRequest(path = s"/containers/${id}/json")
+//      )
+
+      http(HttpRequest(s"/containers/${id}/json").get()).validStatusCode(200).json[model.ContainerInspect].left.map { err =>
+        //println(err)
+        err.message
+      }
     }
 
   /**
@@ -237,9 +239,7 @@ case class DockerClient( socketChannel: SocketChannel,
    */
   def containerProcesses(id:String): Either[String, model.Top] =
     logger(ContainerProcesses(id)).run {
-      sendForJson[model.Top](
-        HttpRequest(path = s"/containers/${id}/top")
-      )
+      http(HttpRequest(s"/containers/${id}/top").get()).validStatusCode(200).json[model.Top].left.map(_.message)
     }
 
   /**
@@ -329,24 +329,12 @@ case class DockerClient( socketChannel: SocketChannel,
    */
   def containerStart(containerId:String): Either[String, Unit] = {
     logger(ContainerStart(containerId)).run {
-      sendForHttp(
-        HttpRequest(path = s"/containers/${containerId}/start", method = "POST")
-      ) match {
-        case Left(errMessage) =>
-          errMessage match {
-            case HttpResponse.NO_RESPONSE =>
-              Right(())
-            case _ =>
-              Left(errMessage)
-          }
-        case Right(response) =>
-          response.code match {
-            case Some(200) => Right(())
-            case Some(304) => Right(()) // already started
-            case Some(code) => Left(s"code = $code")
-            case None => Left(s"some wrong\n$response")
-          }
-      }
+      http(
+        HttpRequest(s"/containers/${containerId}/start").post()
+      ).validStatusCode(204)
+        .left
+        .map { e => e.message }
+        .map { _ => () }
     }
   }
 
@@ -357,24 +345,12 @@ case class DockerClient( socketChannel: SocketChannel,
    */
   def containerStop(containerId:String): Either[String, Unit] = {
     logger(ContainerStart(containerId)).run {
-      sendForHttp(
-        HttpRequest(path = s"/containers/${containerId}/stop", method = "POST")
-      ) match {
-        case Left(errMessage) =>
-          errMessage match {
-            case HttpResponse.NO_RESPONSE =>
-              Right(())
-            case _ =>
-              Left(errMessage)
-          }
-        case Right(response) =>
-          response.code match {
-            case Some(200) => Right(())
-            case Some(304) => Right(()) // already started
-            case Some(code) => Left(s"code = $code")
-            case None => Left(s"some wrong\n$response")
-          }
-      }
+      http(
+        HttpRequest(s"/containers/${containerId}/stop").post()
+      ).validStatusCode(204)
+        .left
+        .map { e => e.message }
+        .map { _ => () }
     }
   }
 

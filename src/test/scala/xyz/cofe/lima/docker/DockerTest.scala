@@ -10,22 +10,22 @@ import java.nio.charset.StandardCharsets
 
 class DockerTest extends AnyFunSuite {
   val socket = "/var/run/docker.sock"
-  test("create container") {
-    implicit val httpLog = HttpLogger.stdout()
-    //implicit val socketLog = SocketLogger.stdout
-    DockerClient.unixSocket(
-      socket
-    ).copy(sourceTimeout = 1000L*30L, readTimeout = 1000L*30L).containerCreate(
-      CreateContainerRequest(
-        Image = "alpine",
-        Cmd = Some(List("echo", "hello"))
-      )
-    ) match {
-      case Left(err) => println(s"error $err")
-      case Right(value) =>
-        println(s"${value.Id}\n${value.Warnings}")
-    }
-  }
+//  test("create container") {
+//    implicit val httpLog = HttpLogger.stdout()
+//    //implicit val socketLog = SocketLogger.stdout
+//    DockerClient.unixSocket(
+//      socket
+//    ).copy(sourceTimeout = 1000L*30L, readTimeout = 1000L*30L).containerCreate(
+//      CreateContainerRequest(
+//        Image = "alpine",
+//        Cmd = Some(List("echo", "hello"))
+//      )
+//    ) match {
+//      case Left(err) => println(s"error $err")
+//      case Right(value) =>
+//        println(s"${value.Id}\n${value.Warnings}")
+//    }
+//  }
 
   test("containers") {
     //implicit val log = HttpLogger.stdout
@@ -49,11 +49,12 @@ class DockerTest extends AnyFunSuite {
   }
 
   test("inspect") {
-    implicit val log = HttpLogger.stdout()
+    //implicit val log = HttpLogger.stdout()
     DockerClient
       .unixSocket(socket)
-      .containerInspect("53e9e78d58ef") match {
-      case Left(err) => println(s"error $err")
+      .containerInspect("53e9e78d58eff78b7e162c399284c195c4cdc3f793408d62ba336f9ef2dcedd4") match {
+      case Left(err) =>
+        println(s"error $err")
       case Right(ci) =>
         println(ci)
     }
@@ -61,7 +62,7 @@ class DockerTest extends AnyFunSuite {
 
   test("processes inside") {
     DockerClient
-      .unixSocket("/Users/g.kamnev/.colima/docker.sock")
+      .unixSocket(socket)
       .containerProcesses("55d923dcdaab7bda9194b0963123e8c44d0b536db25ede1b25a1cd8d1dd29bbe") match {
       case Left(err) => println(s"error $err")
       case Right(ci) =>
@@ -102,38 +103,38 @@ class DockerTest extends AnyFunSuite {
     }
   }
 
-  test("stream reading") {
-    //val url = "http://localhost/v1.41/images/create?fromImage=redis&tag=sha256:2bd864580926b790a22c8b96fd74496fe87b3c59c0774fe144bab2788e78e676"
-
-    lazy val byte2charDecoder: Decoder.Byte2Char = Decoder.Byte2Char(StandardCharsets.UTF_8.newDecoder())
-    lazy val lineDecoder: Decoder[Byte, String, String] = Decoder.Char2Line().compose( byte2charDecoder )
-
-    DockerClient
-      .unixSocket("/Users/g.kamnev/.colima/docker.sock")
-      .copy(readTimeout = -1,sourceTimeout = 1000L*60L*60L,cpuThrottling = 200L)
-      .stream(
-        HttpRequest("/images/create")
-          .queryString(Map(
-            "fromImage"->"redis",
-            "tag"->"sha256:2bd864580926b790a22c8b96fd74496fe87b3c59c0774fe144bab2788e78e676"
-          )).post()
-      ) { ev =>
-        ev match {
-          case Event.Error(_,string) => println(string)
-          case Event.FirstLine(_,string) => println(string)
-          case Event.Header(_,name, value) => println(s"$name: $value")
-          case Event.HeaderEnd(_) => println("header end")
-          case Event.Data(_,bytes) =>
-            lineDecoder.accept(bytes)
-            lineDecoder.fetch.foreach { println }
-          case Event.DataEnd(_) =>
-            println(lineDecoder.tail)
-            println("="*40)
-            println("END")
-        }
-        HttpResponseStream.Behavior.Continue
-      }
-  }
+//  test("stream reading") {
+//    //val url = "http://localhost/v1.41/images/create?fromImage=redis&tag=sha256:2bd864580926b790a22c8b96fd74496fe87b3c59c0774fe144bab2788e78e676"
+//
+//    lazy val byte2charDecoder: Decoder.Byte2Char = Decoder.Byte2Char(StandardCharsets.UTF_8.newDecoder())
+//    lazy val lineDecoder: Decoder[Byte, String, String] = Decoder.Char2Line().compose( byte2charDecoder )
+//
+//    DockerClient
+//      .unixSocket("/Users/g.kamnev/.colima/docker.sock")
+//      .copy(readTimeout = -1,sourceTimeout = 1000L*60L*60L,cpuThrottling = 200L)
+//      .stream(
+//        HttpRequest("/images/create")
+//          .queryString(Map(
+//            "fromImage"->"redis",
+//            "tag"->"sha256:2bd864580926b790a22c8b96fd74496fe87b3c59c0774fe144bab2788e78e676"
+//          )).post()
+//      ) { ev =>
+//        ev match {
+//          case Event.Error(_,string) => println(string)
+//          case Event.FirstLine(_,string) => println(string)
+//          case Event.Header(_,name, value) => println(s"$name: $value")
+//          case Event.HeaderEnd(_) => println("header end")
+//          case Event.Data(_,bytes) =>
+//            lineDecoder.accept(bytes)
+//            lineDecoder.fetch.foreach { println }
+//          case Event.DataEnd(_) =>
+//            println(lineDecoder.tail)
+//            println("="*40)
+//            println("END")
+//        }
+//        HttpResponseStream.Behavior.Continue
+//      }
+//  }
 
   test("image pull") {
     DockerClient

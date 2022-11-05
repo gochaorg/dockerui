@@ -112,29 +112,29 @@ class ResponseParseTest extends AnyFunSuite {
     }
   }
 
-  test("parse res stream") {
-    val byteSupplier = SingleSupplier[Byte](bytes)
-
-    val lineDec = Decoder.Char2Line().compose(
-      Decoder.Byte2Char(StandardCharsets.UTF_8.newDecoder())
-    )
-
-    val reader = DelaiedReader[Byte,String](byteSupplier, lineDec, sourceTimeout = 1L, readTimeout = 100L)
-    println( reader.read )
-    println( reader.read )
-    println( reader.read )
-    println( reader.read )
-    println( reader.read )
-    println( reader.read )
-    println( reader.read )
-    println( reader.read )
-    println( reader.read )
-    println( reader.read )
-    println( reader.read )
-    println( reader.read )
-    println( reader.read )
-    println( reader.read )
-  }
+//  test("parse res stream") {
+//    val byteSupplier = SingleSupplier[Byte](bytes)
+//
+//    val lineDec = Decoder.Char2Line().compose(
+//      Decoder.Byte2Char(StandardCharsets.UTF_8.newDecoder())
+//    )
+//
+//    val reader = DelaiedReader[Byte,String](byteSupplier, lineDec, sourceTimeout = 1L, readTimeout = 100L)
+//    println( reader.read )
+//    println( reader.read )
+//    println( reader.read )
+//    println( reader.read )
+//    println( reader.read )
+//    println( reader.read )
+//    println( reader.read )
+//    println( reader.read )
+//    println( reader.read )
+//    println( reader.read )
+//    println( reader.read )
+//    println( reader.read )
+//    println( reader.read )
+//    println( reader.read )
+//  }
 
   test("parse http response") {
     HttpResponseReader(SingleSupplier[Byte](bytes)).read match {

@@ -39,8 +39,7 @@ object errors {
       implicit val reader: JsonReader[HttpResponseNotParsed] = jsonReader[HttpResponseNotParsed]
     }
 
-    case class HttpStatusCodeNotValid() extends HttpError {
-      val message:String = s"http not valid status code by user function"
+    case class HttpStatusCodeNotValid(message:String = "http not valid status code by user function") extends HttpError {
     }
     object HttpStatusCodeNotValid {
       implicit val writer: JsonWriter[HttpStatusCodeNotValid] = classWriter[HttpStatusCodeNotValid] ++ jsonWriter[HttpStatusCodeNotValid]
