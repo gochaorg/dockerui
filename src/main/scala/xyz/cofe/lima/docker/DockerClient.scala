@@ -53,30 +53,6 @@ case class DockerClient( socketChannel: SocketChannel,
       socketLock
     )(httpLogger,socketLogger,logger)
 
-  def lockAndRun[R]( code: => R ):R = {
-    try {
-      socketLock.lock()
-      code
-    }finally {
-      socketLock.unlock()
-    }
-  }
-  def tryLockAndRun[R]( code: =>R ):Option[R] = {
-    var succLock = false
-    try {
-      if( socketLock.tryLock() ) {
-        succLock = true
-        Some(code)
-      }else{
-        None
-      }
-    }finally {
-      if( succLock ) {
-        socketLock.unlock()
-      }
-    }
-  }
-
   implicit val clientIdProvide: ClientId = new Logger.ClientId {
     override def clientId: Int = DockerClient.this.clientId
   }
