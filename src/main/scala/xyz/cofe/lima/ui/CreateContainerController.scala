@@ -1,19 +1,12 @@
 package xyz.cofe.lima.ui
 
 import javafx.application.Platform
-import javafx.beans.Observable
-import javafx.beans.property.SimpleStringProperty
-import javafx.beans.value.{ChangeListener, ObservableValue}
-import javafx.event.EventHandler
 import javafx.fxml.FXML
-import javafx.scene.control
-import javafx.scene.control.cell.TextFieldTreeTableCell
-import javafx.scene.control.{TreeItem, TreeTableColumn, TreeTableRow, TreeTableView}
-import javafx.util.{Callback, StringConverter}
+import javafx.scene.control.{TreeItem, TreeTableView}
 import xyz.cofe.lima.docker.DockerClient
 import xyz.cofe.lima.docker.log.Logger.ContainerCreate
 import xyz.cofe.lima.docker.model.CreateContainerRequest
-import xyz.cofe.lima.store.{AppConfig, ControllersHistory, History}
+import xyz.cofe.lima.store.{ControllersHistory, History}
 
 class CreateContainerController {
   @FXML
@@ -21,65 +14,7 @@ class CreateContainerController {
 
   @FXML
   def initialize():Unit = {
-    val nameCol = new TreeTableColumn[MutProp,String]("name")
-    nameCol.setCellValueFactory(new Callback[TreeTableColumn.CellDataFeatures[MutProp,String],ObservableValue[String]] {
-      override def call(param: TreeTableColumn.CellDataFeatures[MutProp, String]): ObservableValue[String] = {
-        val str = param.getValue.getValue.name
-        val strProp = new SimpleStringProperty(str)
-        strProp.addListener(new ChangeListener[String] {
-          override def changed(observable: ObservableValue[_ <: String], oldValue: String, newValue: String): Unit = {
-            println(s"change $oldValue => $newValue")
-          }
-        })
-        strProp
-      }
-    })
-    nameCol.setEditable(false)
-
-    val valueCol = new TreeTableColumn[MutProp,String]("value")
-    valueCol.setCellValueFactory(new Callback[TreeTableColumn.CellDataFeatures[MutProp,String],ObservableValue[String]] {
-      override def call(param: TreeTableColumn.CellDataFeatures[MutProp, String]): ObservableValue[String] = {
-        val str = param.getValue.getValue.reader()
-        val strProp = new SimpleStringProperty(str)
-        strProp.addListener(new ChangeListener[String] {
-          override def changed(observable: ObservableValue[_ <: String], oldValue: String, newValue: String): Unit = {
-            println(s"change $oldValue => $newValue")
-          }
-        })
-        strProp
-      }
-    })
-    valueCol.setOnEditCommit(new EventHandler[TreeTableColumn.CellEditEvent[MutProp,String]](){
-      override def handle(event: TreeTableColumn.CellEditEvent[MutProp, String]): Unit = {
-        event.getRowValue.getValue.writer( event.getNewValue )
-      }
-    })
-    valueCol.setEditable(true)
-
-    params.getColumns.clear()
-    params.getColumns.add(nameCol)
-    params.getColumns.add(valueCol)
-    params.setEditable(true)
-
-    params.setRowFactory { table =>
-      new TreeTableRow[MutProp]() {
-        override def updateItem(item: MutProp, empty: Boolean): Unit = {
-          super.updateItem(item, empty)
-          setEditable(true)
-        }
-      }
-    }
-
-    valueCol.setCellFactory { c =>
-      new TextFieldTreeTableCell[MutProp,String](new StringConverter[String] {
-        override def toString(`object`: String): String = `object`
-        override def fromString(string: String): String = string
-      }){
-        override def startEdit(): Unit = {
-          super.startEdit()
-        }
-      }
-    }
+    MutProp.initPropTree(params)
 
     history.last.foreach { h =>
       request = h.createContainerRequest
