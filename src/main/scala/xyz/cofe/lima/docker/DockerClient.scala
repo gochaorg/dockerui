@@ -548,40 +548,33 @@ case class DockerClient( socketChannel: SocketChannel,
    */
   def imageRemove(nameOrId:String,force:Option[Boolean]=None,noprune:Option[Boolean]=None): Either[String, List[model.ImageRemove]] =
     logger(Logger.ImageRemove(nameOrId, force, noprune)).run {
-      sendForJson[List[model.ImageRemove]](
+      http(
         HttpRequest(s"/images/${nameOrId}").delete().queryString("force" -> force, "noprune" -> noprune)
-      )
+      ).validStatusCode(200)
+        .json[List[model.ImageRemove]]
+        .left.map(_.message)
     }
 
   def imageTag(nameOrId:String,repo:Option[String]=None,tag:Option[String]=None): Either[String, Unit] =
     logger(Logger.ImageTag(nameOrId, repo, tag)).run {
-      sendForHttp(
+      http(
         HttpRequest(path = s"/images/${nameOrId}/tag")
           .post()
           .queryString("repo" -> repo, "tag" -> tag)
-      ) match {
-        case Left(errMessage) =>
-          errMessage match {
-            case HttpResponse.NO_RESPONSE =>
-              Right(())
-            case _ =>
-              Left(errMessage)
-          }
-        case Right(response) =>
-          response.code match {
-            case Some(200) => Right(())
-            case Some(201) => Right(())
-            case Some(204) => Right(())
-            case Some(code) => Left(s"code = $code\n${response.text}")
-            case None => Left(s"some wrong\n$response")
-          }
-      }
+      )
+        .validStatusCode(201)
+        .left.map(_.message)
+        .map(_ => ())
     }
 
 
   def imageHistory(nameOrId:String): Either[String, List[ImageHistory]] = {
     logger(Logger.ImageHistory(nameOrId)).run {
       sendForJson[List[model.ImageHistory]](HttpRequest(s"/images/$nameOrId/history"))
+      http(HttpRequest(s"/images/$nameOrId/history").get())
+        .validStatusCode(200)
+        .json[List[ImageHistory]]
+        .left.map(_.message)
     }
   }
   //#endregion
