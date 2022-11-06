@@ -111,7 +111,7 @@ object PathPattern {
     }.reverse
   }
 
-  trait Evaluate {
+  sealed trait Evaluate {
     def eval(code:String):Either[String,String]
     def namePattern(code:String):Either[String,String]
     def pathPattern(code:String):Either[String,Path] = Left(s"undefined $code")
@@ -151,7 +151,45 @@ object PathPattern {
     }
   }
 
-  case class PathPredicate(validator:Path=>Boolean, index:Option[Int]=None)
+  sealed trait PathPredicate {
+    def validate(path:Path):Boolean
+  }
+  case object AbsolutePredicate extends PathPredicate {
+    override def validate(path: Path): Boolean = path.isAbsolute
+  }
+  case class NameEqualsPredicate(index:Int, name:String) extends PathPredicate {
+    override def validate(path: Path): Boolean = {
+      if( index<0 ){
+        false
+      }else if( index>=path.getNameCount ){
+        false
+      }else{
+        path.getName(index).toString == name
+      }
+    }
+  }
+  case class NameRegexPredicate(index:Int, pattern:Pattern) extends PathPredicate {
+    override def validate(path: Path): Boolean = {
+      if( index<0 ){
+        false
+      }else if( index>=path.getNameCount ){
+        false
+      }else{
+        pattern.matcher(path.getName(index).toString).matches()
+      }
+    }
+  }
+
+  implicit class PredicateListOps(val predicates:List[PathPredicate]) extends AnyVal {
+    def lastIndex:Option[Int] = {
+      predicates.flatMap {
+        case AbsolutePredicate => List()
+        case NameRegexPredicate(index, _) => List(index)
+        case NameEqualsPredicate(index, _) => List(index)
+      }.lastOption
+    }
+    def preferredIndex:Int = lastIndex.getOrElse(-1)+1
+  }
 
   sealed trait Evaluated
   case class EvlPlain(string:String) extends Evaluated
@@ -160,7 +198,6 @@ object PathPattern {
   case class EvlPath(path:Path) extends Evaluated
 
   implicit class PatternOps(val pattern:List[Name]) extends AnyVal {
-    import PatternOps._
 
     private def evalFirst(name:Name)(implicit evaluate: Evaluate):Either[String,Path] = {
       name match {
@@ -210,37 +247,23 @@ object PathPattern {
     }
 
     private def predNameEquals(index:Int, sample:String):PathPredicate = {
-      PathPredicate(index=Some(index), validator = pth => {
-        if( index<pth.getNameCount ){
-          val name = pth.getName(index).toString
-          sample == name
-        }else{
-          false
-        }
-      })
+      NameEqualsPredicate(index, sample)
     }
     private def predNameRegex(index:Int, regex:String):PathPredicate = {
       val ptrn = Pattern.compile(regex)
-      PathPredicate(index = Some(index), validator = pth => {
-        if (index < pth.getNameCount) {
-          val name = pth.getName(index).toString
-          ptrn.matcher(name).matches()
-        } else {
-          false
-        }
-      })
+      NameRegexPredicate(index,ptrn)
     }
 
     private def pred(name:Name, before:List[PathPredicate]=List() )(implicit evaluate: Evaluate):Either[String,List[PathPredicate]] = {
       name match {
         case Name.AbsolutePrefix =>
           if( before.isEmpty ) {
-            Right(List(PathPredicate(path => path.isAbsolute)))
+            Right(List(AbsolutePredicate))
           }else{
             Right(before)
           }
         case Name.Plain(text) =>
-          val idx = before.lastOption.flatMap(_.index).getOrElse(-1)+1
+          val idx = before.preferredIndex
           Right( before ++ List(predNameEquals(idx, text)))
         case Name.Template(parts) =>
           parts.map {
@@ -262,13 +285,13 @@ object PathPattern {
               evl match {
                 case EvlFail(string) => Left(string)
                 case EvlPlain(string) =>
-                  Right( lstPred :+ predNameEquals(lstPred.lastOption.flatMap(_.index).getOrElse(-1)+1, string) )
+                  Right( lstPred :+ predNameEquals(lstPred.preferredIndex, string) )
                 case EvlRegex(string) =>
-                  Right( lstPred :+ predNameRegex(lstPred.lastOption.flatMap(_.index).getOrElse(-1)+1, string) )
+                  Right( lstPred :+ predNameRegex(lstPred.preferredIndex, string) )
                 case EvlPath(path) =>
-                  val firstIdx = lstPred.lastOption.flatMap(_.index).getOrElse(-1)+1
+                  val firstIdx = lstPred.preferredIndex
                   val prefixLst = if( lstPred.isEmpty && path.isAbsolute ){
-                    List(PathPredicate(path=>path.isAbsolute))
+                    List(AbsolutePredicate)
                   }else{
                     List()
                   }
@@ -285,52 +308,56 @@ object PathPattern {
           }
       }
     }
-//    private def predNext(before:List[PathPredicate], name:Name)(implicit evaluate: Evaluate):Either[String,List[PathPredicate]] = {
-//      val idx = before.head.index.getOrElse(-1) + 1
-//      name match {
-//        case Name.AbsolutePrefix => Right(before)
-//        case Name.Plain(text) => Right {
-//          predNameEquals(idx,text) :: before
-//        }
-//        case Name.Template(parts) =>
-//          parts.map {
-//            case TemplatePart.Plain(text) => Right(quote(text))
-//            case TemplatePart.Code(code) => evaluate.namePattern(code)
-//          }.foldLeft(Right(""): Either[String, String]) { case (str, ptrn) => str match {
-//            case Left(_) => str
-//            case Right(leftStr) => ptrn.map { rightStr => leftStr + rightStr }
-//          }
-//          }.map { regex =>
-//            predNameRegex(idx, regex) :: before
-//          }
-//      }
-//    }
 
-    def predicate(implicit evaluate: Evaluate):Either[String,Path=>Boolean] = {
+    def predicates(implicit evaluate: Evaluate): Either[String, List[PathPredicate]] = {
       if( pattern.isEmpty ){
         Left("empty")
       }else{
         val ev = evaluate.cached
-//        pattern.drop(1).foldLeft(
-//          pred(pattern.head)(ev)
-//        ) { case (ptrn,name) =>
-//          ptrn.flatMap { ptrns =>
-//            pred( ptrns, name )
-//          }
-//        }.map { pathPredicates =>
-//          path => {
-//            pathPredicates.map { pathPred => pathPred.validator(path) }.forall( x => x )
-//          }
-//        }
-
         pattern.foldLeft( Right(List()):Either[String,List[PathPredicate]] ){ case(sum, name) =>
           sum.flatMap { predList =>
             pred(name,predList)(ev)
           }
-        }.map { predList =>
+        }
+      }
+    }
+    def pathFilter(implicit evaluate: Evaluate):Either[String,Path=>Boolean] = {
+      predicates
+        .map { predList =>
           path => {
-            predList.map { pred => pred.validator(path) }
-          }.forall(x=>x)
+            predList.map { pred => pred.validate(path) }
+          }.forall(x => x)
+        }
+    }
+    def headPath(implicit evaluate: Evaluate):Either[String,Path] = {
+      predicates.flatMap { predList =>
+        if( predList.isEmpty ){
+          Left("empty")
+        }else{
+          val headPath = predList.head match {
+            case AbsolutePredicate => Some(Path.of("/"))
+            case NameEqualsPredicate(index, name) => Some(Path.of(name))
+            case NameRegexPredicate(index, pattern) => None
+          }
+          if( headPath.isEmpty ){
+            Left("no head")
+          }else{
+            Right(predList.drop(1).foldLeft( (true,headPath.get) ) {
+              case ( (cont,path),pred ) =>
+                cont match {
+                  case true =>
+                    pred match {
+                      case AbsolutePredicate => (cont,path)
+                      case NameEqualsPredicate(index, name) =>
+                        (cont,path.resolve(name))
+                      case NameRegexPredicate(index, pattern) =>
+                        (false,path)
+                    }
+                  case false =>
+                    (cont,path)
+                }
+            }._2)
+          }
         }
       }
     }
