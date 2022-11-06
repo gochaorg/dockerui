@@ -1,6 +1,8 @@
 package xyz.cofe.lima.docker.http
 
 import Duration._
+import tethys.{JsonReader, JsonWriter}
+import tethys.derivation.semiauto.{jsonReader, jsonWriter}
 
 /**
  * Тайминги чтения данных из сокета
@@ -17,3 +19,7 @@ case class SocketReadTimings(
                               streamReadTimeout: Option[Duration] = None,
                               streamSourceTimeout: Option[Duration] = 30.seconds.some,
                             )
+object SocketReadTimings {
+  implicit val reader: JsonReader[SocketReadTimings] = jsonReader[SocketReadTimings]
+  implicit val writer: JsonWriter[SocketReadTimings] = jsonWriter[SocketReadTimings]
+}

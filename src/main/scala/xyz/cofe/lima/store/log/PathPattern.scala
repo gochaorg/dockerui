@@ -1,5 +1,7 @@
 package xyz.cofe.lima.store.log
 
+import xyz.cofe.lima.store.AppHome
+
 import java.nio.file.Path
 import java.time._
 import java.util.Locale
@@ -348,10 +350,16 @@ object PathPattern {
       lazy val minute: Int = localTime.getMinute
       lazy val second: Int = localTime.getSecond
     }
+
     implicit def defaultEvaluate: Evaluate = new Evaluate {
       lazy val time: Time = Time()
+      lazy val pid: Long = {
+        ProcessHandle.current().pid()
+      }
+
       override def eval(code: String): Either[String, String] = {
         code match {
+          case "pid" => Right(pid.toString)
           case "yy" | "YY" => Right(time.year.toString.alignRight(4,'0').substring(2))
           case "yyyy" | "YYYY" => Right(time.year.toString.alignRight(4,'0'))
           case "MM" | "Mm" => Right(time.month.getValue.toString.alignRight(2,'0'))
@@ -359,17 +367,18 @@ object PathPattern {
           case "dd" => Right(time.dayOfMonth.toString.alignRight(2,'0'))
           case "hh" | "HH" => Right(time.hour.toString.alignRight(2,'0'))
           case "mm" | "mi" => Right(time.minute.toString.alignRight(2,'0'))
-          case "ss" | "ss" => Right(time.second.toString.alignRight(2,'0'))
+          case "ss" | "SS" => Right(time.second.toString.alignRight(2,'0'))
           case _ => Left(s"undefined $code")
         }
       }
       override def pattern(code: String): Either[String, String] = {
         code match {
+          case "pid" => Right("\\d+")
           case "yy" | "YY" => Right("\\d{2}")
           case "yyyy" | "YYYY" => Right("\\d{4}")
           case "MM" | "Mm" => Right("\\d{2}")
           case "MMM" | "Mmm" => Right("\\w{3}")
-          case "dd" | "hh" | "HH" | "mm" | "mi" | "ss" => Right("\\d{2}")
+          case "dd" | "hh" | "HH" | "mm" | "mi" | "ss" | "SS" => Right("\\d{2}")
           case _ => Left(s"undefined $code")
         }
       }
