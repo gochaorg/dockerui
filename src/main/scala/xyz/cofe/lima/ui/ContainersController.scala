@@ -112,8 +112,11 @@ class ContainersController {
   def refresh():Unit = {
     if( table!=null ){
       table.getItems.clear()
-      dockerClient.foreach { dc =>
-        dc.containers(all = true).foreach { _.foreach { c => table.getItems.add(c) } }
+      DockerClientPool.submit { dc =>
+        val res = dc.containers(all = true)
+        Platform.runLater(()=>{
+          res.foreach { _.foreach { c => table.getItems.add(c) } }
+        })
       }
     }
   }
@@ -122,18 +125,20 @@ class ContainersController {
 
   def refreshByTimer():Unit = {
     if( table!=null ){
-      dockerClient.foreach { dc =>
+      DockerClientPool.submit { dc =>
         dc.containers(all = true) match {
           case Left(err) => println(err)
           case Right(newContainers) => {
-            try {
-              refreshByTimerRunning = true
-              val selected = selectedContainersId()
-              sync(newContainers)
-              setSelectedContainersId(selected)
-            } finally {
-              refreshByTimerRunning = false
-            }
+            Platform.runLater(()=>{
+              try {
+                refreshByTimerRunning = true
+                val selected = selectedContainersId()
+                sync(newContainers)
+                setSelectedContainersId(selected)
+              } finally {
+                refreshByTimerRunning = false
+              }
+            })
           }
         }
       }
@@ -189,20 +194,20 @@ class ContainersController {
 
   def startSelected():Unit = {
     if( table!=null ){
-      dockerClient.foreach { dc =>
-        table.getSelectionModel.getSelectedItems.forEach(c => {
+      table.getSelectionModel.getSelectedItems.forEach(c => {
+        DockerClientPool.submit { dc =>
           dc.containerStart(c.Id)
-        })
-      }
+        }
+      })
     }
   }
   def stopSelected():Unit = {
     if( table!=null ){
-      dockerClient.foreach { dc =>
-        table.getSelectionModel.getSelectedItems.forEach(c => {
+      table.getSelectionModel.getSelectedItems.forEach(c => {
+        DockerClientPool.submit { dc =>
           dc.containerStop(c.Id)
-        })
-      }
+        }
+      })
     }
   }
   def createContainer():Unit = {
@@ -227,15 +232,15 @@ class ContainersController {
       case None =>
       case Some(deleteParams) =>
         if( table!=null ){
-          dockerClient.foreach { dc =>
             table.getSelectionModel.getSelectedItems.forEach(c => {
-              dc.containerRemove(c.Id, Some(deleteParams.removeAnonVolumes), Some(deleteParams.force), Some(deleteParams.link)) match {
-                case Left(err) => println(err)
-                case Right(value) => ()
+              DockerClientPool.submit { dc =>
+                dc.containerRemove(c.Id, Some(deleteParams.removeAnonVolumes), Some(deleteParams.force), Some(deleteParams.link)) match {
+                  case Left(err) =>
+                  case Right(value) => ()
+                }
               }
             })
           }
         }
-    }
   }
 }
