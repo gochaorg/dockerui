@@ -1,21 +1,69 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import javafx.scene.control.Button?>
-<?import javafx.scene.control.TreeTableColumn?>
-<?import javafx.scene.control.TreeTableView?>
+<?import javafx.scene.control.CheckBox?>
+<?import javafx.scene.control.Hyperlink?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Tab?>
+<?import javafx.scene.control.TabPane?>
+<?import javafx.scene.control.TextField?>
 <?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.RowConstraints?>
 
-<AnchorPane prefHeight="400.0" prefWidth="600.0" xmlns="http://javafx.com/javafx/18" xmlns:fx="http://javafx.com/fxml/1" fx:controller="xyz.cofe.lima.ui.AppConfigController">
+
+<AnchorPane prefHeight="400.0" prefWidth="600.0" xmlns="http://javafx.com/javafx/19" xmlns:fx="http://javafx.com/fxml/1" fx:controller="xyz.cofe.lima.ui.AppConfigController">
    <children>
-      <TreeTableView fx:id="treeView" layoutX="14.0" layoutY="14.0" prefHeight="343.0" prefWidth="575.0" AnchorPane.bottomAnchor="43.0" AnchorPane.leftAnchor="14.0" AnchorPane.rightAnchor="11.0" AnchorPane.topAnchor="14.0">
-        <columns>
-          <TreeTableColumn prefWidth="75.0" text="C1" />
-          <TreeTableColumn prefWidth="75.0" text="C2" />
-        </columns>
-         <columnResizePolicy>
-            <TreeTableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
-         </columnResizePolicy>
-      </TreeTableView>
-      <Button layoutX="528.0" layoutY="362.0" mnemonicParsing="false" onAction="#save" text="Save" AnchorPane.bottomAnchor="13.0" AnchorPane.rightAnchor="11.0" />
+      <TabPane layoutX="37.0" layoutY="26.0" prefHeight="300.0" prefWidth="534.0" tabClosingPolicy="UNAVAILABLE" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+        <tabs>
+          <Tab text="Docker connect">
+            <content>
+              <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="269.0" prefWidth="517.0">
+                     <children>
+                        <TextField layoutX="13.0" layoutY="30.0" prefHeight="25.0" prefWidth="569.0" promptText="unix socket file" AnchorPane.leftAnchor="13.0" AnchorPane.rightAnchor="13.0" AnchorPane.topAnchor="30.0" />
+                        <Label layoutX="13.0" layoutY="10.0" text="docker socket" AnchorPane.leftAnchor="13.0" AnchorPane.topAnchor="10.0" />
+                        <GridPane layoutX="16.0" layoutY="67.0" prefHeight="283.0" prefWidth="565.0" AnchorPane.leftAnchor="13.0" AnchorPane.rightAnchor="13.0" AnchorPane.topAnchor="67.0">
+                          <columnConstraints>
+                            <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="100.0" />
+                            <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="100.0" />
+                          </columnConstraints>
+                          <rowConstraints>
+                            <RowConstraints maxHeight="-Infinity" minHeight="10.0" prefHeight="30.0" valignment="TOP" vgrow="SOMETIMES" />
+                            <RowConstraints maxHeight="-Infinity" minHeight="10.0" prefHeight="30.0" valignment="TOP" vgrow="SOMETIMES" />
+                            <RowConstraints maxHeight="1.7976931348623157E308" minHeight="10.0" prefHeight="30.0" valignment="TOP" vgrow="SOMETIMES" />
+                          </rowConstraints>
+                           <children>
+                              <CheckBox mnemonicParsing="false" text="read timeout " />
+                              <CheckBox mnemonicParsing="false" text="source timeout" GridPane.rowIndex="1" />
+                              <TextField GridPane.columnIndex="1" />
+                              <TextField GridPane.columnIndex="1" GridPane.rowIndex="1" />
+                              <TextField GridPane.columnIndex="1" GridPane.rowIndex="2" />
+                              <CheckBox mnemonicParsing="false" text="source timeout" GridPane.rowIndex="2" />
+                           </children>
+                        </GridPane>
+                     </children>
+                  </AnchorPane>
+            </content>
+          </Tab>
+          <Tab text="Log">
+            <content>
+                  <GridPane>
+                     <columnConstraints>
+                        <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" />
+                        <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="100.0" />
+                     </columnConstraints>
+                     <rowConstraints>
+                        <RowConstraints minHeight="10.0" vgrow="SOMETIMES" />
+                        <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
+                     </rowConstraints>
+                     <children>
+                        <Label text="Docker client log" />
+                     </children>
+                  </GridPane>
+            </content>
+          </Tab>
+        </tabs>
+      </TabPane>
+      <Hyperlink onAction="#save" text="Save" AnchorPane.rightAnchor="10.0" AnchorPane.topAnchor="5.0" />
    </children>
 </AnchorPane>

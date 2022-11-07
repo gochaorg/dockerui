@@ -95,8 +95,8 @@ class HttpClientImpl
       send(request)
       HttpResponseStream(
         SocketChannelSupplier(socketChannel),
-        sourceTimeout = socketReadTimings.streamSourceTimeout,
-        readTimeout = socketReadTimings.streamReadTimeout,
+        sourceTimeout = socketReadTimings.sourceTimeout,
+        readTimeout = socketReadTimings.readTimeout,
         cpuThrottling = socketReadTimings.cpuThrottling,
         pid = request.id
       )
@@ -147,8 +147,8 @@ class HttpClientImpl
 
       HttpResponseStream(
         SocketChannelSupplier(socketChannel),
-        sourceTimeout = socketReadTimings.streamSourceTimeout,
-        readTimeout = socketReadTimings.streamReadTimeout,
+        sourceTimeout = socketReadTimings.sourceTimeout,
+        readTimeout = socketReadTimings.readTimeout,
         cpuThrottling = socketReadTimings.cpuThrottling,
         pid = request.id
       ).read(new HttpResponseBuilder(request.id, et => {

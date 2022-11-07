@@ -1,15 +1,13 @@
 package xyz.cofe.lima.store.config
 
-import tethys.{JsonReader, JsonWriter}
 import tethys.derivation.semiauto.{jsonReader, jsonWriter}
 import tethys.writers.tokens.TokenWriter
+import tethys.{JsonReader, JsonWriter}
 import xyz.cofe.lima.docker.http.SocketReadTimings
 import xyz.cofe.lima.fs.{CopyOptions, JavaNioTracer, LinkOptions, OpenOptions}
-import xyz.cofe.lima.store.config.DockerConnect.UnixSocketFile
-import xyz.cofe.lima.store.config.FilesCleanup.{NoCleanup, SummaryMaxSize}
 import xyz.cofe.lima.store.json._
-import xyz.cofe.lima.store.log.{AppendableFile, AppendableNull, FilesCleaner, PathPattern}
 import xyz.cofe.lima.store.log.PathPattern.PathPattern
+import xyz.cofe.lima.store.log.{AppendableFile, AppendableNull, FilesCleaner, PathPattern}
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.Path
@@ -25,6 +23,33 @@ case class AppConfig
 object AppConfig {
   implicit val reader:JsonReader[AppConfig] = jsonReader[AppConfig]
   implicit val writer:JsonWriter[AppConfig] = jsonWriter[AppConfig]
+}
+
+sealed trait DockerLogger
+object DockerLogger {
+  case class NoLogger() extends DockerLogger
+  object NoLogger {
+    implicit val reader: JsonReader[NoLogger] = jsonReader[NoLogger]
+    implicit val writer: JsonWriter[NoLogger] = classWriter[NoLogger] ++ jsonWriter[NoLogger]
+  }
+
+  case class AllEvent(target:LoggerOutput) extends DockerLogger
+  object AllEvent {
+    implicit val reader: JsonReader[AllEvent] = jsonReader[AllEvent]
+    implicit val writer: JsonWriter[AllEvent] = classWriter[AllEvent] ++ jsonWriter[AllEvent]
+  }
+
+  case class FailEvent(target:LoggerOutput) extends DockerLogger
+  object FailEvent {
+    implicit val reader: JsonReader[FailEvent] = jsonReader[FailEvent]
+    implicit val writer: JsonWriter[FailEvent] = classWriter[FailEvent] ++ jsonWriter[FailEvent]
+  }
+
+  case class JoinLogger(left:DockerLogger, right:DockerLogger) extends DockerLogger
+  object JoinLogger {
+    implicit val reader: JsonReader[JoinLogger] = jsonReader[JoinLogger]
+    implicit val writer: JsonWriter[JoinLogger] = classWriter[JoinLogger] ++ jsonWriter[JoinLogger]
+  }
 }
 
 /**
