@@ -61,6 +61,8 @@ object PathPattern {
     case class Code(code:String) extends TemplatePart
   }
 
+  type PathPattern=List[Name]
+
   def parseTemplate(name:String):Name.Template = {
     var result = List[TemplatePart]()
     var state = 0

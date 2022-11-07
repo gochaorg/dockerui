@@ -8,7 +8,7 @@ import java.nio.file.Path
 import xyz.cofe.lima.fs.syntax._
 
 class AppendableFile(
-                      pathPattern: List[PathPattern.Name],
+                      pathPattern: ()=>Path,
                       charset: Charset=StandardCharsets.UTF_8,
                       limitSizePerFile:Option[Long]=None
                     )
@@ -24,15 +24,12 @@ class AppendableFile(
 
   private def newFile = {
     def open = {
-      pathPattern.generate match {
-        case Left(err) => throw new Error(s"pattern error $err")
-        case Right(path) =>
-          path.canonical.parent.foreach { dir => dir.createDirectories }
-          this.path = Some(path)
-          path.writer(charset).map { w =>
-            writer = Some(w)
-            w
-          }
+      val path = pathPattern()
+      path.canonical.parent.foreach { dir => dir.createDirectories }
+      this.path = Some(path)
+      path.writer(charset).map { w =>
+        writer = Some(w)
+        w
       }
     }
     writer match {
@@ -116,6 +113,11 @@ object AppendableFile {
              copyOptions: CopyOptions,
              trace: JavaNioTracer)
   :AppendableFile = new AppendableFile(
-    pathPattern, charset, limitSizePerFile
+    ()=> {
+      pathPattern.generate match {
+        case Left(err) => throw new Error(s"fail generate log path from $pathPattern: $err")
+        case Right(value) => value
+      }
+    }, charset, limitSizePerFile
   )
 }
