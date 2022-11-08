@@ -13,6 +13,7 @@ import xyz.cofe.lima.store.log.{AppendableFile, AppendableNull, FilesCleaner, Pa
 import java.nio.charset.StandardCharsets
 import java.nio.file.Path
 import xyz.cofe.lima.docker.log.{Logger => DLogger}
+import xyz.cofe.lima.docker.http.{HttpLogger => HLogger}
 import xyz.cofe.lima.launch.InitTasks
 
 /**
@@ -51,6 +52,15 @@ object AppConfig {
                 LoggerOutput.StdErr()
               )
             )
+          ),
+          httpLogger = Some(
+            HttpLogger.AllEvent(
+              LoggerOutput.FileLog(
+                pathPattern = "{appHome}/log/{yyyy}-{MM}/{dd}/{hh}-{mi}-pid{pid}.httpClient.stream.json",
+                limitSizePerFile = Some(1024L*512L),
+                FilesCleanup.SummaryMaxSize(1024L*1024L*32L)
+              )
+            )
           )
         )
     )
@@ -67,6 +77,7 @@ object DockerConnect {
     fileName:String,
     socketReadTimings: Option[SocketReadTimings],
     dockerLogger: Option[DockerLogger],
+    httpLogger:Option[HttpLogger],
   ) extends DockerConnect
   object UnixSocketFile {
     implicit val reader: JsonReader[UnixSocketFile] = jsonReader[UnixSocketFile]
@@ -85,11 +96,16 @@ object DockerConnect {
   implicit class DockerConnectOps(dockerConnect:DockerConnect)(implicit initTasks: InitTasks) {
     def createDockerClient():DockerClient = {
       dockerConnect match {
-        case UnixSocketFile(fileName, socketReadTimings, dockerLoggerConf) =>
+        case UnixSocketFile(fileName, socketReadTimings, dockerLoggerConf, httpLoggerConf) =>
           val dockerLoggerTask = dockerLoggerConf.flatMap(conf => conf.logger)
+          val httpLoggerTask = httpLoggerConf.flatMap(conf => conf.logger)
+
+          implicit val httpLoggerInstance:HLogger = httpLoggerTask.map(_.logger).getOrElse(HLogger.defaultLogger)
+          httpLoggerTask.foreach(_.cleanupTasks.foreach(initTasks.addLogCleanTask))
 
           implicit val dockerLoggerInstance: DLogger = dockerLoggerTask.map(_.logger).getOrElse(DLogger.defaultLogger)
           dockerLoggerTask.foreach(_.cleanupTasks.foreach(initTasks.addLogCleanTask))
+
           DockerClient.unixSocket(fileName, socketReadTimings.getOrElse(new SocketReadTimings()))
       }
     }
@@ -191,6 +207,75 @@ object DockerLogger {
           leftTask.zip(rightTask).map { case(lt, rt) =>
             DockerLoggerTask(DLogger.joinLoggers(lt.logger, rt.logger), lt.cleanupTasks ++ rt.cleanupTasks)
           }.orElse(leftTask).orElse(rightTask)
+      }
+    }
+  }
+}
+
+sealed trait HttpLogger
+object HttpLogger {
+  /**
+   * Нет логгера
+   */
+  case class NoLogger() extends HttpLogger
+  object NoLogger {
+    implicit val reader: JsonReader[NoLogger] = jsonReader[NoLogger]
+    implicit val writer: JsonWriter[NoLogger] = classWriter[NoLogger] ++ jsonWriter[NoLogger]
+  }
+
+  /**
+   * Запись всех событий
+   * @param target куда писать события
+   */
+  case class AllEvent(target:LoggerOutput) extends HttpLogger
+  object AllEvent {
+    implicit val reader: JsonReader[AllEvent] = jsonReader[AllEvent]
+    implicit val writer: JsonWriter[AllEvent] = classWriter[AllEvent] ++ jsonWriter[AllEvent]
+  }
+
+  /**
+   * Объединение нескольких логгеров
+   * @param left первый логгер
+   * @param right второй логгер
+   */
+  case class JoinLogger(left:HttpLogger, right:HttpLogger) extends HttpLogger
+  object JoinLogger {
+    implicit val reader: JsonReader[JoinLogger] = jsonReader[JoinLogger]
+    implicit val writer: JsonWriter[JoinLogger] = classWriter[JoinLogger] ++ jsonWriter[JoinLogger]
+  }
+
+  implicit val writer:JsonWriter[HttpLogger] = (value: HttpLogger, tokenWriter: TokenWriter) => {
+    value match {
+      case v: NoLogger => NoLogger.writer.write(v, tokenWriter)
+      case v: AllEvent => AllEvent.writer.write(v, tokenWriter)
+      case v: JoinLogger => JoinLogger.writer.write(v, tokenWriter)
+    }
+  }
+  implicit val reader:JsonReader[HttpLogger] = JsonReader.builder.addField[String]("_type").selectReader[HttpLogger] {
+    case "NoLogger" => NoLogger.reader
+    case "AllEvent" => AllEvent.reader
+    case "JoinLogger" => JoinLogger.reader
+  }
+
+  case class HttpLoggerTask(logger:HLogger, cleanupTasks:List[Runnable])
+  implicit class HttpLoggerOps(dockerLoggerConf:HttpLogger) {
+    def logger:Option[HttpLoggerTask] = {
+      dockerLoggerConf match {
+        case NoLogger() => None
+        case AllEvent(target) =>
+          val output = target.createOutput
+          val cleanup = target.cleanupTask
+          val jsonLogger = HLogger.JsonLogger(output)
+          Some( HttpLoggerTask(logger = jsonLogger, cleanupTasks = if(cleanup.isEmpty)List()else List(cleanup.get)) )
+        case JoinLogger(left,right) =>
+          val leftLgr = left.logger
+          val rightLgr = right.logger
+          leftLgr.zip(rightLgr).map { case (leftTask, rightTask) =>
+            HttpLoggerTask(
+              HLogger.join(leftTask.logger, rightTask.logger),
+              leftTask.cleanupTasks ++ rightTask.cleanupTasks
+            )
+          }.orElse(leftLgr).orElse(rightLgr)
       }
     }
   }

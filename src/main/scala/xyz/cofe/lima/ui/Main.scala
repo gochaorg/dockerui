@@ -9,6 +9,7 @@ import xyz.cofe.lima.docker.DockerClient
 import xyz.cofe.lima.docker.http.HttpLogger
 import xyz.cofe.lima.docker.log.Logger
 import xyz.cofe.lima.store.AppHome
+import xyz.cofe.lima.store.config.AppConfig
 import xyz.cofe.lima.store.log.{AppendableFile, FilesCleaner, PathPattern}
 
 import java.nio.file.Path
@@ -45,40 +46,18 @@ class Main extends Application {
         val prnt = loader.load[Parent]()
         val controller = loader.getController[MainController]
 
-        implicit val httpLogger: HttpLogger =
-          HttpLogger.JsonLogger(
-            AppendableFile(
-              PathPattern.escape(AppHome.directory) ++
-              PathPattern.parse(Path.of("log/http/{yyyy}-{MM}/{dd}/{hh}-{mm}-{ss}.stream.json")),
-              limitSizePerFile = Some(1024L*512L)
-            )
-          )
+//        implicit val httpLogger: HttpLogger =
+//          HttpLogger.JsonLogger(
+//            AppendableFile(
+//              PathPattern.escape(AppHome.directory) ++
+//              PathPattern.parse(Path.of("log/http/{yyyy}-{MM}/{dd}/{hh}-{mm}-{ss}.stream.json")),
+//              limitSizePerFile = Some(1024L*512L)
+//            )
+//          )
 
-        val logToFile = Logger.JsonToWriter(
-          AppendableFile(
-            PathPattern.escape(AppHome.directory) ++
-              PathPattern.parse(Path.of("log/dockerClient/{yyyy}-{MM}/{dd}/{hh}-{mm}-{ss}.stream.json")),
-            limitSizePerFile = Some(1024L * 512L)
-          )
-        )
+        val defaultConfig = AppConfig.defaultConfig(Path.of(str))
 
-        val failLogStdout = Logger.failLogger(
-          Logger.JsonToWriter(System.out)
-        )
-
-        val dc = DockerClient.unixSocket(str)
-          .withLogger(
-            Logger.joinLoggers(logToFile, failLogStdout)
-          )
-
-        DockerClientPool.init(new DockerClientPool(dc))
-
-        val logCleaner = new Thread(()=>{
-          FilesCleaner.clean(AppHome.directory.resolve("log/dockerClient"), 1024L * 1024L * 32L)
-          FilesCleaner.clean(AppHome.directory.resolve("log/http"), 1024L * 1024L * 32L)
-        })
-        logCleaner.setDaemon(true)
-        logCleaner.start()
+        DockerClientPool.init(new DockerClientPool(defaultConfig.dockerConnect.createDockerClient()))
 
         val scene1 = new Scene(prnt)
         primaryStage.setScene(scene1)
