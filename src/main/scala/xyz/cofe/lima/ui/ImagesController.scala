@@ -4,7 +4,8 @@ import javafx.application.Platform
 import javafx.beans.property.SimpleStringProperty
 import javafx.fxml.FXML
 import javafx.scene.control.{SelectionMode, TableColumn, TableView}
-import xyz.cofe.lima.docker.model.Image
+import xyz.cofe.lima.docker.DockerClient
+import xyz.cofe.lima.docker.model.{ContainerStatus, Image}
 
 import scala.collection.JavaConverters._
 
