@@ -13,13 +13,6 @@ class MainController {
   @FXML private var refreshEach10Sec:RadioMenuItem = null
   @FXML private var refreshEach60Sec:RadioMenuItem = null
 
-  private var dockerClient: Option[DockerClient] = None
-  def setDockerClient( dc: DockerClient ):Unit = {
-    dockerClient = Some(dc)
-    if( containersController!=null ) containersController.setDockerClient(dc)
-    if( imagesController!=null ) imagesController.setDockerClient(dc)
-  }
-
   private var changeTimerPeriod:Int=>Unit = _ => ()
   def changeTimerPeriodCallback( call:Int=>Unit ):Unit = {
     changeTimerPeriod = call

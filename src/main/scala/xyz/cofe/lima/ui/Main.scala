@@ -80,8 +80,6 @@ class Main extends Application {
         logCleaner.setDaemon(true)
         logCleaner.start()
 
-        controller.setDockerClient(dc)
-
         val scene1 = new Scene(prnt)
         primaryStage.setScene(scene1)
         primaryStage.setTitle("docker ui")

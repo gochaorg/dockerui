@@ -1,21 +1,16 @@
 package xyz.cofe.lima.ui
 
+import javafx.application.Platform
 import javafx.beans.property.SimpleStringProperty
 import javafx.fxml.FXML
 import javafx.scene.control.{SelectionMode, TableColumn, TableView}
-import xyz.cofe.lima.docker.DockerClient
-import xyz.cofe.lima.docker.model.{ContainerStatus, Image}
+import xyz.cofe.lima.docker.model.Image
+
 import scala.collection.JavaConverters._
 
 class ImagesController {
   @FXML private var table:TableView[Image] = null
   @FXML private var imageController:ImageController = null
-
-  private var dockerClient: Option[DockerClient] = None
-  def setDockerClient( dc: DockerClient ):Unit = {
-    dockerClient = Some(dc)
-    if( imageController!=null )imageController.setDockerClient(dc)
-  }
 
   @FXML def initialize():Unit = {
     table.getSelectionModel.setSelectionMode(SelectionMode.MULTIPLE)
@@ -92,11 +87,12 @@ class ImagesController {
     .trackFocused(imageController.onSelect)
 
   def refresh():Unit = {
-    dockerClient.foreach { dc =>
+    DockerClientPool.submit { dc =>
       dc.images() match {
         case Left(err) =>
-        case Right(images) =>
+        case Right(images) => Platform.runLater(()=>{
           syncTable.sync(images)
+        })
       }
     }
   }
@@ -105,10 +101,9 @@ class ImagesController {
   }
 
   def pullImage():Unit = {
-    dockerClient.foreach { dc =>
-      PullImageController.show(dc)
-    }
+    PullImageController.show
   }
+
   def deleteSelected():Unit={
     val tags = table.getSelectionModel.getSelectedItems.asScala.map(img => {
       img.RepoTags.map(_.mkString(",")).getOrElse("")
@@ -123,8 +118,9 @@ class ImagesController {
     DeleteImageController.show(msg) match {
       case None =>
       case Some(params) =>
-        dockerClient.foreach { dc =>
-          table.getSelectionModel.getSelectedItems.forEach(img => {
+        val images = table.getSelectionModel.getSelectedItems.asScala.toList
+        DockerClientPool.submit { dc =>
+          images.foreach(img => {
             dc.imageRemove(img.Id, Some(params.force), Some(params.noprune))
           })
         }
