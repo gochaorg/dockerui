@@ -25,6 +25,32 @@ object AppConfig {
   implicit val writer:JsonWriter[AppConfig] = jsonWriter[AppConfig]
 }
 
+/**
+ * Как создать коннект
+ */
+sealed trait DockerConnect
+object DockerConnect {
+  case class UnixSocketFile
+  (
+    fileName:String,
+    socketReadTimings: Option[SocketReadTimings],
+//    dockerLogger: Option[DockerLogger],
+  ) extends DockerConnect
+  object UnixSocketFile {
+    implicit val reader: JsonReader[UnixSocketFile] = jsonReader[UnixSocketFile]
+    implicit val writer: JsonWriter[UnixSocketFile] = classWriter[UnixSocketFile] ++ jsonWriter[UnixSocketFile]
+  }
+
+  implicit val reader:JsonReader[DockerConnect] = JsonReader.builder.addField[String]("_type").selectReader[DockerConnect] {
+    case "UnixSocketFile" => UnixSocketFile.reader
+  }
+  implicit val writer:JsonWriter[DockerConnect] = (value: DockerConnect, tokenWriter: TokenWriter) => {
+    value match {
+      case u: UnixSocketFile => UnixSocketFile.writer.write(u, tokenWriter)
+    }
+  }
+}
+
 sealed trait DockerLogger
 object DockerLogger {
   /**
@@ -92,32 +118,6 @@ object DockerLogger {
     case "FailEvent" => FailEvent.reader
     case "SuccEvent" => SuccEvent.reader
     case "JoinLogger" => JoinLogger.reader
-  }
-}
-
-/**
- * Как создать коннект
- */
-sealed trait DockerConnect
-object DockerConnect {
-  case class UnixSocketFile
-  (
-    fileName:String,
-    socketReadTimings: Option[SocketReadTimings],
-//    dockerLogger: Option[DockerLogger],
-  ) extends DockerConnect
-  object UnixSocketFile {
-    implicit val reader: JsonReader[UnixSocketFile] = jsonReader[UnixSocketFile]
-    implicit val writer: JsonWriter[UnixSocketFile] = classWriter[UnixSocketFile] ++ jsonWriter[UnixSocketFile]
-  }
-
-  implicit val reader:JsonReader[DockerConnect] = JsonReader.builder.addField[String]("_type").selectReader[DockerConnect] {
-    case "UnixSocketFile" => UnixSocketFile.reader
-  }
-  implicit val writer:JsonWriter[DockerConnect] = (value: DockerConnect, tokenWriter: TokenWriter) => {
-    value match {
-      case u: UnixSocketFile => UnixSocketFile.writer.write(u, tokenWriter)
-    }
   }
 }
 
