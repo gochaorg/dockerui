@@ -3,6 +3,8 @@ package xyz.cofe.lima.ui
 import javafx.fxml.FXML
 import javafx.scene.control.RadioMenuItem
 import xyz.cofe.lima.docker.DockerClient
+import xyz.cofe.lima.store.AppHome
+import xyz.cofe.lima.store.config.AppConfig
 
 class MainController {
   @FXML private var containersController : ContainersController = null
@@ -12,6 +14,11 @@ class MainController {
   @FXML private var refreshEach3Sec:RadioMenuItem = null
   @FXML private var refreshEach10Sec:RadioMenuItem = null
   @FXML private var refreshEach60Sec:RadioMenuItem = null
+
+  private var appConfigOpt:Option[AppConfig]=None
+  def setAppConfig(appConfig: AppConfig):Unit = {
+    appConfigOpt=Some(appConfig)
+  }
 
   private var changeTimerPeriod:Int=>Unit = _ => ()
   def changeTimerPeriodCallback( call:Int=>Unit ):Unit = {
@@ -37,4 +44,8 @@ class MainController {
   def setRefreshEach3Sec():Unit = changeTimerPeriod(3)
   def setRefreshEach10Sec():Unit = changeTimerPeriod(10)
   def setRefreshEach60Sec():Unit = changeTimerPeriod(60)
+
+  def saveConfig():Unit = {
+    appConfigOpt.foreach(conf => AppHome.writeConfig(conf).left.map(System.err.println))
+  }
 }

@@ -2,7 +2,11 @@ package xyz.cofe.lima.store
 
 import java.nio.file.Path
 import xyz.cofe.lima.fs.syntax._
+import xyz.cofe.lima.store.config.AppConfig
 
+/**
+ * Каталог с настройками приложения
+ */
 object AppHome {
   def setSystemParam(path: Path):Unit = {
     System.getProperties.setProperty("dockerui.appHome", path.toString)
@@ -47,6 +51,9 @@ object AppHome {
 
   private lazy val defaultDir:Path = Path.of(".").resolve(dirName)
 
+  /**
+   * Каталог с настройками приложения
+   */
   lazy val directory:Path =
     bySystemParam.getOrElse(
       byEnvParam.getOrElse(
@@ -57,4 +64,18 @@ object AppHome {
         )
       )
     )
+
+  lazy val appConfigPath:Path = directory.resolve("app-config.json")
+
+  def readConfig:Either[Throwable,AppConfig] =
+    appConfigPath.json.read[AppConfig]
+
+  def writeConfig(config:AppConfig): Either[Throwable, Unit] = {
+    for {
+      prnt <- appConfigPath.parent.toRight("parentNull")
+      dir <- prnt.isDir
+      _ <- if( !dir ){ prnt.createDirectories } else Right()
+    } yield ()
+    appConfigPath.json.write(config,pretty = true)
+  }
 }

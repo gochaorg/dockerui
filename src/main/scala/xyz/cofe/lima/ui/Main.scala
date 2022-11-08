@@ -9,7 +9,7 @@ import xyz.cofe.lima.docker.DockerClient
 import xyz.cofe.lima.docker.http.HttpLogger
 import xyz.cofe.lima.docker.log.Logger
 import xyz.cofe.lima.store.AppHome
-import xyz.cofe.lima.store.config.AppConfig
+import xyz.cofe.lima.store.config.{AppConfig, DockerConnect}
 import xyz.cofe.lima.store.log.{AppendableFile, FilesCleaner, PathPattern}
 
 import java.nio.file.Path
@@ -17,47 +17,57 @@ import java.util.{Timer, TimerTask}
 
 class Main extends Application {
   override def start(primaryStage: Stage): Unit = {
-    val unixSocket_arg = getParameters.getNamed.get("unixSocket") match {
-      case null =>
-        val input = new TextInputDialog("enter path to docker.sock")
-        input.setTitle("--unixSocket=??? arg is absent")
-        input.setHeaderText("Enter path to unix socket file for docker")
-        input.setContentText("path")
-        val path = input.showAndWait()
-        if( path.isEmpty ){
-          None
-        }else{
-          Some(path.get())
-        }
-      case arg =>
-        Some(arg)
-    }
-
     getParameters.getNamed.get("appHome") match {
       case null => ()
       case arg => AppHome.setSystemParam(Path.of(arg))
     }
 
-    unixSocket_arg match {
-      case Some(str) =>
+    val configEt = (AppHome.readConfig match {
+      case Left(readConfigErr) =>
+        println(readConfigErr)
+        getParameters.getNamed.get("unixSocket") match {
+          case null =>
+            val input = new TextInputDialog("enter path to docker.sock")
+            input.setTitle("--unixSocket=??? arg is absent")
+            input.setHeaderText("Enter path to unix socket file for docker")
+            input.setContentText("path")
+            val path = input.showAndWait()
+            if (path.isEmpty) {
+              Left(s"docker.sock not defined, readConfigErr: $readConfigErr")
+            } else {
+              Right(AppConfig.defaultConfig(Path.of(path.get())))
+            }
+          case arg => Right(
+            AppConfig.defaultConfig(Path.of(arg))
+          )
+        }
+      case Right(value) =>
+        Right(value)
+    }).map( config =>
+      getParameters.getNamed.get("unixSocket") match {
+        case null => config
+        case arg =>
+          config.copy(
+            dockerConnect = {
+              config.dockerConnect match {
+                case u:DockerConnect.UnixSocketFile =>
+                  u.copy(fileName = arg)
+              }
+            }
+          )
+      }
+    )
+
+    configEt match {
+      case Right(config) =>
         val loader = new FXMLLoader()
 
         loader.setLocation(this.getClass.getResource("/xyz/cofe/lima/ui/main.fxml"))
         val prnt = loader.load[Parent]()
         val controller = loader.getController[MainController]
+        controller.setAppConfig(config)
 
-//        implicit val httpLogger: HttpLogger =
-//          HttpLogger.JsonLogger(
-//            AppendableFile(
-//              PathPattern.escape(AppHome.directory) ++
-//              PathPattern.parse(Path.of("log/http/{yyyy}-{MM}/{dd}/{hh}-{mm}-{ss}.stream.json")),
-//              limitSizePerFile = Some(1024L*512L)
-//            )
-//          )
-
-        val defaultConfig = AppConfig.defaultConfig(Path.of(str))
-
-        DockerClientPool.init(new DockerClientPool(defaultConfig.dockerConnect.createDockerClient()))
+        DockerClientPool.init(new DockerClientPool(config.dockerConnect.createDockerClient()))
 
         val scene1 = new Scene(prnt)
         primaryStage.setScene(scene1)
@@ -80,7 +90,9 @@ class Main extends Application {
         controller.onTimerPeriod(initialTimerPeriodSeconds)
 
         primaryStage.setOnCloseRequest { _ => timer.cancel() }
-      case None =>
+      case Left(err) =>
+        println(err)
+        System.exit(1)
     }
   }
 

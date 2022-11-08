@@ -249,16 +249,22 @@ object syntax {
     }
 
     object json {
-      def read[A:JsonReader]:Either[Throwable, A] = {
+      def read[A:JsonReader](implicit opt: OpenOptions, linkOptions: LinkOptions, copyOptions: CopyOptions, trace: JavaNioTracer):Either[Throwable, A] = {
         import tethys._
         import tethys.jackson._
         readString(StandardCharsets.UTF_8).flatMap(str => str.jsonAs[A])
       }
 
-      def write[A:JsonWriter](a:A): Either[Throwable, Unit] = {
-        import tethys._
-        import tethys.jackson._
-        writeString(StandardCharsets.UTF_8, a.asJson)
+      def write[A:JsonWriter](a:A,pretty:Boolean=false)(implicit opt: OpenOptions, linkOptions: LinkOptions, copyOptions: CopyOptions, trace: JavaNioTracer): Either[Throwable, Unit] = {
+        if( pretty ) {
+          import tethys._
+          import tethys.jackson.pretty._
+          writeString(StandardCharsets.UTF_8, a.asJson)
+        }else{
+          import tethys._
+          import tethys.jackson._
+          writeString(StandardCharsets.UTF_8, a.asJson)
+        }
       }
     }
   }
