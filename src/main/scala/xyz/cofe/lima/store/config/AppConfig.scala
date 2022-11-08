@@ -3,7 +3,7 @@ package xyz.cofe.lima.store.config
 import tethys.derivation.semiauto.{jsonReader, jsonWriter}
 import tethys.writers.tokens.TokenWriter
 import tethys.{JsonReader, JsonWriter}
-import xyz.cofe.lima.docker.http.SocketReadTimings
+import xyz.cofe.lima.docker.http.{Duration, SocketReadTimings}
 import xyz.cofe.lima.fs.{CopyOptions, JavaNioTracer, LinkOptions, OpenOptions}
 import xyz.cofe.lima.store.json._
 import xyz.cofe.lima.store.log.PathPattern.PathPattern
@@ -11,6 +11,7 @@ import xyz.cofe.lima.store.log.{AppendableFile, AppendableNull, FilesCleaner, Pa
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.Path
+import xyz.cofe.lima.docker.log.{Logger => DLogger}
 
 /**
  * настройки приложения
@@ -23,6 +24,35 @@ case class AppConfig
 object AppConfig {
   implicit val reader:JsonReader[AppConfig] = jsonReader[AppConfig]
   implicit val writer:JsonWriter[AppConfig] = jsonWriter[AppConfig]
+
+  def defaultConfig( unixSocketFile:Path ):AppConfig = {
+    import Duration._
+    AppConfig(
+      dockerConnect =
+        DockerConnect.UnixSocketFile(
+          fileName = unixSocketFile.toString,
+          socketReadTimings = Some(SocketReadTimings(
+            cpuThrottling = 1.milliseconds.some,
+            readTimeout = 30.seconds.some,
+            sourceTimeout = 30.seconds.some
+          )),
+          dockerLogger = Some(
+            DockerLogger.JoinLogger(
+              DockerLogger.AllEvent(
+                LoggerOutput.FileLog(
+                  pathPattern = "{appHome}/log/{yyyy}-{MM}/{dd}/{hh}-{mi}-pid{pid}.dockerClient.stream.json",
+                  limitSizePerFile = Some(1024L*512L),
+                  FilesCleanup.SummaryMaxSize(1024L*1024L*32L)
+                )
+              ),
+              DockerLogger.FailEvent(
+                LoggerOutput.StdErr()
+              )
+            )
+          )
+        )
+    )
+  }
 }
 
 /**
@@ -34,7 +64,7 @@ object DockerConnect {
   (
     fileName:String,
     socketReadTimings: Option[SocketReadTimings],
-//    dockerLogger: Option[DockerLogger],
+    dockerLogger: Option[DockerLogger],
   ) extends DockerConnect
   object UnixSocketFile {
     implicit val reader: JsonReader[UnixSocketFile] = jsonReader[UnixSocketFile]
@@ -118,6 +148,36 @@ object DockerLogger {
     case "FailEvent" => FailEvent.reader
     case "SuccEvent" => SuccEvent.reader
     case "JoinLogger" => JoinLogger.reader
+  }
+
+  case class LoggerTask(logger:DLogger,cleanupTasks:List[Runnable])
+  implicit class DockerLoggerOps(dockerLoggerConf:DockerLogger) {
+    def logger:Option[LoggerTask] = {
+      dockerLoggerConf match {
+        case NoLogger() => None
+        case AllEvent(target) =>
+          val output = target.createOutput
+          val cleanup = target.cleanupTask
+          val jsonLogger = DLogger.JsonToWriter(output)
+          Some( LoggerTask(logger = jsonLogger, cleanupTasks = if(cleanup.isEmpty)List()else List(cleanup.get)) )
+        case FailEvent(target) =>
+          val output = target.createOutput
+          val cleanup = target.cleanupTask
+          val jsonLogger = DLogger.failLogger(DLogger.JsonToWriter(output))
+          Some( LoggerTask(logger = jsonLogger, cleanupTasks = if(cleanup.isEmpty)List()else List(cleanup.get)) )
+        case SuccEvent(target) =>
+          val output = target.createOutput
+          val cleanup = target.cleanupTask
+          val jsonLogger = DLogger.succLogger(DLogger.JsonToWriter(output))
+          Some( LoggerTask(logger = jsonLogger, cleanupTasks = if(cleanup.isEmpty)List()else List(cleanup.get)) )
+        case JoinLogger(left, right) =>
+          val leftTask = left.logger
+          val rightTask = right.logger
+          leftTask.zip(rightTask).map { case(lt, rt) =>
+            LoggerTask(DLogger.joinLoggers(lt.logger, rt.logger), lt.cleanupTasks ++ rt.cleanupTasks)
+          }.orElse(leftTask).orElse(rightTask)
+      }
+    }
   }
 }
 
