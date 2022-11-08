@@ -1,9 +1,7 @@
 package xyz.cofe.lima.docker.model
 
+import tethys.derivation.semiauto.{jsonReader, jsonWriter}
 import tethys.{JsonReader, JsonWriter}
-import tethys.derivation.semiauto.jsonReader
-import tethys.derivation.semiauto.jsonWriter
-import xyz.cofe.lima.{Show, ShowDerivation, TreeShow, TreeShowDerivation}
 
 case class CreateContainerRequest(
                             Image: String,
