@@ -31,11 +31,6 @@ class ContainerController {
     treeTable.getColumns.add(valueCol)
   }
 
-  private var dockerClient: Option[DockerClient] = None
-  def setDockerClient( dc: DockerClient ):Unit = {
-    dockerClient = Some(dc)
-  }
-
   private var containerId:Option[String] = None
 
   def select(cId:Option[String]):Unit = {
@@ -71,42 +66,20 @@ class ContainerController {
           })
         }
       })
-
-//      dockerClient.foreach(dc => {
-//        dc.containerInspect(cid) match {
-//          case Left(err) =>
-//          case Right(ci) =>
-//            Prop(ci).foreach(root => {
-//              root.setExpanded(true)
-//              treeTable.setRoot(root)
-//            })
-//        }
-//
-//        dc.containerLogs(cid, stdout = Some(true)) match {
-//          case Left(err) =>
-//          case Right(logs) =>
-//            logsStdOut.setText(logs.mkString("\n"))
-//        }
-//
-//        dc.containerLogs(cid, stderr = Some(true)) match {
-//          case Left(err) =>
-//          case Right(logs) =>
-//            logsStdErr.setText(logs.mkString("\n"))
-//        }
-//      })
     })
   }
 
   def refreshInspect():Unit = {
     containerId.foreach { cid =>
-      dockerClient.foreach { dc =>
+      DockerClientPool.submit { dc =>
         dc.containerInspect(cid) match {
           case Left(err) =>
-          case Right(ci) =>
+          case Right(ci) => Platform.runLater(()=>{
             Prop(ci).foreach(root => {
               root.setExpanded(true)
               treeTable.setRoot(root)
             })
+          })
         }
       }
     }
@@ -114,25 +87,27 @@ class ContainerController {
 
   def refreshLogsStdOut():Unit = {
     containerId.foreach(cid => {
-      dockerClient.foreach(dc => {
+      DockerClientPool.submit { dc =>
         dc.containerLogs(cid, stdout = Some(true)) match {
           case Left(err) =>
-          case Right(logs) =>
+          case Right(logs) => Platform.runLater(()=> {
             logsStdOut.setText(logs.mkString("\n"))
+          })
         }
-      })
+      }
     })
   }
 
   def refreshLogsStdErr():Unit = {
     containerId.foreach(cid => {
-      dockerClient.foreach(dc => {
+      DockerClientPool.submit { dc =>
         dc.containerLogs(cid, stderr = Some(true)) match {
           case Left(err) =>
-          case Right(logs) =>
+          case Right(logs) => Platform.runLater(()=> {
             logsStdErr.setText(logs.mkString("\n"))
+          })
         }
-      })
+      }
     })
   }
 
@@ -141,8 +116,8 @@ class ContainerController {
 
   def rename():Unit = {
     if( newName!=null && newName.getText.trim.nonEmpty ) {
-      dockerClient.foreach { dc =>
-        containerId.foreach { cId =>
+      containerId.foreach { cId =>
+        DockerClientPool.submit { dc =>
           dc.containerRename(cId, newName.getText.trim)
         }
       }
@@ -150,13 +125,13 @@ class ContainerController {
   }
 
   def delete():Unit = {
-    dockerClient.foreach { dc =>
-      containerId.foreach { cId =>
-        RemoveContainerController.show() match {
-          case Some(deleteParams) =>
+    containerId.foreach { cId =>
+      RemoveContainerController.show() match {
+        case Some(deleteParams) =>
+          DockerClientPool.submit { dc =>
             dc.containerRemove(cId, Some(deleteParams.removeAnonVolumes), Some(deleteParams.force), Some(deleteParams.link))
-          case None =>
-        }
+          }
+        case None =>
       }
     }
   }

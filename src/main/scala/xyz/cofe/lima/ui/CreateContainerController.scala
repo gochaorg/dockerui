@@ -159,23 +159,18 @@ class CreateContainerController {
     params.setRoot(root)
   }
 
-  private var dockerClient: Option[DockerClient] = None
-  def setDockerClient( dc: DockerClient ):Unit = {
-    dockerClient = Some(dc)
-  }
-
   def createContainer():Unit = {
-    dockerClient.foreach { dc =>
-      request = request.copy(
-        Cmd = request.Cmd.flatMap { cmdList =>
-          if( cmdList.isEmpty ){
-            None
-          }else{
-            Some(cmdList)
-          }
+    request = request.copy(
+      Cmd = request.Cmd.flatMap { cmdList =>
+        if( cmdList.isEmpty ){
+          None
+        }else{
+          Some(cmdList)
         }
-      )
-      history.add(ContainerCreate(request, name, platform))
+      }
+    )
+    history.add(ContainerCreate(request, name, platform))
+    DockerClientPool.submit { dc =>
       dc.containerCreate(request, name, platform) match {
         case Left(err) =>
         case Right(resp) => println(resp)

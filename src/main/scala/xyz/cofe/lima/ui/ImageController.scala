@@ -1,5 +1,6 @@
 package xyz.cofe.lima.ui
 
+import javafx.application.Platform
 import javafx.fxml.FXML
 import javafx.scene.control.cell.TreeItemPropertyValueFactory
 import javafx.scene.control.{TextField, TreeTableColumn, TreeTableView}
@@ -24,30 +25,26 @@ class ImageController {
     inspectTreeTable.getColumns.add(valueCol)
   }
 
-  private var dockerClient: Option[DockerClient] = None
-  def setDockerClient( dc: DockerClient ):Unit = {
-    dockerClient = Some(dc)
-  }
-
   private var currentImage:Option[Image] = None
   def onSelect(image:Image):Unit = {
     currentImage = Some(image)
-    dockerClient.foreach { dc =>
+    DockerClientPool.submit { dc =>
       dc.imageInspect(image.Id) match {
         case Left(err) => println(err)
-        case Right(inspect) =>
+        case Right(inspect) => Platform.runLater(()=>{
           Prop(inspect).foreach { root =>
             inspectTreeTable.setRoot(root)
             inspectTreeTable.setShowRoot(true)
             root.setExpanded(true)
           }
+        })
       }
     }
   }
 
   def assignTag():Unit = {
-    dockerClient.foreach { dc =>
-      currentImage.foreach { ci =>
+    currentImage.foreach { ci =>
+      DockerClientPool.submit { dc =>
         dc.imageTag(ci.Id,
           if (tag_repo.getText.trim.nonEmpty) {
             Some(tag_repo.getText.trim)

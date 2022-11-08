@@ -61,12 +61,6 @@ class ContainersController {
   @FXML
   private var containerController: ContainerController = null
 
-  private var dockerClient: Option[DockerClient] = None
-  def setDockerClient( dc: DockerClient ):Unit = {
-    dockerClient = Some(dc)
-    if( containerController!=null ) containerController.setDockerClient(dc)
-  }
-
   @FXML
   def initialize():Unit = {
     if( table!=null ){
@@ -224,7 +218,6 @@ class ContainersController {
     stage.setScene(scene)
     stage.show()
     controller.prepareEdit()
-    dockerClient.foreach(dc => controller.setDockerClient(dc))
   }
 
   def deleteSelected():Unit = {

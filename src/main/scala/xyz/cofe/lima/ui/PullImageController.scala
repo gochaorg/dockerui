@@ -4,14 +4,12 @@ import javafx.application.Platform
 import javafx.beans.property.SimpleStringProperty
 import javafx.fxml.{FXML, FXMLLoader}
 import javafx.scene.control.cell.TextFieldTableCell
+import javafx.scene.control._
 import javafx.scene.{Parent, Scene}
-import javafx.scene.control.{Accordion, TableColumn, TableView, TextArea, TitledPane}
 import javafx.stage.Stage
 import javafx.util.StringConverter
-import xyz.cofe.lima.docker.DockerClient
 import xyz.cofe.lima.docker.log.Logger
-import xyz.cofe.lima.docker.model.Image
-import xyz.cofe.lima.store.{AppConfig, ControllersHistory, History}
+import xyz.cofe.lima.store.ControllersHistory
 
 import java.util.concurrent.ConcurrentLinkedQueue
 
@@ -108,11 +106,6 @@ class PullImageController() {
     }
   }
 
-  private var dockerClient: Option[DockerClient] = None
-  def setDockerClient( dc: DockerClient ):Unit = {
-    dockerClient = Some(dc)
-  }
-
   private var threads = List[Thread]()
 
   private var historyIndex:Option[Int] = None
@@ -152,7 +145,7 @@ class PullImageController() {
   }
 
   def pull():Unit = {
-    dockerClient.map(_.newClient).foreach { dc =>
+    DockerClientPool.submit { dc =>
       val p_fromImage = fromImage
       val p_fromSrc = fromSrc
       val p_repo = repo
@@ -228,7 +221,7 @@ class PullImageController() {
 }
 
 object PullImageController {
-  def show(dc: DockerClient): Unit = {
+  def show: Unit = {
     val loader = new FXMLLoader()
     loader.setLocation(this.getClass.getResource("/xyz/cofe/lima/ui/pull-image.fxml"))
 
@@ -236,7 +229,6 @@ object PullImageController {
     val controller = loader.getController[PullImageController]
 
     val stage = new Stage()
-    controller.setDockerClient(dc)
     stage.setOnCloseRequest { _ => controller.closing() }
 
     stage.setTitle("Pull image")
