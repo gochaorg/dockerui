@@ -50,6 +50,21 @@ object DockerLogger {
     implicit val reader: JsonReader[JoinLogger] = jsonReader[JoinLogger]
     implicit val writer: JsonWriter[JoinLogger] = classWriter[JoinLogger] ++ jsonWriter[JoinLogger]
   }
+
+  implicit val writer:JsonWriter[DockerLogger] = (value: DockerLogger, tokenWriter: TokenWriter) => {
+    value match {
+      case v: NoLogger => NoLogger.writer.write(v, tokenWriter)
+      case v: AllEvent => AllEvent.writer.write(v, tokenWriter)
+      case v: FailEvent => FailEvent.writer.write(v, tokenWriter)
+      case v: JoinLogger => JoinLogger.writer.write(v, tokenWriter)
+    }
+  }
+  implicit val reader:JsonReader[DockerLogger] = JsonReader.builder.addField[String]("_type").selectReader[DockerLogger] {
+    case "NoLogger" => NoLogger.reader
+    case "AllEvent" => AllEvent.reader
+    case "FailEvent" => FailEvent.reader
+    case "JoinLogger" => JoinLogger.reader
+  }
 }
 
 /**
@@ -60,7 +75,8 @@ object DockerConnect {
   case class UnixSocketFile
   (
     fileName:String,
-    socketReadTimings: SocketReadTimings
+    socketReadTimings: Option[SocketReadTimings],
+    dockerLogger: Option[DockerLogger],
   ) extends DockerConnect
   object UnixSocketFile {
     implicit val reader: JsonReader[UnixSocketFile] = jsonReader[UnixSocketFile]
@@ -150,7 +166,6 @@ object LoggerOutput {
  * Как чистить логи
  */
 sealed trait FilesCleanup
-
 object FilesCleanup {
   /**
    * не удалять файлы
