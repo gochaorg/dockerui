@@ -27,24 +27,50 @@ object AppConfig {
 
 sealed trait DockerLogger
 object DockerLogger {
+  /**
+   * Нет логгера
+   */
   case class NoLogger() extends DockerLogger
   object NoLogger {
     implicit val reader: JsonReader[NoLogger] = jsonReader[NoLogger]
     implicit val writer: JsonWriter[NoLogger] = classWriter[NoLogger] ++ jsonWriter[NoLogger]
   }
 
+  /**
+   * Запись всех событий
+   * @param target куда писать события
+   */
   case class AllEvent(target:LoggerOutput) extends DockerLogger
   object AllEvent {
     implicit val reader: JsonReader[AllEvent] = jsonReader[AllEvent]
     implicit val writer: JsonWriter[AllEvent] = classWriter[AllEvent] ++ jsonWriter[AllEvent]
   }
 
+  /**
+   * Запись событий с ошибкой
+   * @param target куда писать события
+   */
   case class FailEvent(target:LoggerOutput) extends DockerLogger
   object FailEvent {
     implicit val reader: JsonReader[FailEvent] = jsonReader[FailEvent]
     implicit val writer: JsonWriter[FailEvent] = classWriter[FailEvent] ++ jsonWriter[FailEvent]
   }
 
+  /**
+   * Запись только успешных событий
+   * @param target куда писать события
+   */
+  case class SuccEvent(target:LoggerOutput) extends DockerLogger
+  object SuccEvent {
+    implicit val reader: JsonReader[SuccEvent] = jsonReader[SuccEvent]
+    implicit val writer: JsonWriter[SuccEvent] = classWriter[SuccEvent] ++ jsonWriter[SuccEvent]
+  }
+
+  /**
+   * Объединение нескольких логгеров
+   * @param left первый логгер
+   * @param right второй логгер
+   */
   case class JoinLogger(left:DockerLogger, right:DockerLogger) extends DockerLogger
   object JoinLogger {
     implicit val reader: JsonReader[JoinLogger] = jsonReader[JoinLogger]
@@ -56,6 +82,7 @@ object DockerLogger {
       case v: NoLogger => NoLogger.writer.write(v, tokenWriter)
       case v: AllEvent => AllEvent.writer.write(v, tokenWriter)
       case v: FailEvent => FailEvent.writer.write(v, tokenWriter)
+      case v: SuccEvent => SuccEvent.writer.write(v, tokenWriter)
       case v: JoinLogger => JoinLogger.writer.write(v, tokenWriter)
     }
   }
@@ -63,6 +90,7 @@ object DockerLogger {
     case "NoLogger" => NoLogger.reader
     case "AllEvent" => AllEvent.reader
     case "FailEvent" => FailEvent.reader
+    case "SuccEvent" => SuccEvent.reader
     case "JoinLogger" => JoinLogger.reader
   }
 }
@@ -76,7 +104,7 @@ object DockerConnect {
   (
     fileName:String,
     socketReadTimings: Option[SocketReadTimings],
-    dockerLogger: Option[DockerLogger],
+//    dockerLogger: Option[DockerLogger],
   ) extends DockerConnect
   object UnixSocketFile {
     implicit val reader: JsonReader[UnixSocketFile] = jsonReader[UnixSocketFile]

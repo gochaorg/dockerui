@@ -80,6 +80,12 @@ object Logger {
   //#endregion
   //#region errorCapture logger
 
+  /**
+   * создает фильтрующий логгер
+   * @param logger целевой логгер, куда будут писаться события
+   * @param filter фильтр
+   * @return фильтрующий логгер
+   */
   def filterLogger(logger:Logger)( filter:(_ >: MethodCall,Either[_, _])=>Boolean ):Logger = new Logger {
     class FilterCatcher[M <: MethodCall](op:M, op1:CallCatcher[M]
                                         )(implicit jw: JsonWriter[M], jwr: JsonWriter[M#RESULT]) extends CallCatcher(op) {
@@ -95,11 +101,29 @@ object Logger {
       new FilterCatcher(op, logger(op))
   }
 
+  /**
+   * Логгер - фильтрует события оставляет события только с ошибкой
+   * @param logger целевой логгер, куда будут писаться события
+   * @return фильтрующий логгер
+   */
   def failLogger(logger:Logger):Logger = filterLogger(logger) ( (_:Any, res) => res.isLeft )
+
+  /**
+   * Логгер - фильтрует события оставляет только успешные события
+   * @param logger целевой логгер, куда будут писаться события
+   * @return фильтрующий логгер
+   */
+  def succLogger(logger:Logger):Logger = filterLogger(logger) ( (_:Any, res) => res.isRight )
 
   //#endregion
   //#region joinLoggers
 
+  /**
+   * объединяет несколько логгеров в один
+   * @param left первый логгер
+   * @param right второй логгер
+   * @return общий логгер
+   */
   def joinLoggers(left:Logger, right:Logger):Logger = new Logger {
     class JoinCallCatcher[M <: MethodCall](leftCc:CallCatcher[M], rightCc:CallCatcher[M],op:M)
                                           (implicit jw: JsonWriter[M], jwr: JsonWriter[M#RESULT])
