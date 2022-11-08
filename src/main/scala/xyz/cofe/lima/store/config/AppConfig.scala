@@ -79,6 +79,10 @@ object DockerConnect {
       case u: UnixSocketFile => UnixSocketFile.writer.write(u, tokenWriter)
     }
   }
+
+  implicit class DockerConnectOps(dockerConnect:DockerConnect) {
+
+  }
 }
 
 sealed trait DockerLogger
