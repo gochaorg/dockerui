@@ -71,8 +71,6 @@ object Logger {
 
   sealed trait MethodCall {
     type RESULT
-    def parameters: (String, Product)
-    def resultToJson(result: RESULT): String
   }
 
   //#region Default logger
@@ -218,11 +216,7 @@ object Logger {
   }
 
   abstract class MethodWithParams[A:JsonWriter] extends Product with MethodCall {
-    import tethys._
-    import tethys.jackson._
     override type RESULT = A
-    override def parameters: (String, Product) = (this.getClass.getSimpleName,this)
-    override def resultToJson(result:RESULT):String = result.asJson
   }
 
   /**
