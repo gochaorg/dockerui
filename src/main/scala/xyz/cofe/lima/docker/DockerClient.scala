@@ -567,13 +567,14 @@ case class DockerClient( socketChannel: SocketChannel,
 object DockerClient {
   lazy val idSeq = new AtomicInteger(0)
 
-  def unixSocket(path:String)(implicit
+  def unixSocket(path:String, socketReadTimings: SocketReadTimings = SocketReadTimings())(implicit
                               httpLogger: HttpLogger,
                               socketLogger: SocketLogger,
                               logger: Logger
   ):DockerClient =
     DockerClient(
-      SocketChannel.open(UnixDomainSocketAddress.of(path)),
-      ()=>SocketChannel.open(UnixDomainSocketAddress.of(path))
+      socketChannel     = SocketChannel.open(UnixDomainSocketAddress.of(path)),
+      openSocket        = ()=>SocketChannel.open(UnixDomainSocketAddress.of(path)),
+      socketReadTimings = socketReadTimings
     )(httpLogger = httpLogger,socketLogger = socketLogger,logger = logger)
 }

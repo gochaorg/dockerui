@@ -3,6 +3,7 @@ package xyz.cofe.lima.store.config
 import tethys.derivation.semiauto.{jsonReader, jsonWriter}
 import tethys.writers.tokens.TokenWriter
 import tethys.{JsonReader, JsonWriter}
+import xyz.cofe.lima.docker.DockerClient
 import xyz.cofe.lima.docker.http.{Duration, SocketReadTimings}
 import xyz.cofe.lima.fs.{CopyOptions, JavaNioTracer, LinkOptions, OpenOptions}
 import xyz.cofe.lima.store.json._
@@ -12,6 +13,7 @@ import xyz.cofe.lima.store.log.{AppendableFile, AppendableNull, FilesCleaner, Pa
 import java.nio.charset.StandardCharsets
 import java.nio.file.Path
 import xyz.cofe.lima.docker.log.{Logger => DLogger}
+import xyz.cofe.lima.launch.InitTasks
 
 /**
  * настройки приложения
@@ -80,8 +82,17 @@ object DockerConnect {
     }
   }
 
-  implicit class DockerConnectOps(dockerConnect:DockerConnect) {
+  implicit class DockerConnectOps(dockerConnect:DockerConnect)(implicit initTasks: InitTasks) {
+    def createDockerClient():DockerClient = {
+      dockerConnect match {
+        case UnixSocketFile(fileName, socketReadTimings, dockerLoggerConf) =>
+          val dockerLoggerTask = dockerLoggerConf.flatMap(conf => conf.logger)
 
+          implicit val dockerLoggerInstance: DLogger = dockerLoggerTask.map(_.logger).getOrElse(DLogger.defaultLogger)
+          dockerLoggerTask.foreach(_.cleanupTasks.foreach(initTasks.addLogCleanTask))
+          DockerClient.unixSocket(fileName, socketReadTimings.getOrElse(new SocketReadTimings()))
+      }
+    }
   }
 }
 
@@ -154,31 +165,31 @@ object DockerLogger {
     case "JoinLogger" => JoinLogger.reader
   }
 
-  case class LoggerTask(logger:DLogger,cleanupTasks:List[Runnable])
+  case class DockerLoggerTask(logger:DLogger, cleanupTasks:List[Runnable])
   implicit class DockerLoggerOps(dockerLoggerConf:DockerLogger) {
-    def logger:Option[LoggerTask] = {
+    def logger:Option[DockerLoggerTask] = {
       dockerLoggerConf match {
         case NoLogger() => None
         case AllEvent(target) =>
           val output = target.createOutput
           val cleanup = target.cleanupTask
           val jsonLogger = DLogger.JsonToWriter(output)
-          Some( LoggerTask(logger = jsonLogger, cleanupTasks = if(cleanup.isEmpty)List()else List(cleanup.get)) )
+          Some( DockerLoggerTask(logger = jsonLogger, cleanupTasks = if(cleanup.isEmpty)List()else List(cleanup.get)) )
         case FailEvent(target) =>
           val output = target.createOutput
           val cleanup = target.cleanupTask
           val jsonLogger = DLogger.failLogger(DLogger.JsonToWriter(output))
-          Some( LoggerTask(logger = jsonLogger, cleanupTasks = if(cleanup.isEmpty)List()else List(cleanup.get)) )
+          Some( DockerLoggerTask(logger = jsonLogger, cleanupTasks = if(cleanup.isEmpty)List()else List(cleanup.get)) )
         case SuccEvent(target) =>
           val output = target.createOutput
           val cleanup = target.cleanupTask
           val jsonLogger = DLogger.succLogger(DLogger.JsonToWriter(output))
-          Some( LoggerTask(logger = jsonLogger, cleanupTasks = if(cleanup.isEmpty)List()else List(cleanup.get)) )
+          Some( DockerLoggerTask(logger = jsonLogger, cleanupTasks = if(cleanup.isEmpty)List()else List(cleanup.get)) )
         case JoinLogger(left, right) =>
           val leftTask = left.logger
           val rightTask = right.logger
           leftTask.zip(rightTask).map { case(lt, rt) =>
-            LoggerTask(DLogger.joinLoggers(lt.logger, rt.logger), lt.cleanupTasks ++ rt.cleanupTasks)
+            DockerLoggerTask(DLogger.joinLoggers(lt.logger, rt.logger), lt.cleanupTasks ++ rt.cleanupTasks)
           }.orElse(leftTask).orElse(rightTask)
       }
     }

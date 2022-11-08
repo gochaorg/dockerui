@@ -6,7 +6,6 @@ import javafx.scene.control
 import javafx.scene.control.cell.TreeItemPropertyValueFactory
 import javafx.scene.control.{TextArea, TextField, TreeTableColumn, TreeTableView}
 import xyz.cofe.lima.docker.{DockerClient, model}
-import xyz.cofe.lima.{TreeShowDerivation, TreeWriter}
 
 class ContainerController {
   @FXML

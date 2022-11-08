@@ -2,7 +2,7 @@ package xyz.cofe.lima.docker.model
 
 import tethys.derivation.semiauto.{jsonReader, jsonWriter}
 import tethys.{JsonReader, JsonWriter}
-import xyz.cofe.lima.{TreeShow, TreeShowDerivation}
+import xyz.cofe.lima.ui.{TreeShow, TreeShowDerivation}
 
 case class ContainerInspect(
                              /** The ID of the container : ba033ac4401106a3b513bc9d639eee123ad78ca3616b921167cd74b20e25ed39 */

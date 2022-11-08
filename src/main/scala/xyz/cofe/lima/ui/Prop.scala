@@ -1,9 +1,13 @@
 package xyz.cofe.lima.ui
 
 import javafx.scene.control.TreeItem
-import xyz.cofe.lima.{TreeShow, TreeShowDerivation, TreeWriter}
-import xyz.cofe.lima.TreeWriter.{TreeLeaf, TreeNode}
+import TreeWriter.{TreeLeaf, TreeNode}
 
+/**
+ * Пара описывающая ключ-значение - свойство
+ * @param name имя свойства
+ * @param value значение свойства
+ */
 case class Prop(name:String, value:String) {
   def getName():String = name
   def setName(str:String):Unit = ()

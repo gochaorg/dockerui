@@ -1,6 +1,8 @@
-package xyz.cofe.lima
+package xyz.cofe.lima.ui
 
-import language.experimental.macros, magnolia1._
+import magnolia1._
+
+import scala.language.experimental.macros
 
 trait TreeWriter {
   def begin(label:String):Unit
