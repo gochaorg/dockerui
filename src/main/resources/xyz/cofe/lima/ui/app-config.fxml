@@ -11,7 +11,6 @@
 <?import javafx.scene.layout.GridPane?>
 <?import javafx.scene.layout.RowConstraints?>
 
-
 <AnchorPane prefHeight="400.0" prefWidth="600.0" xmlns="http://javafx.com/javafx/19" xmlns:fx="http://javafx.com/fxml/1" fx:controller="xyz.cofe.lima.ui.AppConfigController">
    <children>
       <TabPane layoutX="37.0" layoutY="26.0" prefHeight="300.0" prefWidth="534.0" tabClosingPolicy="UNAVAILABLE" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
@@ -20,7 +19,7 @@
             <content>
               <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="269.0" prefWidth="517.0">
                      <children>
-                        <TextField layoutX="13.0" layoutY="30.0" prefHeight="25.0" prefWidth="569.0" promptText="unix socket file" AnchorPane.leftAnchor="13.0" AnchorPane.rightAnchor="13.0" AnchorPane.topAnchor="30.0" />
+                        <TextField fx:id="unixSocket" layoutX="13.0" layoutY="30.0" prefHeight="25.0" prefWidth="569.0" promptText="unix socket file" AnchorPane.leftAnchor="13.0" AnchorPane.rightAnchor="13.0" AnchorPane.topAnchor="30.0" />
                         <Label layoutX="13.0" layoutY="10.0" text="docker socket" AnchorPane.leftAnchor="13.0" AnchorPane.topAnchor="10.0" />
                         <GridPane layoutX="16.0" layoutY="67.0" prefHeight="283.0" prefWidth="565.0" AnchorPane.leftAnchor="13.0" AnchorPane.rightAnchor="13.0" AnchorPane.topAnchor="67.0">
                           <columnConstraints>
@@ -33,33 +32,16 @@
                             <RowConstraints maxHeight="1.7976931348623157E308" minHeight="10.0" prefHeight="30.0" valignment="TOP" vgrow="SOMETIMES" />
                           </rowConstraints>
                            <children>
-                              <CheckBox mnemonicParsing="false" text="read timeout " />
-                              <CheckBox mnemonicParsing="false" text="source timeout" GridPane.rowIndex="1" />
-                              <TextField GridPane.columnIndex="1" />
-                              <TextField GridPane.columnIndex="1" GridPane.rowIndex="1" />
-                              <TextField GridPane.columnIndex="1" GridPane.rowIndex="2" />
-                              <CheckBox mnemonicParsing="false" text="source timeout" GridPane.rowIndex="2" />
+                              <CheckBox fx:id="readTimeoutSet" mnemonicParsing="false" text="read timeout " />
+                              <CheckBox fx:id="sourceTimeoutSet" mnemonicParsing="false" text="source timeout" GridPane.rowIndex="1" />
+                              <TextField fx:id="readTimeoutValue" GridPane.columnIndex="1" />
+                              <TextField fx:id="sourceTimeoutValue" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+                              <TextField fx:id="cpuThrottlingValue" GridPane.columnIndex="1" GridPane.rowIndex="2" />
+                              <CheckBox fx:id="cpuThrottlingSet" mnemonicParsing="false" text="cpu throttling" GridPane.rowIndex="2" />
                            </children>
                         </GridPane>
                      </children>
                   </AnchorPane>
-            </content>
-          </Tab>
-          <Tab text="Log">
-            <content>
-                  <GridPane>
-                     <columnConstraints>
-                        <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" />
-                        <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="100.0" />
-                     </columnConstraints>
-                     <rowConstraints>
-                        <RowConstraints minHeight="10.0" vgrow="SOMETIMES" />
-                        <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
-                     </rowConstraints>
-                     <children>
-                        <Label text="Docker client log" />
-                     </children>
-                  </GridPane>
             </content>
           </Tab>
         </tabs>
