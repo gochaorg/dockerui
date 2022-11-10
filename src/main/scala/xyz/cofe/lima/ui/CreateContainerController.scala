@@ -8,6 +8,10 @@ import xyz.cofe.lima.docker.log.Logger.ContainerCreate
 import xyz.cofe.lima.docker.model.CreateContainerRequest
 import xyz.cofe.lima.store.{ControllersHistory, History}
 
+/**
+ * Запуск контейнера
+ */
+//noinspection SimplifyBooleanMatch,ConvertNullInitializerToUnderscore
 class CreateContainerController {
   @FXML
   private var params : TreeTableView[MutProp] = null
@@ -152,8 +156,14 @@ class CreateContainerController {
     }
     rebuildCmdRoot()
 
-    val hostConf = new TreeItem(MutProp("hostConfig", ()=>"", _ => ()));
-    
+    val hostConfTree = new TreeItem(MutProp("hostConfig", ()=>"", _ => ()));
+    def rebuildHostConfTree():Unit = {
+      hostConfTree.getChildren.clear()
+      request.HostConfig.foreach { hostConf =>
+        //hostConf.
+      }
+    }
+    rebuildHostConfTree()
 
     params.setShowRoot(false)
     params.setRoot(root)
