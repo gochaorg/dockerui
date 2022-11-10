@@ -48,4 +48,7 @@ class MainController {
   def saveConfig():Unit = {
     appConfigOpt.foreach(conf => AppHome.writeConfig(conf).left.map(System.err.println))
   }
+  def openConfig():Unit = {
+    AppConfigController.show()
+  }
 }

@@ -55,7 +55,7 @@
           </Menu>
             <Menu mnemonicParsing="false" text="Config">
               <items>
-                <MenuItem mnemonicParsing="false" onAction="#saveConfig" text="Save" />
+                <MenuItem mnemonicParsing="false" onAction="#openConfig" text="Open" />
               </items>
             </Menu>
         </menus>
