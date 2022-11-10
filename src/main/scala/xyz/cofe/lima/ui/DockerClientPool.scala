@@ -2,20 +2,26 @@ package xyz.cofe.lima.ui
 
 import xyz.cofe.lima.docker.DockerClient
 
-import java.util.concurrent.{Executors, ThreadFactory, ThreadPoolExecutor}
+import java.util.concurrent.{ExecutorService, Executors}
 
+/**
+ * Пул потоков для работы с docker
+ * @param dockerClient клиент docker
+ */
 class DockerClientPool( val dockerClient:DockerClient ) {
-  lazy val pool = {
-    val thPool = Executors.newCachedThreadPool(new ThreadFactory {
-      override def newThread(r: Runnable): Thread = {
-        val th = new Thread(r)
-        th.setDaemon(true)
-        th
-      }
+  lazy val pool: ExecutorService = {
+    val thPool = Executors.newCachedThreadPool((r: Runnable) => {
+      val th = new Thread(r)
+      th.setDaemon(true)
+      th
     })
     thPool
   }
 
+  /**
+   * Отправляет задание на выполнение в отдельном потоке
+   * @param code код работающий с docker client
+   */
   def submit( code: DockerClient=>Unit ):Unit = {
     pool.submit(new Runnable {
       override def run(): Unit = {
