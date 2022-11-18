@@ -23,7 +23,15 @@ class DockerTest extends AnyFunSuite {
 //    }
 //  }
 
-
+  test("search image") {
+    implicit val dlog = new Logger.JsonToWriter(System.out)
+    DockerClient.unixSocket(socket).imageSearch("debian",None) match {
+      case Left(err) => println(s"error $err")
+      case Right(value) => value.foreach {
+        println
+      }
+    }
+  }
 
   test("containers") {
     //implicit val log = HttpLogger.stdout

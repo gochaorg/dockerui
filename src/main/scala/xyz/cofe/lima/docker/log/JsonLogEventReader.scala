@@ -19,7 +19,7 @@ import java.time.LocalDateTime
 object JsonLogEventReader {
   private val expectMethods = List(
     "Containers", "ContainerInspect", "ContainerProcesses", "ContainerLogs", "ContainerStart", "ContainerStop",
-    "ContainerCreate", "ContainerKill", "ContainerRemove", "ContainerFsChanges",
+    "ContainerCreate", "ContainerKill", "ContainerRemove", "ContainerFsChanges", "ContainerWait",
     "Images", "ImageRemove", "ImageTag", "ImageHistory", "ImageHistory", "ImageInspect", "ImageCreate", "ImageSearch"
   )
 
@@ -88,6 +88,7 @@ object JsonLogEventReader {
           case "ImageInspect" =>       restoreSucc[ImageInspect]      (args,threadIdObj,beginTime,endTime,result)
           case "ImageCreate" =>        restoreSucc[ImageCreate]       (args,threadIdObj,beginTime,endTime,result)
           case "ImageSearch" =>        restoreSucc[ImageSearch]       (args,threadIdObj,beginTime,endTime,result)
+          case "ContainerWait" =>      restoreSucc[ContainerWait]     (args,threadIdObj,beginTime,endTime,result)
         }
       }
 
@@ -129,6 +130,7 @@ object JsonLogEventReader {
           case "ContainerKill" => restoreFail[ContainerKill](threadIdObj, beginTime, endTime, args, error)
           case "ContainerRemove" => restoreFail[ContainerRemove](threadIdObj, beginTime, endTime, args, error)
           case "ContainerFsChanges" => restoreFail[ContainerFsChanges](threadIdObj, beginTime, endTime, args, error)
+          case "ContainerWait" => restoreFail[ContainerWait](threadIdObj, beginTime, endTime, args, error)
           case "Images" => restoreFail[Images](threadIdObj, beginTime, endTime, args, error)
           case "ImageRemove" => restoreFail[ImageRemove](threadIdObj, beginTime, endTime, args, error)
           case "ImageTag" => restoreFail[ImageTag](threadIdObj, beginTime, endTime, args, error)

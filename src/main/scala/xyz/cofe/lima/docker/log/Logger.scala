@@ -8,7 +8,7 @@ import tethys.readers.tokens.TokenIterator
 import tethys.writers.tokens.TokenWriter
 import xyz.cofe.lima.docker.errors.DockerError
 import xyz.cofe.lima.docker.model
-import xyz.cofe.lima.docker.model.{CreateContainerRequest, Image}
+import xyz.cofe.lima.docker.model.{ContainerWaitCondition, CreateContainerRequest, Image}
 import xyz.cofe.lima.store.json._
 import xyz.cofe.lima.thread.ThreadID
 
@@ -356,6 +356,12 @@ object Logger {
   object ContainerRename {
     implicit val reader: JsonReader[ContainerRename] = jsonReader[ContainerRename]
     implicit val writer: JsonWriter[ContainerRename] = classWriter[ContainerRename] ++ jsonWriter[ContainerRename]
+  }
+
+  case class ContainerWait(containerId:String, condition:Option[ContainerWaitCondition]) extends MethodWithParams[model.WaitResponse]
+  object ContainerWait {
+    implicit val reader: JsonReader[ContainerWait] = jsonReader[ContainerWait]
+    implicit val writer: JsonWriter[ContainerWait] = classWriter[ContainerWait] ++ jsonWriter[ContainerWait]
   }
 
   /**

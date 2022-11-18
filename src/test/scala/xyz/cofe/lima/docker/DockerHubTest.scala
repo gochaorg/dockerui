@@ -28,7 +28,7 @@ class DockerHubTest extends AnyFunSuite {
   }
 
   test("tags") {
-    DockerHub().tags("redis",Some(100)) match {
+    DockerHub().tags("ubuntu",Some(100)) match {
       case Left(value) => println(value)
       case Right(value) =>
         value.results.map { im => s"${im.name}\n"+

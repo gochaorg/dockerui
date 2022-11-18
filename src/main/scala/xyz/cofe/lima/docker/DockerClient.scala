@@ -434,6 +434,23 @@ case class DockerClient( socketChannel: SocketChannel,
         .body(204).map(_ => ())
     }
 
+  /**
+   * Ожидание запуска/остановки контейнера
+   * @param containerId имя или id контейнера
+   */
+  def containerWait(containerId:String, condition:Option[ContainerWaitCondition]) = {
+    logger(Logger.ContainerWait(containerId,condition)).run {
+      http(
+        HttpRequest(s"/containers/$containerId/wait").post()
+      )
+        .expect
+        .fail(400, errors.BadRequest(_))
+        .fail(404, errors.NotFound(_))
+        .fail(500, errors.ServerErr(_))
+        .json[WaitResponse](200)
+    }
+  }
+
   //#endregion
   //#region image task
 
@@ -551,7 +568,11 @@ case class DockerClient( socketChannel: SocketChannel,
         .body(201).map(_=>())
     }
 
-
+  /**
+   * Получить историю контейнера
+   * @param nameOrId Image name or ID
+   * @return история
+   */
   def imageHistory(nameOrId:String): Either[errors.DockerError, List[model.ImageHistory]] = {
     logger(Logger.ImageHistory(nameOrId)).run {
       http(HttpRequest(s"/images/$nameOrId/history").get())
@@ -562,6 +583,12 @@ case class DockerClient( socketChannel: SocketChannel,
     }
   }
 
+  /**
+   * Поиск образов на docker hub
+   * @param term искомый термин
+   * @param limit ограничение поиска
+   * @return что нашлось
+   */
   def imageSearch(term:String,limit:Option[Int]): Either[errors.DockerError, List[ImageSearch]] = {
     logger(Logger.ImageSearch(term,limit)).run {
       http(HttpRequest("/images/search").get().queryString("term" -> term, "limit" -> limit))
