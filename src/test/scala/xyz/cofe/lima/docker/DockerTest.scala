@@ -23,6 +23,8 @@ class DockerTest extends AnyFunSuite {
 //    }
 //  }
 
+
+
   test("containers") {
     //implicit val log = HttpLogger.stdout
     implicit val dlog = new Logger.JsonToWriter(System.out)

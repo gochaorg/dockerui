@@ -420,5 +420,11 @@ object Logger {
     implicit val reader: JsonReader[ImageCreate] = jsonReader[ImageCreate]
     implicit val writer: JsonWriter[ImageCreate] = classWriter[ImageCreate] ++ jsonWriter[ImageCreate]
   }
+
+  case class ImageSearch(term:String,limit:Option[Int]) extends MethodWithParams[List[model.ImageSearch]]
+  object ImageSearch {
+    implicit val reader: JsonReader[ImageSearch] = jsonReader[ImageSearch]
+    implicit val writer: JsonWriter[ImageSearch] = classWriter[ImageSearch] ++ jsonWriter[ImageSearch]
+  }
   //#endregion
 }

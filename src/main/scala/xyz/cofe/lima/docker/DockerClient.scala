@@ -8,7 +8,7 @@ import xyz.cofe.lima.docker.http.errors.HttpError
 import xyz.cofe.lima.docker.http.HttpResponse
 import xyz.cofe.lima.docker.log.Logger
 import xyz.cofe.lima.docker.log.Logger._
-import xyz.cofe.lima.docker.model.{ImageHistory, _}
+import xyz.cofe.lima.docker.model.{ImageHistory, ImageSearch, _}
 
 import java.net.UnixDomainSocketAddress
 import java.nio.channels.SocketChannel
@@ -559,6 +559,15 @@ case class DockerClient( socketChannel: SocketChannel,
         .fail(404, errors.NotFound(_))
         .fail(500, errors.ServerErr(_))
         .json[List[model.ImageHistory]](200)
+    }
+  }
+
+  def imageSearch(term:String,limit:Option[Int]): Either[errors.DockerError, List[ImageSearch]] = {
+    logger(Logger.ImageSearch(term,limit)).run {
+      http(HttpRequest("/images/search").get().queryString("term" -> term, "limit" -> limit))
+        .expect
+        .fail(500, errors.ServerErr(_))
+        .json[List[model.ImageSearch]](200)
     }
   }
   //#endregion

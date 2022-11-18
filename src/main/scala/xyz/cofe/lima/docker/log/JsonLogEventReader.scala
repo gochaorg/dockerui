@@ -20,7 +20,7 @@ object JsonLogEventReader {
   private val expectMethods = List(
     "Containers", "ContainerInspect", "ContainerProcesses", "ContainerLogs", "ContainerStart", "ContainerStop",
     "ContainerCreate", "ContainerKill", "ContainerRemove", "ContainerFsChanges",
-    "Images", "ImageRemove", "ImageTag", "ImageHistory", "ImageHistory", "ImageInspect", "ImageCreate"
+    "Images", "ImageRemove", "ImageTag", "ImageHistory", "ImageHistory", "ImageInspect", "ImageCreate", "ImageSearch"
   )
 
   def reader(implicit dtFormat:DateTimeFormatterProvide):JsonReader[LogEvent[_,_]] = {
@@ -87,6 +87,7 @@ object JsonLogEventReader {
           case "ImageHistory" =>       restoreSucc[ImageHistory]      (args,threadIdObj,beginTime,endTime,result)
           case "ImageInspect" =>       restoreSucc[ImageInspect]      (args,threadIdObj,beginTime,endTime,result)
           case "ImageCreate" =>        restoreSucc[ImageCreate]       (args,threadIdObj,beginTime,endTime,result)
+          case "ImageSearch" =>        restoreSucc[ImageSearch]       (args,threadIdObj,beginTime,endTime,result)
         }
       }
 
@@ -134,6 +135,7 @@ object JsonLogEventReader {
           case "ImageHistory" => restoreFail[ImageHistory](threadIdObj, beginTime, endTime, args, error)
           case "ImageInspect" => restoreFail[ImageInspect](threadIdObj, beginTime, endTime, args, error)
           case "ImageCreate" => restoreFail[ImageCreate](threadIdObj, beginTime, endTime, args, error)
+          case "ImageSearch" => restoreFail[ImageSearch](threadIdObj, beginTime, endTime, args, error)
         }
       }
 
