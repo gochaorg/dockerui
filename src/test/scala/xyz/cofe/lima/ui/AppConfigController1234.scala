@@ -8,11 +8,7 @@ import javafx.scene.control._
 import javafx.scene.input.KeyCode
 
 class AppConfigController1234 {
-  sealed trait Prop {
-    def name:String
-  }
-  case class StringProp(name:String) extends Prop
-
+  import AppConfigController1234._
   @FXML
   private var treeView: TreeTableView[Prop] = null
 
@@ -33,7 +29,10 @@ class AppConfigController1234 {
 
     val valueCol = new TreeTableColumn[Prop, String]("value")
     valueCol.setCellValueFactory((param: TreeTableColumn.CellDataFeatures[Prop, String]) => {
-      val str = "str123"
+      val str = param.getValue.getValue match {
+        case StringProp(name, value) => value
+      }
+
       val strProp = new SimpleStringProperty(str)
       strProp.addListener(new ChangeListener[String] {
         override def changed(observable: ObservableValue[_ <: String], oldValue: String, newValue: String): Unit = {
@@ -45,7 +44,10 @@ class AppConfigController1234 {
     valueCol.setOnEditCommit(new EventHandler[TreeTableColumn.CellEditEvent[Prop, String]]() {
       override def handle(event: TreeTableColumn.CellEditEvent[Prop, String]): Unit = {
         println(event.getNewValue)
-        //event.getRowValue.getValue.writer(event.getNewValue)
+        event.getRowValue.getValue match {
+          case prop @ StringProp(name, value) =>
+            prop.value = event.getNewValue
+        }
       }
     })
     valueCol.setEditable(true)
@@ -66,15 +68,19 @@ class AppConfigController1234 {
 
     valueCol.setCellFactory { c =>
       println(s"cell factory ${c}")
-      new AppConfigController1234.CF("asdf")
+      new CF1()
     }
 
 
     ///////////////////////
 
     val rootItem:TreeItem[Prop] = new TreeItem(StringProp("root"))
-    val strItem:TreeItem[Prop] = new TreeItem(StringProp("str"))
-    rootItem.getChildren.add(strItem)
+    val strItem1:TreeItem[Prop] = new TreeItem(StringProp("str1","sample value"))
+    val strItem2:TreeItem[Prop] = new TreeItem(StringProp("str2","sample value"))
+    val strItem3:TreeItem[Prop] = new TreeItem(StringProp("str3","sample value"))
+    rootItem.getChildren.add(strItem1)
+    rootItem.getChildren.add(strItem2)
+    rootItem.getChildren.add(strItem3)
 
     treeView.setRoot(rootItem)
     treeView.setShowRoot(false)
@@ -85,27 +91,34 @@ class AppConfigController1234 {
 }
 
 object AppConfigController1234 {
-  class CF[P,S](str:S) extends TreeTableCell[P,S]() {
+  sealed trait Prop {
+    def name: String
+  }
+
+  case class StringProp(name: String, var value:String="some") extends Prop
+
+  class CF1() extends TreeTableCell[Prop,String]() {
     var textField:Option[TextField] = None
     override def startEdit(): Unit = {
       println(s"startEdit")
-      //(this.asInstanceOf[TreeTableCell[_,_]]).startEdit()
       super.startEdit()
 
       val cell = this
 
       val txtField = textField match {
-        case Some(value) => value
+        case Some(value) =>
+          println( "getText="+ getText )
+          value
         case None =>
           textField = Some({
             val txtField = new TextField("")
             txtField.setOnAction(ev => {
               println("commit!")
-              cell.commitEdit(str)
+              cell.commitEdit(txtField.getText)
               ev.consume()
             })
             txtField.setOnKeyReleased(ev => {
-              if( ev.getCode == KeyCode.ESCAPE ){
+              if (ev.getCode == KeyCode.ESCAPE) {
                 println("cancel")
                 cell.cancelEdit()
                 ev.consume()
@@ -119,6 +132,13 @@ object AppConfigController1234 {
       this.setText(null)
 
       txtField.setText("")
+
+      cell.getTableRow.getTreeItem.getValue match {
+        case StringProp(name, propValue) =>
+          println(s"name=$name propValue=$propValue")
+          txtField.setText(propValue)
+      }
+
       setGraphic(txtField)
       txtField.selectAll()
       txtField.requestFocus()
@@ -129,20 +149,20 @@ object AppConfigController1234 {
       setGraphic(null)
     }
 
-    override def updateItem(item: S, empty: Boolean): Unit = {
-      super.updateItem(item,empty)
-      if( isEmpty ){
+    override def updateItem(item: String, empty: Boolean): Unit = {
+      super.updateItem(item, empty)
+      if (isEmpty) {
         setText(null)
         setGraphic(null)
-      }else{
-        if(isEditing){
-          textField.foreach(tf => tf.setText("asdasdasd"))
+      } else {
+        if (isEditing) {
+          textField.foreach(tf => tf.setText(item))
           setText(null)
-          if(getGraphic!=null){
+          if (getGraphic != null) {
             setGraphic(textField.orNull)
           }
-        }else{
-          setText("cdcdca")
+        } else {
+          setText(item)
           setGraphic(null)
         }
       }

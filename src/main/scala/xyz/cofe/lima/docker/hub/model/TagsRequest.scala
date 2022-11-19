@@ -18,8 +18,10 @@ object TagsRequest {
     }else{
       val name = imageSearch.name.get
       if( name.contains("/") ){
-        val ( ns, repo ) = name.split(":",2)
-        Right(TagsRequest(ns,repo))
+        val arr = name.split(":",2)
+        val ns = arr(0)
+        val repo = arr(1)
+        Right(TagsRequest(ns,Some(repo)))
       }else{
         Right(TagsRequest(name,None))
       }
