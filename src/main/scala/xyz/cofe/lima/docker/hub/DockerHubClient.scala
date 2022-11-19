@@ -78,7 +78,6 @@ object DockerHubClient {
           )
         )
       )
-
     def tags(namespace: String, repository: String, pageSize: Option[Int], pageNum: Option[Int]):Either[String,Tags] =
       getJson[Tags](
         getRequest(s"/v2/namespaces/$namespace/repositories/$repository/tags",
@@ -88,5 +87,13 @@ object DockerHubClient {
           )
         )
       )
+
+    def tags(request: TagsRequest):Either[String,Tags] = {
+      if( request.repository.isDefined ){
+        tags( request.namespace, None, None )
+      }else{
+        tags( request.namespace, request.repository.get, None, None )
+      }
+    }
   }
 }

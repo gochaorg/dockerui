@@ -7,6 +7,7 @@ import javafx.scene.{Parent, Scene}
 import javafx.stage.Stage
 import xyz.cofe.lima.docker.DockerClient
 import xyz.cofe.lima.docker.http.HttpLogger
+import xyz.cofe.lima.docker.hub.DockerHubClient
 import xyz.cofe.lima.docker.log.Logger
 import xyz.cofe.lima.store.AppHome
 import xyz.cofe.lima.store.config.{AppConfig, DockerConnect}
@@ -68,6 +69,7 @@ class Main extends Application {
         controller.setAppConfig(config)
 
         DockerClientPool.init(new DockerClientPool(config.dockerConnect.createDockerClient()))
+        DockerClientHubPool.init(new DockerClientHubPool(DockerHubClient(java.net.http.HttpClient.newBuilder().build())))
 
         val scene1 = new Scene(prnt)
         primaryStage.setScene(scene1)
