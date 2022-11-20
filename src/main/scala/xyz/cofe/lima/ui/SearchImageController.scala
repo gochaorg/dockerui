@@ -1,15 +1,20 @@
 package xyz.cofe.lima.ui
 
 import javafx.application.Platform
+import javafx.beans.{InvalidationListener, Observable}
 import javafx.beans.property.{SimpleStringProperty, StringProperty}
+import javafx.beans.value.{ChangeListener, ObservableValue}
 import javafx.fxml.{FXML, FXMLLoader}
 import javafx.scene.{Parent, Scene}
 import javafx.scene.control.{Button, Label, TableColumn, TextField, TreeItem, TreeTableColumn, TreeTableView}
+import javafx.scene.image.{Image, ImageView}
 import javafx.scene.input.KeyCode
 import javafx.stage.Stage
 import xyz.cofe.lima.docker.model
 import xyz.cofe.lima.docker.hub.{model => hmodel}
+import xyz.cofe.lima.docker.log.Logger
 
+import java.io.FileInputStream
 import java.util.concurrent.atomic.AtomicInteger
 
 /** Поиск образов на docker hub */
@@ -27,23 +32,22 @@ class SearchImageController {
       tc.setCellValueFactory { param => new SimpleStringProperty(
         param.getValue.getValue match {
           case SearchRoot() => "root"
-          case SearchImageResp(img) => img.name.getOrElse("?")
+          case SearchImageResp(img,_) => img.name.getOrElse("?")
           case SearchTag(img) => img.name.getOrElse("?")
-          case SearchImageTag(img) => List(img.os.getOrElse("?"), img.architecture.getOrElse("?"), img.status.getOrElse("?")).mkString(" ")
+          case SearchImageTag(img,_) => List(img.os.getOrElse("?"), img.architecture.getOrElse("?"), img.status.getOrElse("?")).mkString(" ")
         }
       )}
       tc
     }
-
     val commentColumn: TreeTableColumn[SearchNode, String] = {
       val tc = new TreeTableColumn[SearchNode, String]("comment")
       tc.setCellValueFactory { param =>
         new SimpleStringProperty(
           param.getValue.getValue match {
             case SearchRoot() => "root"
-            case SearchImageResp(img) => "found on hub"
+            case SearchImageResp(img,state) => state
             case SearchTag(img) => "tag"
-            case SearchImageTag(img) => "image"
+            case _:SearchImageTag => "image"
           }
         )
       }
@@ -63,6 +67,34 @@ class SearchImageController {
       }
     }
     message.setOnMouseClicked(ev => {updateMessage()})
+
+    val changeListener : ChangeListener[Any] = new ChangeListener[Any] {
+      def changed(observable: ObservableValue[_ <: Any], oldValue: Any, newValue: Any): Unit = {
+        onSelectChanged()
+      }
+    }
+    searchTree.getSelectionModel.selectedItemProperty().addListener(changeListener)
+
+    downloadButton.setDisable(true)
+  }
+
+  private def selection:List[SearchNode] = {
+    var ls = List[SearchNode]()
+    searchTree.getSelectionModel.getSelectedItems.forEach(ti => {
+      ls = ti.getValue :: ls
+    })
+    ls
+  }
+
+  private def onSelectChanged():Unit = {
+    if( selection.forall {
+      case _:SearchImageTag => true
+      case _ => false
+    } ) {
+      downloadButton.setDisable(false)
+    }else{
+      downloadButton.setDisable(true)
+    }
   }
 
   private val runningRequests = new AtomicInteger(0)
@@ -110,7 +142,7 @@ class SearchImageController {
   private def foundImageSearch(imageSearches:List[model.ImageSearch]):Unit = {
     root.getChildren.clear()
     imageSearches.foreach { img =>
-      val node = new TreeItem[SearchNode](SearchImageResp(img))
+      val node = new TreeItem[SearchNode](SearchImageResp(img,"search tags"))
       root.getChildren.add(node)
 
       hmodel.TagsRequest(img) match {
@@ -120,21 +152,28 @@ class SearchImageController {
           DockerHubClientPool.submit { dhc =>
             try {
               val tagsEt = dhc.tags(req)
-              if (tagsEt.isLeft) println(tagsEt)
 
               Platform.runLater(() => {
+                tagsEt.left.foreach { err =>
+                  node.setValue(SearchImageResp(img, s"error: $err"))
+                }
                 tagsEt.foreach { tags =>
                   tags.results.foreach { tag =>
                     val tagNode = new TreeItem[SearchNode](SearchTag(tag))
                     tag.images.foreach { img =>
-                      val imgNode = new TreeItem[SearchNode](SearchImageTag(img))
+                      val imgNode = new TreeItem[SearchNode](SearchImageTag(img,tag))
                       tagNode.getChildren.add(imgNode)
                     }
                     node.getChildren.add(tagNode)
-                    node.setExpanded(true)
                   }
+                  node.setExpanded(true)
+                  node.setValue(SearchImageResp(img, s"found ${tags.results.length} tags, ${tags.results.flatMap(_.images).length} images"))
                 }
               })
+            } catch {
+              case err:Throwable =>
+                println(s"err ${err.toString}")
+                err.printStackTrace()
             } finally {
               decRequestCount()
             }
@@ -143,15 +182,31 @@ class SearchImageController {
     }
   }
 
-  def download():Unit = {}
+  def download():Unit = {
+    selection.foreach {
+      case _:SearchRoot =>
+      case _:SearchImageResp =>
+      case _:SearchTag =>
+      case SearchImageTag(img,tag) =>
+        PullImageController.show(
+          Logger.ImageCreate(
+            fromImage=tag.name,
+            tag=img.digest
+          )
+        )
+    }
+  }
 }
 
 object SearchImageController {
   sealed trait SearchNode
   case class SearchRoot() extends SearchNode
-  case class SearchImageResp( searchImage:model.ImageSearch ) extends SearchNode
+  case class SearchImageResp( searchImage:model.ImageSearch, state:String="init" ) extends SearchNode
   case class SearchTag( tag:hmodel.Tag ) extends SearchNode
-  case class SearchImageTag(img:hmodel.ImageTag) extends SearchNode
+  case class SearchImageTag(
+                             img:hmodel.ImageTag,
+                             tag:hmodel.Tag
+                           ) extends SearchNode
 
   def show():Unit = {
     val loader = new FXMLLoader()

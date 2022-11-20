@@ -63,7 +63,10 @@ class Main extends Application {
       case Right(config) =>
         val loader = new FXMLLoader()
 
-        loader.setLocation(this.getClass.getResource("/xyz/cofe/lima/ui/main.fxml"))
+        val res1 = this.getClass.getResource("/xyz/cofe/lima/ui/main.fxml")
+        println(res1)
+        loader.setLocation(res1)
+
         val prnt = loader.load[Parent]()
         val controller = loader.getController[MainController]
         controller.setAppConfig(config)

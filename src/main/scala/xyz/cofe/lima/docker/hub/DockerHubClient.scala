@@ -1,16 +1,12 @@
 package xyz.cofe.lima.docker.hub
 
-import model._
-import tethys.JsonReader
+import tethys.{JsonReader, _}
+import tethys.jackson._
+import xyz.cofe.lima.docker.http.QueryStringBuilder
+import xyz.cofe.lima.docker.hub.model._
 
 import java.net.URI
 import java.net.http.HttpClient
-import tethys._
-import tethys.jackson._
-import xyz.cofe.lima.docker.http.QueryStringBuilder
-import xyz.cofe.lima.thread.ThreadID
-
-import java.util.concurrent.atomic.AtomicLong
 
 /**
  * https://www.baeldung.com/ops/docker-registry-api-list-images-tags
@@ -46,7 +42,7 @@ trait DockerHubClient {
 object DockerHubClient {
   def apply(client:HttpClient):Java11Client = new Java11Client(client)
 
-  private val reqIdSeq = new AtomicLong()
+  //private val reqIdSeq = new AtomicLong()
 
   class Java11Client(client:HttpClient) extends DockerHubClient {
     private def uri(path:String,queryString:Option[String]):URI =
@@ -58,11 +54,11 @@ object DockerHubClient {
         .build()
 
     private def getJson[A:JsonReader](request: java.net.http.HttpRequest):Either[String,A] = {
-      val reqId = reqIdSeq.incrementAndGet()
-      println(s"getJson #$reqId ${request.uri()} thread "+ThreadID.current)
+      //val reqId = reqIdSeq.incrementAndGet()
+      //println(s"getJson #$reqId ${request.uri()} thread "+ThreadID.current)
       try {
         val response = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofString())
-        println(s"response #$reqId for ${request.uri()} status ${response.statusCode()}"+ThreadID.current)
+        //println(s"response #$reqId for ${request.uri()} status ${response.statusCode()}"+ThreadID.current)
         if (response.statusCode() >= 200 && response.statusCode() < 300) {
           response.body().jsonAs[A].left.map(_.getMessage)
         } else {
@@ -70,7 +66,7 @@ object DockerHubClient {
         }
       } catch {
         case err:Throwable =>
-          println(s"accept error $err for ${request.uri()}")
+          //println(s"accept error $err for ${request.uri()}")
           Left(err.getMessage)
       }
     }
@@ -105,7 +101,7 @@ object DockerHubClient {
       )
 
     override def tags(request: TagsRequest):Either[String,Tags] = {
-      if( request.repository.isDefined ){
+      if( request.repository.isEmpty ){
         tags( request.namespace, None, None )
       }else{
         tags( request.namespace, request.repository.get, None, None )
