@@ -83,7 +83,7 @@ object ImagePullStatus {
       value match {
         case e : ImagePullStatusEntry =>
           ImagePullStatusEntry.writer.write(e, tokenWriter)
-        case e : ImagePullHttpStatus => ???
+        case e : ImagePullHttpStatus =>
           ImagePullHttpStatus.writer.write(e, tokenWriter)
       }
     }
