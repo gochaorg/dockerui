@@ -99,7 +99,7 @@ class HttpClientImpl
         readTimeout = socketReadTimings.readTimeout,
         cpuThrottling = socketReadTimings.cpuThrottling,
         pid = request.id
-      )
+      ).read(consumer)
     }
   }
 

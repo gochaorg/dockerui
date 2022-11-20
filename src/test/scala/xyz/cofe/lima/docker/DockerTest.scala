@@ -149,8 +149,10 @@ class DockerTest extends AnyFunSuite {
 //  }
 
   test("image pull") {
-    DockerClient
-      .unixSocket("/Users/g.kamnev/.colima/docker.sock")
+    implicit val log = HttpLogger.stdout()
+
+    val response = DockerClient
+      .unixSocket(socket)
       .imageCreate(
         fromImage = Some("redis"),
         tag = Some("sha256:2bd864580926b790a22c8b96fd74496fe87b3c59c0774fe144bab2788e78e676")
@@ -181,5 +183,7 @@ class DockerTest extends AnyFunSuite {
           case _ => println("???")
         }
       }
+
+    println(response)
   }
 }

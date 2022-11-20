@@ -161,52 +161,47 @@ class PullImageController() {
     }
   }
 
-  def pull():Unit = {
+  def pull(): Unit = {
+    val p_fromImage = fromImage
+    val p_fromSrc = fromSrc
+    val p_repo = repo
+    val p_tag = tag
+    val p_message = message
+    val p_platform = platform
+
+    history.add(Logger.ImageCreate(p_fromImage, p_fromSrc, p_repo, p_tag, p_message, p_platform))
+
     DockerClientPool.submit { dc =>
-      val p_fromImage = fromImage
-      val p_fromSrc = fromSrc
-      val p_repo = repo
-      val p_tag = tag
-      val p_message = message
-      val p_platform = platform
-      val th = new Thread("pull image") {
-        override def run(): Unit = {
-          history.add(Logger.ImageCreate(p_fromImage,p_fromSrc,p_repo,p_tag,p_message,p_platform))
-          dc.imageCreate(p_fromImage,p_fromSrc,p_repo,p_tag,p_message,p_platform) { ev =>
-            import xyz.cofe.lima.docker.model.ImagePullStatusEntry._
-            ev.statusInfo match {
-              case Some(PullingFrom(str)) =>
-                log(s"pulling from $str")
-              case Some(PullingFsLayer) =>
-                log(s"pulling fs layer id=${ev.id}")
-              case Some(Waiting) =>
-                log(s"waiting id=${ev.id}")
-              case Some(Downloading) =>
-                log(s"downloading id=${ev.id} progress ${ev.progressDetail.map(d=>s"${d.current} / ${d.total}")}")
-              case Some(VerifyingChecksum) =>
-                log(s"VerifyingChecksum id=${ev.id}")
-              case Some(DownloadComplete) =>
-                log(s"DownloadComplete id=${ev.id}")
-              case Some(Extracting) =>
-                log(s"Extracting id=${ev.id} progress ${ev.progressDetail.map(d=>s"${d.current} / ${d.total}")}")
-              case Some(s@PullComplete) =>
-                log(s"PullComplete id=${ev.id}")
-              case Some(Digest(str)) =>
-                log(s"Digest $str")
-              case Some(CommentedStatus(str)) =>
-                log(s"CommentedStatus $str")
-              case None => log("undefined")
-              case _ => log("???")
-            }
-          }
+      dc.imageCreate(p_fromImage, p_fromSrc, p_repo, p_tag, p_message, p_platform) { ev =>
+        import xyz.cofe.lima.docker.model.ImagePullStatusEntry._
+        ev.statusInfo match {
+          case Some(PullingFrom(str)) =>
+            log(s"pulling from $str")
+          case Some(PullingFsLayer) =>
+            log(s"pulling fs layer id=${ev.id}")
+          case Some(Waiting) =>
+            log(s"waiting id=${ev.id}")
+          case Some(Downloading) =>
+            log(s"downloading id=${ev.id} progress ${ev.progressDetail.map(d => s"${d.current} / ${d.total}")}")
+          case Some(VerifyingChecksum) =>
+            log(s"VerifyingChecksum id=${ev.id}")
+          case Some(DownloadComplete) =>
+            log(s"DownloadComplete id=${ev.id}")
+          case Some(Extracting) =>
+            log(s"Extracting id=${ev.id} progress ${ev.progressDetail.map(d => s"${d.current} / ${d.total}")}")
+          case Some(s@PullComplete) =>
+            log(s"PullComplete id=${ev.id}")
+          case Some(Digest(str)) =>
+            log(s"Digest $str")
+          case Some(CommentedStatus(str)) =>
+            log(s"CommentedStatus $str")
+          case None => log("undefined")
+          case _ => log("???")
         }
       }
-      th.setDaemon(true)
-      threads = th :: threads
-      th.start()
-
-      accordion.setExpandedPane(logsTitledPane)
     }
+
+    accordion.setExpandedPane(logsTitledPane)
   }
 
   private val messageQueue = new ConcurrentLinkedQueue[String]()
