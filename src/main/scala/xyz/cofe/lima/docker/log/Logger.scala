@@ -421,7 +421,7 @@ object Logger {
                          repo: Option[String] = None,
                          tag: Option[String] = None,
                          message: Option[String] = None,
-                         platform: Option[String] = None) extends MethodWithParams[List[model.ImagePullStatusEntry]]
+                         platform: Option[String] = None) extends MethodWithParams[List[model.ImagePullStatus]]
   object ImageCreate {
     implicit val reader: JsonReader[ImageCreate] = jsonReader[ImageCreate]
     implicit val writer: JsonWriter[ImageCreate] = classWriter[ImageCreate] ++ jsonWriter[ImageCreate]

@@ -496,10 +496,10 @@ case class DockerClient( socketChannel: SocketChannel,
                    tag:Option[String] = None,
                    message:Option[String] = None,
                    platform:Option[String] = None
-                 )(progress:ImagePullStatusEntry=>Unit):Unit = //todo error
+                 )(progress:ImagePullStatus=>Unit):Unit = //todo error
   {
     val logReq = logger(Logger.ImageCreate(fromImage, fromSrc, repo, tag, message, platform))
-    var logEvents = List[model.ImagePullStatusEntry]()
+    var logEvents = List[model.ImagePullStatus]()
 
     lazy val byte2charDecoder: Decoder.Byte2Char = Decoder.Byte2Char(StandardCharsets.UTF_8.newDecoder())
     lazy val char2json = Decoder.Char2JsonEntry()
@@ -518,6 +518,10 @@ case class DockerClient( socketChannel: SocketChannel,
 
     httpClient.stream(request) { ev =>
       ev match {
+        case fl@Event.FirstLine(pid,string) =>
+          val ev = ImagePullHttpStatus(fl.code.getOrElse(-1), fl.message)
+          logEvents = ev :: logEvents
+          progress(ev)
         case Event.Data(pid, bytes) =>
           decoder.accept(bytes)
           decoder.fetch.foreach { jsEntryString =>
@@ -531,7 +535,7 @@ case class DockerClient( socketChannel: SocketChannel,
       HttpResponseStream.Behavior.Continue
     }
 
-    val r : Either[String,List[ImagePullStatusEntry]] = Right(logEvents.reverse)
+    val r : Either[String,List[ImagePullStatus]] = Right(logEvents.reverse)
     logReq.run(r)
   }
 
