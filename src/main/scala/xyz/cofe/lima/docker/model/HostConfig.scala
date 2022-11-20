@@ -5,58 +5,58 @@ import tethys.{JsonReader, JsonWriter}
 
 case class HostConfig(
   // An integer value representing this container's relative CPU weight versus other containers.
-  CpuShares: Option[Int],
+  CpuShares: Option[Int] = None,
 
   // Memory limit in bytes.
-  Memory: Option[Long],
+  Memory: Option[Long] = None,
 
   // Path to cgroups under which the container's cgroup is created. If the path is not absolute, the path is considered to be relative to the cgroups path of the init process. Cgroups are created if they do not already exist.
-  CgroupParent: Option[String],
+  CgroupParent: Option[String] = None,
 
   // [ 0 .. 1000 ]
   //Block IO weight (relative weight).
-  BlkioWeight: Option[Int],
+  BlkioWeight: Option[Int] = None,
 
   // Block IO weight (relative device weight) in the form:
   // [{"Path": "device_path", "Weight": weight}]
-  BlkioWeightDevice: Option[List[BlkioWeightDevice]],
+  BlkioWeightDevice: Option[List[BlkioWeightDevice]] = None,
 
   // Limit read rate (bytes per second) from a device, in the form: [{"Path": "device_path", "Rate": rate}]
-  BlkioDeviceReadBps: Option[List[ThrottleDevice]],
+  BlkioDeviceReadBps: Option[List[ThrottleDevice]] = None,
 
   // Limit write rate (bytes per second) to a device, in the form: [{"Path": "device_path", "Rate": rate}]
-  BlkioDeviceWriteBps: Option[List[ThrottleDevice]],
+  BlkioDeviceWriteBps: Option[List[ThrottleDevice]] = None,
 
   // Limit read rate (IO per second) from a device, in the form: [{"Path": "device_path", "Rate": rate}]
-  BlkioDeviceReadIOps: Option[List[ThrottleDevice]],
+  BlkioDeviceReadIOps: Option[List[ThrottleDevice]] = None,
 
   // Limit write rate (IO per second) to a device, in the form: [{"Path": "device_path", "Rate": rate}]
-  BlkioDeviceWriteIOps: Option[List[ThrottleDevice]],
+  BlkioDeviceWriteIOps: Option[List[ThrottleDevice]] = None,
 
   // The length of a CPU period in microseconds.
-  CpuPeriod: Option[Long],
+  CpuPeriod: Option[Long] = None,
 
   // Microseconds of CPU time that the container can get in a CPU period.
-  CpuQuota: Option[Long],
+  CpuQuota: Option[Long] = None,
 
   // The length of a CPU real-time period in microseconds. Set to 0 to allocate no time allocated to real-time tasks.
-  CpuRealtimePeriod: Option[Long],
+  CpuRealtimePeriod: Option[Long] = None,
 
   // The length of a CPU real-time runtime in microseconds. Set to 0 to allocate no time allocated to real-time tasks.
-  CpuRealtimeRuntime: Option[Long],
+  CpuRealtimeRuntime: Option[Long] = None,
 
   // CPUs in which to allow execution (e.g., 0-3, 0,1).
-  CpusetCpus: Option[String],
+  CpusetCpus: Option[String] = None,
 
   // Memory nodes (MEMs) in which to allow execution (0-3, 0,1). Only effective on NUMA systems.
-  CpusetMems: Option[String],
+  CpusetMems: Option[String] = None,
 
   // A list of devices to add to the container.
   // Devices : List[Devices],
 
 
   // a list of cgroup rules to apply to the container
-  DeviceCgroupRules: Option[List[String]],
+  DeviceCgroupRules: Option[List[String]] = None,
 
   // A list of requests for devices to be sent to device drivers.
   // DeviceRequests: List[DeviceRequests],
@@ -64,51 +64,51 @@ case class HostConfig(
 
   // Kernel memory limit in bytes.
   // Deprecated: This field is deprecated as the kernel 5.4 deprecated kmem.limit_in_bytes
-  KernelMemory: Option[Long],
+  KernelMemory: Option[Long] = None,
 
   // Hard limit for kernel TCP buffer memory (in bytes).
-  KernelMemoryTCP: Option[Long],
+  KernelMemoryTCP: Option[Long] = None,
 
   // Memory soft limit in bytes.
-  MemoryReservation: Option[Long],
+  MemoryReservation: Option[Long] = None,
 
   // Total memory limit (memory + swap). Set as -1 to enable unlimited swap.
-  MemorySwap: Option[Long],
+  MemorySwap: Option[Long] = None,
 
   // [ 0 .. 100 ]
   //Tune a container's memory swappiness behavior. Accepts an integer between 0 and 100.
-  MemorySwappiness: Option[Int],
+  MemorySwappiness: Option[Int] = None,
 
   // CPU quota in units of 10-9 CPUs.
-  NanoCpus: Option[Long],
+  NanoCpus: Option[Long] = None,
 
   // Disable OOM Killer for the container.
-  OomKillDisable: Option[Boolean],
+  OomKillDisable: Option[Boolean] = None,
 
   // Run an init inside the container that forwards signals and reaps processes. This field is omitted if empty, and the default (as configured on the daemon) is used.
-  Init: Option[Boolean],
+  Init: Option[Boolean] = None,
 
   // Tune a container's PIDs limit. Set 0 or -1 for unlimited, or null to not change.
-  PidsLimit: Option[Long],
+  PidsLimit: Option[Long] = None,
 
   // A list of resource limits to set in the container. For example:
-  Ulimits: Option[List[Ulimits]],
+  Ulimits: Option[List[Ulimits]] = None,
 
   // The number of usable CPUs (Windows only).
   //
   //On Windows Server containers, the processor resource controls are mutually exclusive. The order of precedence is CPUCount first, then CPUShares, and CPUPercent last.
-  CpuCount: Option[Long],
+  CpuCount: Option[Long] = None,
 
   // The usable percentage of the available CPUs (Windows only).
   //
   //On Windows Server containers, the processor resource controls are mutually exclusive. The order of precedence is CPUCount first, then CPUShares, and CPUPercent last.
-  CpuPercent: Option[Long],
+  CpuPercent: Option[Long] = None,
 
   // Maximum IOps for the container system drive (Windows only)
-  IOMaximumIOps: Option[Long],
+  IOMaximumIOps: Option[Long] = None,
 
   // Maximum IO in bytes per second for the container system drive (Windows only).
-  IOMaximumBandwidth: Option[Long],
+  IOMaximumBandwidth: Option[Long] = None,
 
   // A list of volume bindings for this container. Each volume binding is a string in one of these forms:
   //
@@ -122,47 +122,47 @@ case class HostConfig(
   //z: a shared content label is applied to the content. This label indicates that multiple containers can share the volume content, for both reading and writing.
   //Z: a private unshared label is applied to the content. This label indicates that only the current container can use a private volume. Labeling systems such as SELinux require proper labels to be placed on volume content that is mounted into a container. Without a label, the security system can prevent a container's processes from using the content. By default, the labels set by the host operating system are not modified.
   //[[r]shared|[r]slave|[r]private] specifies mount propagation behavior. This only applies to bind-mounted volumes, not internal volumes or named volumes. Mount propagation requires the source mount point (the location where the source directory is mounted in the host operating system) to have the correct propagation properties. For shared volumes, the source mount point must be set to shared. For slave volumes, the mount must be set to either shared or slave.
-  Binds: Option[List[String]],
+  Binds: Option[List[String]] = None,
 
   // Path to a file where the container ID is written
-  ContainerIDFile: Option[String],
+  ContainerIDFile: Option[String] = None,
 
   // The logging configuration for this container
-  LogConfig: Option[LogConfig],
+  LogConfig: Option[LogConfig] = None,
 
   // Network mode to use for this container. Supported standard values are: bridge, host, none, and container:<name|id>. Any other value is taken as a custom network's name to which this container should connect to.
-  NetworkMode: Option[String],
+  NetworkMode: Option[String] = None,
 
   // PortMap describes the mapping of container ports to host ports, using the container's port-number and protocol as key in the format <port>/<protocol>, for example, 80/udp.
   //
   //If a container's port is mapped for multiple protocols, separate entries are added to the mapping table.
-  PortBindings: Option[Map[String,List[Map[String,String]]]],
+  PortBindings: Option[Map[String,List[Map[String,String]]]] = None,
 
   // The behavior to apply when the container exits. The default is not to restart.
   //
   //An ever increasing delay (double the previous delay, starting at 100ms) is added before each restart to prevent flooding the server.
-  RestartPolicy: Option[RestartPolicy],
+  RestartPolicy: Option[RestartPolicy] = None,
 
 
   // Automatically remove the container when the container's process exits. This has no effect if RestartPolicy is set.
-  AutoRemove: Option[Boolean],
+  AutoRemove: Option[Boolean] = None,
 
   // Driver that this container uses to mount volumes.
-  VolumeDriver: Option[String],
+  VolumeDriver: Option[String] = None,
 
   // A list of volumes to inherit from another container, specified in the form <container name>[:<ro|rw>].
-  VolumesFrom: Option[List[String]],
+  VolumesFrom: Option[List[String]] = None,
 
   // Specification for mounts to be added to the container.
   // Mounts: List[Mounts]
 
 
   // A list of kernel capabilities to add to the container. Conflicts with option 'Capabilities'.
-  CapAdd: Option[List[String]],
+  CapAdd: Option[List[String]] = None,
 
 
   // A list of kernel capabilities to drop from the container. Conflicts with option 'Capabilities'.
-  CapDrop: Option[List[String]],
+  CapDrop: Option[List[String]] = None,
 
   // Enum: "private" "host"
   //   cgroup namespace mode for the container. Possible values are:
@@ -170,22 +170,22 @@ case class HostConfig(
   //   "private": the container runs in its own private cgroup namespace
   //   "host": use the host system's cgroup namespace
   //   If not specified, the daemon default is used, which can either be "private" or "host", depending on daemon version, kernel support and configuration.
-  CgroupnsMode: Option[String],
+  CgroupnsMode: Option[String] = None,
 
   // A list of DNS servers for the container to use.
-  Dns: Option[List[String]],
+  Dns: Option[List[String]] = None,
 
   // A list of DNS options.
-  DnsOptions: Option[List[String]],
+  DnsOptions: Option[List[String]] = None,
 
   // A list of DNS search domains.
-  DnsSearch: Option[List[String]],
+  DnsSearch: Option[List[String]] = None,
 
   // A list of hostnames/IP mappings to add to the container's /etc/hosts file. Specified in the form ["hostname:IP"].
-  ExtraHosts: Option[List[String]],
+  ExtraHosts: Option[List[String]] = None,
 
   // A list of additional groups that the container process will run as.
-  GroupAdd: Option[List[String]],
+  GroupAdd: Option[List[String]] = None,
 
   // IPC sharing mode for the container. Possible values are:
   //
@@ -195,61 +195,61 @@ case class HostConfig(
   //"container:<name|id>": join another (shareable) container's IPC namespace
   //"host": use the host system's IPC namespace
   //If not specified, daemon default is used, which can either be "private" or "shareable", depending on daemon version and configuration.
-  IpcMode: Option[String],
+  IpcMode: Option[String] = None,
 
   // Cgroup to use for the container.
-  Cgroup: Option[String],
+  Cgroup: Option[String] = None,
 
   // A list of links for the container in the form container_name:alias.
-  Links: Option[List[String]],
+  Links: Option[List[String]] = None,
 
   // An integer value containing the score given to the container in order to tune OOM killer preferences.
-  OomScoreAdj: Option[Int],
+  OomScoreAdj: Option[Int] = None,
 
   // Set the PID (Process) Namespace mode for the container. It can be either:
   //
   //"container:<name|id>": joins another container's PID namespace
   //"host": use the host's PID namespace inside the container
-  PidMode: Option[String],
+  PidMode: Option[String] = None,
 
   // Gives the container full access to the host.
-  Privileged: Option[Boolean],
+  Privileged: Option[Boolean] = None,
 
   // Allocates an ephemeral host port for all of a container's exposed ports.
   //
   //Ports are de-allocated when the container stops and allocated when the container starts. The allocated port might be changed when restarting the container.
   //
   //The port is selected from the ephemeral port range that depends on the kernel. For example, on Linux the range is defined by /proc/sys/net/ipv4/ip_local_port_range.
-  PublishAllPorts: Option[Boolean],
+  PublishAllPorts: Option[Boolean] = None,
 
   // Mount the container's root filesystem as read only.
-  ReadonlyRootfs: Option[Boolean],
+  ReadonlyRootfs: Option[Boolean] = None,
 
   // A list of string values to customize labels for MLS systems, such as SELinux.
-  SecurityOpt: Option[List[String]],
+  SecurityOpt: Option[List[String]] = None,
 
   // Storage driver options for this container, in the form {"size": "120G"}.
-  StorageOpt: Option[Map[String,String]],
+  StorageOpt: Option[Map[String,String]] = None,
 
   // A map of container directories which should be replaced by tmpfs mounts, and their corresponding mount options. For example:
   // { "/run": "rw,noexec,nosuid,size=65536k" }
-  Tmpfs: Option[Map[String,String]],
+  Tmpfs: Option[Map[String,String]] = None,
 
   // UTS namespace to use for the container.
-  UTSMode: Option[String],
+  UTSMode: Option[String] = None,
 
   // Sets the usernamespace mode for the container when usernamespace remapping option is enabled.
-  UsernsMode: Option[String],
+  UsernsMode: Option[String] = None,
 
   // >= 0
   //Size of /dev/shm in bytes. If omitted, the system uses 64MB.
-  ShmSize: Option[Int],
+  ShmSize: Option[Int] = None,
 
   // A list of kernel parameters (sysctls) to set in the container. For example: {"net.ipv4.ip_forward": "1"}
-  Sysctls: Option[Map[String,String]],
+  Sysctls: Option[Map[String,String]] = None,
 
   // Runtime to use with this container.
-  Runtime: Option[String],
+  Runtime: Option[String] = None,
 
   // ConsoleSize -
   //Array of integers = 2 items [ items >= 0 ]
@@ -257,14 +257,14 @@ case class HostConfig(
 
   // Enum: "default" "process" "hyperv"
   // Isolation technology of the container. (Windows only)
-  Isolation: Option[String],
+  Isolation: Option[String] = None,
 
 
   // The list of paths to be masked inside the container (this overrides the default set of paths).
-  MaskedPaths: Option[List[String]],
+  MaskedPaths: Option[List[String]] = None,
 
   // The list of paths to be set as read-only inside the container (this overrides the default set of paths).
-  ReadonlyPaths: Option[List[String]],
+  ReadonlyPaths: Option[List[String]] = None,
 )
 object HostConfig {
   implicit val reader: JsonReader[HostConfig] = jsonReader[HostConfig]
