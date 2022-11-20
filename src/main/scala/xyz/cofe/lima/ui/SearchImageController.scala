@@ -1,20 +1,17 @@
 package xyz.cofe.lima.ui
 
 import javafx.application.Platform
-import javafx.beans.{InvalidationListener, Observable}
-import javafx.beans.property.{SimpleStringProperty, StringProperty}
+import javafx.beans.property.SimpleStringProperty
 import javafx.beans.value.{ChangeListener, ObservableValue}
 import javafx.fxml.{FXML, FXMLLoader}
-import javafx.scene.{Parent, Scene}
-import javafx.scene.control.{Button, Label, TableColumn, TextField, TreeItem, TreeTableColumn, TreeTableView}
-import javafx.scene.image.{Image, ImageView}
+import javafx.scene.control._
 import javafx.scene.input.KeyCode
+import javafx.scene.{Parent, Scene}
 import javafx.stage.Stage
-import xyz.cofe.lima.docker.model
 import xyz.cofe.lima.docker.hub.{model => hmodel}
 import xyz.cofe.lima.docker.log.Logger
+import xyz.cofe.lima.docker.model
 
-import java.io.FileInputStream
 import java.util.concurrent.atomic.AtomicInteger
 
 /** Поиск образов на docker hub */
