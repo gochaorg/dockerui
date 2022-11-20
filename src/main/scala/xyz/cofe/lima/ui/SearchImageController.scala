@@ -33,8 +33,8 @@ class SearchImageController {
         param.getValue.getValue match {
           case SearchRoot() => "root"
           case SearchImageResp(img,_) => img.name.getOrElse("?")
-          case SearchTag(img) => img.name.getOrElse("?")
-          case SearchImageTag(img,_) => List(img.os.getOrElse("?"), img.architecture.getOrElse("?"), img.status.getOrElse("?")).mkString(" ")
+          case SearchTag(_,img) => img.name.getOrElse("?")
+          case SearchImageTag(_,img,_) => List(img.os.getOrElse("?"), img.architecture.getOrElse("?"), img.status.getOrElse("?")).mkString(" ")
         }
       )}
       tc
@@ -46,7 +46,7 @@ class SearchImageController {
           param.getValue.getValue match {
             case SearchRoot() => "root"
             case SearchImageResp(img,state) => state
-            case SearchTag(img) => "tag"
+            case SearchTag(_,_) => "tag"
             case _:SearchImageTag => "image"
           }
         )
@@ -89,6 +89,7 @@ class SearchImageController {
   private def onSelectChanged():Unit = {
     if( selection.forall {
       case _:SearchImageTag => true
+      case _:SearchTag => true
       case _ => false
     } ) {
       downloadButton.setDisable(false)
@@ -141,11 +142,11 @@ class SearchImageController {
 
   private def foundImageSearch(imageSearches:List[model.ImageSearch]):Unit = {
     root.getChildren.clear()
-    imageSearches.foreach { img =>
-      val node = new TreeItem[SearchNode](SearchImageResp(img,"search tags"))
+    imageSearches.foreach { searchImg =>
+      val node = new TreeItem[SearchNode](SearchImageResp(searchImg,"search tags"))
       root.getChildren.add(node)
 
-      hmodel.TagsRequest(img) match {
+      hmodel.TagsRequest(searchImg) match {
         case Left(err) => println(err)
         case Right(req) =>
           incRequestCount()
@@ -155,19 +156,19 @@ class SearchImageController {
 
               Platform.runLater(() => {
                 tagsEt.left.foreach { err =>
-                  node.setValue(SearchImageResp(img, s"error: $err"))
+                  node.setValue(SearchImageResp(searchImg, s"error: $err"))
                 }
                 tagsEt.foreach { tags =>
                   tags.results.foreach { tag =>
-                    val tagNode = new TreeItem[SearchNode](SearchTag(tag))
+                    val tagNode = new TreeItem[SearchNode](SearchTag(searchImg,tag))
                     tag.images.foreach { img =>
-                      val imgNode = new TreeItem[SearchNode](SearchImageTag(img,tag))
+                      val imgNode = new TreeItem[SearchNode](SearchImageTag(searchImg,img,tag))
                       tagNode.getChildren.add(imgNode)
                     }
                     node.getChildren.add(tagNode)
                   }
                   node.setExpanded(true)
-                  node.setValue(SearchImageResp(img, s"found ${tags.results.length} tags, ${tags.results.flatMap(_.images).length} images"))
+                  node.setValue(SearchImageResp(searchImg, s"found ${tags.results.length} tags, ${tags.results.flatMap(_.images).length} images"))
                 }
               })
             } catch {
@@ -186,12 +187,18 @@ class SearchImageController {
     selection.foreach {
       case _:SearchRoot =>
       case _:SearchImageResp =>
-      case _:SearchTag =>
-      case SearchImageTag(img,tag) =>
+      case SearchTag(searchImage,img) =>
         PullImageController.show(
           Logger.ImageCreate(
-            fromImage=tag.name,
-            tag=img.digest
+            fromImage = searchImage.name,
+            tag = img.name
+          )
+        )
+      case SearchImageTag(searchImage,img,tag) =>
+        PullImageController.show(
+          Logger.ImageCreate(
+            fromImage=searchImage.name,
+            tag=tag.digest
           )
         )
     }
@@ -202,8 +209,9 @@ object SearchImageController {
   sealed trait SearchNode
   case class SearchRoot() extends SearchNode
   case class SearchImageResp( searchImage:model.ImageSearch, state:String="init" ) extends SearchNode
-  case class SearchTag( tag:hmodel.Tag ) extends SearchNode
+  case class SearchTag( searchImage:model.ImageSearch,tag:hmodel.Tag ) extends SearchNode
   case class SearchImageTag(
+                             searchImage:model.ImageSearch,
                              img:hmodel.ImageTag,
                              tag:hmodel.Tag
                            ) extends SearchNode
