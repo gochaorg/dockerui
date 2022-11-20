@@ -136,6 +136,15 @@ case class HostConfig(
   // PortMap describes the mapping of container ports to host ports, using the container's port-number and protocol as key in the format <port>/<protocol>, for example, 80/udp.
   //
   //If a container's port is mapped for multiple protocols, separate entries are added to the mapping table.
+  //
+  // "PortBindings": {
+  //          "3306/tcp": [      <--- inner (guest)
+  //            {
+  //              "HostIp": "",
+  //              "HostPort": "3344"  <--- outer (host)
+  //            }
+  //          ]
+  //        },
   PortBindings: Option[Map[String,List[Map[String,String]]]] = None,
 
   // The behavior to apply when the container exits. The default is not to restart.
