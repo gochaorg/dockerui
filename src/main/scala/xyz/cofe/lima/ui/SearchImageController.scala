@@ -161,7 +161,6 @@ object SearchImageController {
     val controller = loader.getController[SearchImageController]
 
     val stage = new Stage()
-    //stage.setOnCloseRequest { _ => controller.closing() }
 
     stage.setTitle("Search on docker hub")
 
