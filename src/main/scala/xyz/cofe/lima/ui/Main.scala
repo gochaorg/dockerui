@@ -69,7 +69,7 @@ class Main extends Application {
         controller.setAppConfig(config)
 
         DockerClientPool.init(new DockerClientPool(config.dockerConnect.createDockerClient()))
-        DockerClientHubPool.init(new DockerClientHubPool(DockerHubClient(java.net.http.HttpClient.newBuilder().build())))
+        DockerHubClientPool.init(new DockerHubClientPool(DockerHubClient(java.net.http.HttpClient.newBuilder().build())))
 
         val scene1 = new Scene(prnt)
         primaryStage.setScene(scene1)

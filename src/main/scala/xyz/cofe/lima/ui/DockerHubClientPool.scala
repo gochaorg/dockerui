@@ -9,11 +9,12 @@ import java.util.concurrent.{ExecutorService, Executors}
  * Пул потоков для работы с docker
  * @param buildClient клиент docker
  */
-class DockerClientHubPool( buildClient: => DockerHubClient ) {
+class DockerHubClientPool(buildClient: => DockerHubClient ) {
   lazy val pool: ExecutorService = {
     val thPool = Executors.newCachedThreadPool((r: Runnable) => {
       val th = new Thread(r)
       th.setDaemon(true)
+      th.setName(s"docker-hub-${th.getId}")
       th
     })
     thPool
@@ -33,10 +34,10 @@ class DockerClientHubPool( buildClient: => DockerHubClient ) {
   }
 }
 
-object DockerClientHubPool {
-  @volatile private var defaultPool: Option[DockerClientHubPool] = None
+object DockerHubClientPool {
+  @volatile private var defaultPool: Option[DockerHubClientPool] = None
 
-  def init(pool: DockerClientHubPool):Unit = {
+  def init(pool: DockerHubClientPool):Unit = {
     this.synchronized {
       if( defaultPool.isDefined )throw new IllegalStateException("already inited")
       defaultPool = Some(pool)

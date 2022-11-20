@@ -13,6 +13,7 @@ class DockerClientPool( val dockerClient:DockerClient ) {
     val thPool = Executors.newCachedThreadPool((r: Runnable) => {
       val th = new Thread(r)
       th.setDaemon(true)
+      th.setName(s"docker-client-${th.getId}")
       th
     })
     thPool
