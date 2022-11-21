@@ -150,8 +150,66 @@ object AppConfigController1234 {
     }
   }
 
+  class StringEditorWithPredicate(filter:String=>Boolean) extends Editor[String] {
+    var initial: Option[String] = None
+    var commit: Option[String => Unit] = None
+    var cancel: Option[() => Unit] = None
+
+    val textField: TextField = {
+      val field = new TextField()
+      field.setOnAction { ev =>
+        commit.foreach(f => f(field.getText))
+        ev.consume()
+      }
+      field.setOnKeyReleased { ev =>
+        if (ev.getCode == KeyCode.ESCAPE) {
+          println("editor cancelEdit")
+          cancel.foreach(f => f())
+          ev.consume()
+        }
+      }
+      field.textProperty().addListener((ev,old,newValue)=>{
+        val style = ";-fx-background-color: red;"
+        if(filter(newValue)){
+          field.setStyle(
+            field.getStyle.replace(style,"")
+          )
+        }else{
+          field.setStyle(
+            field.getStyle + style
+          )
+        }
+      })
+      field
+    }
+
+    override def startEdit(value: String, commit: String => Unit, cancel: () => Unit): Node = {
+      this.initial = Some(value)
+      this.commit = Some(commit)
+      this.cancel = Some(cancel)
+      textField.setText(value)
+      textField
+    }
+
+    override def cancelEdit(): Unit = {
+    }
+
+    override def updateItem(value: String, empty: Boolean): Unit = {
+      if (empty) {
+        textField.setText("")
+      } else {
+        textField.setText(value)
+      }
+    }
+
+    override def requireFocus(): Unit = {
+      textField.selectAll()
+      textField.requestFocus()
+    }
+  }
+
   class CF1() extends TreeTableCell[Prop,String]() {
-    var editor:Editor[String] = new StringEditor()
+    var editor:Editor[String] = new StringEditorWithPredicate(str => str.contains("ok"))
 //    var editor = new StringEditor()
 
     override def startEdit(): Unit = {
