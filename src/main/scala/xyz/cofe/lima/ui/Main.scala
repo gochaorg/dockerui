@@ -7,6 +7,7 @@ import javafx.scene.{Parent, Scene}
 import javafx.stage.Stage
 import xyz.cofe.lima.docker.DockerClient
 import xyz.cofe.lima.docker.http.HttpLogger
+import xyz.cofe.lima.docker.hub.DockerHubClient
 import xyz.cofe.lima.docker.log.Logger
 import xyz.cofe.lima.store.AppHome
 import xyz.cofe.lima.store.config.{AppConfig, DockerConnect}
@@ -62,12 +63,16 @@ class Main extends Application {
       case Right(config) =>
         val loader = new FXMLLoader()
 
-        loader.setLocation(this.getClass.getResource("/xyz/cofe/lima/ui/main.fxml"))
+        val res1 = this.getClass.getResource("/xyz/cofe/lima/ui/main.fxml")
+        println(res1)
+        loader.setLocation(res1)
+
         val prnt = loader.load[Parent]()
         val controller = loader.getController[MainController]
         controller.setAppConfig(config)
 
         DockerClientPool.init(new DockerClientPool(config.dockerConnect.createDockerClient()))
+        DockerHubClientPool.init(new DockerHubClientPool(DockerHubClient(java.net.http.HttpClient.newBuilder().build())))
 
         val scene1 = new Scene(prnt)
         primaryStage.setScene(scene1)

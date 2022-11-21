@@ -8,7 +8,7 @@ import xyz.cofe.lima.docker.http.errors.HttpError
 import xyz.cofe.lima.docker.http.HttpResponse
 import xyz.cofe.lima.docker.log.Logger
 import xyz.cofe.lima.docker.log.Logger._
-import xyz.cofe.lima.docker.model.{ImageHistory, _}
+import xyz.cofe.lima.docker.model.{ImageHistory, ImageSearch, _}
 
 import java.net.UnixDomainSocketAddress
 import java.nio.channels.SocketChannel
@@ -434,6 +434,23 @@ case class DockerClient( socketChannel: SocketChannel,
         .body(204).map(_ => ())
     }
 
+  /**
+   * Ожидание запуска/остановки контейнера
+   * @param containerId имя или id контейнера
+   */
+  def containerWait(containerId:String, condition:Option[ContainerWaitCondition]) = {
+    logger(Logger.ContainerWait(containerId,condition)).run {
+      http(
+        HttpRequest(s"/containers/$containerId/wait").post()
+      )
+        .expect
+        .fail(400, errors.BadRequest(_))
+        .fail(404, errors.NotFound(_))
+        .fail(500, errors.ServerErr(_))
+        .json[WaitResponse](200)
+    }
+  }
+
   //#endregion
   //#region image task
 
@@ -479,10 +496,10 @@ case class DockerClient( socketChannel: SocketChannel,
                    tag:Option[String] = None,
                    message:Option[String] = None,
                    platform:Option[String] = None
-                 )(progress:ImagePullStatusEntry=>Unit):Unit = //todo error
+                 )(progress:ImagePullStatus=>Unit):Unit = //todo error
   {
     val logReq = logger(Logger.ImageCreate(fromImage, fromSrc, repo, tag, message, platform))
-    var logEvents = List[model.ImagePullStatusEntry]()
+    var logEvents = List[model.ImagePullStatus]()
 
     lazy val byte2charDecoder: Decoder.Byte2Char = Decoder.Byte2Char(StandardCharsets.UTF_8.newDecoder())
     lazy val char2json = Decoder.Char2JsonEntry()
@@ -501,6 +518,10 @@ case class DockerClient( socketChannel: SocketChannel,
 
     httpClient.stream(request) { ev =>
       ev match {
+        case fl@Event.FirstLine(pid,string) =>
+          val ev = ImagePullHttpStatus(fl.code.getOrElse(-1), fl.message)
+          logEvents = ev :: logEvents
+          progress(ev)
         case Event.Data(pid, bytes) =>
           decoder.accept(bytes)
           decoder.fetch.foreach { jsEntryString =>
@@ -514,7 +535,7 @@ case class DockerClient( socketChannel: SocketChannel,
       HttpResponseStream.Behavior.Continue
     }
 
-    val r : Either[String,List[ImagePullStatusEntry]] = Right(logEvents.reverse)
+    val r : Either[String,List[ImagePullStatus]] = Right(logEvents.reverse)
     logReq.run(r)
   }
 
@@ -551,7 +572,11 @@ case class DockerClient( socketChannel: SocketChannel,
         .body(201).map(_=>())
     }
 
-
+  /**
+   * Получить историю контейнера
+   * @param nameOrId Image name or ID
+   * @return история
+   */
   def imageHistory(nameOrId:String): Either[errors.DockerError, List[model.ImageHistory]] = {
     logger(Logger.ImageHistory(nameOrId)).run {
       http(HttpRequest(s"/images/$nameOrId/history").get())
@@ -559,6 +584,21 @@ case class DockerClient( socketChannel: SocketChannel,
         .fail(404, errors.NotFound(_))
         .fail(500, errors.ServerErr(_))
         .json[List[model.ImageHistory]](200)
+    }
+  }
+
+  /**
+   * Поиск образов на docker hub
+   * @param term искомый термин
+   * @param limit ограничение поиска
+   * @return что нашлось
+   */
+  def imageSearch(term:String,limit:Option[Int]): Either[errors.DockerError, List[ImageSearch]] = {
+    logger(Logger.ImageSearch(term,limit)).run {
+      http(HttpRequest("/images/search").get().queryString("term" -> term, "limit" -> limit))
+        .expect
+        .fail(500, errors.ServerErr(_))
+        .json[List[model.ImageSearch]](200)
     }
   }
   //#endregion

@@ -2,10 +2,11 @@ package xyz.cofe.lima.ui
 
 import javafx.application.Platform
 import javafx.fxml.FXML
+import javafx.scene.control
 import javafx.scene.control.{TreeItem, TreeTableView}
 import xyz.cofe.lima.docker.DockerClient
 import xyz.cofe.lima.docker.log.Logger.ContainerCreate
-import xyz.cofe.lima.docker.model.CreateContainerRequest
+import xyz.cofe.lima.docker.model.{CreateContainerRequest, HostConfig}
 import xyz.cofe.lima.store.{ControllersHistory, History}
 
 /**
@@ -156,14 +157,64 @@ class CreateContainerController {
     }
     rebuildCmdRoot()
 
-    val hostConfTree = new TreeItem(MutProp("hostConfig", ()=>"", _ => ()));
-    def rebuildHostConfTree():Unit = {
-      hostConfTree.getChildren.clear()
-      request.HostConfig.foreach { hostConf =>
-        //hostConf.
+    val hostConfigNode = new TreeItem(MutProp("hostConfig", ()=>"", _ => ()));
+    root.getChildren.add(hostConfigNode)
+
+    def rebuildHostConfig():Unit = {
+      val bindsNode = new TreeItem(MutProp("Binds",()=>"",v=>()))
+      hostConfigNode.getChildren.add(bindsNode)
+
+      def rebuildBinds():Unit = {
+        bindsNode.getChildren.clear()
+
+        val existsBinds = request.HostConfig.flatMap(_.Binds).getOrElse(List())
+
+        request.HostConfig.foreach { _.Binds.foreach { bindsList =>
+          bindsList.zipWithIndex.foreach { case (bindValue,idx) =>
+            val bindNode = new TreeItem(MutProp(s"#$idx",()=>bindValue,v => {
+              val newBinds =
+                if( v.isEmpty ){
+                  existsBinds.zipWithIndex.filter{case(_,i)=>i!=idx}.map(_._1)
+                }else{
+                  existsBinds.updated(idx, v)
+                }
+
+              request = request.copy(
+                HostConfig =
+                  if (newBinds.isEmpty)
+                    None
+                  else
+                    Some(
+                      request.HostConfig.getOrElse(new HostConfig()).copy(
+                        Binds = Some(newBinds)
+                      )
+                    )
+              )
+
+              Platform.runLater(()=>rebuildBinds())
+            }))
+            bindsNode.getChildren.add(bindNode)
+          }
+        }}
+
+        val newBindMnt = new TreeItem(MutProp("new",()=>"src:dest",appendStr=>{
+          val existsBinds = request.HostConfig.flatMap(_.Binds).getOrElse(List())
+          val newBinds = existsBinds :+ appendStr
+          request = request.copy(
+            HostConfig = Some(
+              request.HostConfig.getOrElse(new HostConfig()).copy(
+                Binds = Some(newBinds)
+              )
+            )
+          )
+          Platform.runLater(()=>rebuildBinds())
+        }))
+
+        bindsNode.getChildren.add(newBindMnt)
       }
+      rebuildBinds()
     }
-    rebuildHostConfTree()
+    rebuildHostConfig()
 
     params.setShowRoot(false)
     params.setRoot(root)

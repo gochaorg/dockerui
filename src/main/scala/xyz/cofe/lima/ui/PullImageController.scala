@@ -9,12 +9,13 @@ import javafx.scene.{Parent, Scene}
 import javafx.stage.Stage
 import javafx.util.StringConverter
 import xyz.cofe.lima.docker.log.Logger
+import xyz.cofe.lima.docker.model.{ImagePullHttpStatus, ImagePullStatusEntry}
 import xyz.cofe.lima.store.ControllersHistory
 
 import java.util.concurrent.ConcurrentLinkedQueue
 
 class PullImageController() {
-  @FXML private var paramsTable:TableView[MutProp] = null
+  @FXML private var params1:TableView[MutProp] = null
   @FXML private var paramsTitledPane:TitledPane = null
   @FXML private var logsTitledPane:TitledPane = null
   @FXML private var logs:TextArea = null
@@ -30,66 +31,83 @@ class PullImageController() {
   private def history = ControllersHistory.imageCreateHistory
 
   @FXML def initialize():Unit = {
-    paramsTable.getColumns.clear()
+    init()
+  }
 
-    val nameCol : TableColumn[MutProp,String] = {
-      val tc = new TableColumn[MutProp,String]("Parameter")
-      tc.setCellValueFactory { param => new SimpleStringProperty(param.getValue.name)}
+  private def init():Unit = {
+    params1.getColumns.clear()
+
+    val nameCol: TableColumn[MutProp, String] = {
+      val tc = new TableColumn[MutProp, String]("Parameter")
+      tc.setCellValueFactory { param => new SimpleStringProperty(param.getValue.name) }
       tc
     }
-    paramsTable.getColumns.add(nameCol)
+    params1.getColumns.add(nameCol)
 
-    val valueCol : TableColumn[MutProp,String] = {
-      val tc = new TableColumn[MutProp,String]("Value")
-      tc.setCellValueFactory { param => new SimpleStringProperty(param.getValue.reader())}
+    val valueCol: TableColumn[MutProp, String] = {
+      val tc = new TableColumn[MutProp, String]("Value")
+      tc.setCellValueFactory { param => new SimpleStringProperty(param.getValue.reader()) }
       tc
     }
-    valueCol.setOnEditCommit({ ev => ev.getRowValue.writer(ev.getNewValue)})
+    valueCol.setOnEditCommit({ ev => ev.getRowValue.writer(ev.getNewValue) })
     valueCol.setCellFactory(ev => {
-      val tc = new TextFieldTableCell[MutProp,String](new StringConverter[String](){
+      val tc = new TextFieldTableCell[MutProp, String](new StringConverter[String]() {
         override def toString(`object`: String): String = `object`
+
         override def fromString(string: String): String = string
       })
       tc
     })
-    paramsTable.getColumns.add(valueCol)
-    paramsTable.setEditable(true)
+    params1.getColumns.add(valueCol)
+    params1.setEditable(true)
 
-    paramsTable.getItems.add(
+    params1.getItems.add(
       MutProp(
         "fromImage",
-        ()=>fromImage.getOrElse(""),
-        v=>{fromImage = if(v.trim.nonEmpty)Some(v.trim)else None }
+        () => fromImage.getOrElse(""),
+        v => {
+          fromImage = if (v.trim.nonEmpty) Some(v.trim) else None
+        }
       ))
-    paramsTable.getItems.add(
+    params1.getItems.add(
       MutProp(
         "tag",
-        ()=>tag.getOrElse(""),
-        v=>{tag = if(v.trim.nonEmpty)Some(v.trim)else None }
+        () => tag.getOrElse(""),
+        v => {
+          tag = if (v.trim.nonEmpty) Some(v.trim) else None
+        }
       ))
-    paramsTable.getItems.add(
+    params1.getItems.add(
       MutProp(
         "fromSrc",
-        ()=>fromSrc.getOrElse(""),
-        v=>{fromSrc = if(v.trim.nonEmpty)Some(v.trim)else None }
+        () => fromSrc.getOrElse(""),
+        v => {
+          fromSrc = if (v.trim.nonEmpty) Some(v.trim) else None
+        }
       ))
-    paramsTable.getItems.add(
+    params1.getItems.add(
       MutProp(
         "repo",
-        ()=>repo.getOrElse(""),
-        v=>{repo = if(v.trim.nonEmpty)Some(v.trim)else None }
+        () => repo.getOrElse(""),
+        v => {
+          repo = if (v.trim.nonEmpty) Some(v.trim) else None
+        }
       ))
-    paramsTable.getItems.add(
+    params1.getItems.add(
       MutProp(
         "message",
-        ()=>message.getOrElse(""),
-        v=>{message = if(v.trim.nonEmpty)Some(v.trim)else None }
+        () => message.getOrElse(""),
+        v => {
+          message = if (v.trim.nonEmpty) Some(v.trim) else None
+        }
       ))
-    paramsTable.getItems.add(
+    params1.getItems.add(
       MutProp(
         "platform",
-        ()=>platform.getOrElse(""),
-        v=>{platform = if(v.trim.nonEmpty)Some(v.trim)else None }
+        () => platform.getOrElse(""),
+        v => {
+          platform = if (v.trim.nonEmpty) Some(v.trim) else None
+        }
       ))
 
     accordion.setExpandedPane(paramsTitledPane)
@@ -102,7 +120,7 @@ class PullImageController() {
       message = e.message
       platform = e.platform
 
-      historyIndex = Some(history.size-1)
+      historyIndex = Some(history.size - 1)
     }
   }
 
@@ -121,7 +139,7 @@ class PullImageController() {
           platform = e.platform
 
           historyIndex = Some(idx-1)
-          paramsTable.refresh()
+          params1.refresh()
         }
       case _ =>
     }
@@ -138,40 +156,43 @@ class PullImageController() {
           platform = e.platform
 
           historyIndex = Some(idx + 1)
-          paramsTable.refresh()
+          params1.refresh()
         }
       case _ =>
     }
   }
 
-  def pull():Unit = {
+  def pull(): Unit = {
+    val p_fromImage = fromImage
+    val p_fromSrc = fromSrc
+    val p_repo = repo
+    val p_tag = tag
+    val p_message = message
+    val p_platform = platform
+
+    history.add(Logger.ImageCreate(p_fromImage, p_fromSrc, p_repo, p_tag, p_message, p_platform))
+
     DockerClientPool.submit { dc =>
-      val p_fromImage = fromImage
-      val p_fromSrc = fromSrc
-      val p_repo = repo
-      val p_tag = tag
-      val p_message = message
-      val p_platform = platform
-      val th = new Thread("pull image") {
-        override def run(): Unit = {
-          history.add(Logger.ImageCreate(p_fromImage,p_fromSrc,p_repo,p_tag,p_message,p_platform))
-          dc.imageCreate(p_fromImage,p_fromSrc,p_repo,p_tag,p_message,p_platform) { ev =>
-            import xyz.cofe.lima.docker.model.ImagePullStatusEntry._
+      dc.imageCreate(p_fromImage, p_fromSrc, p_repo, p_tag, p_message, p_platform) { ev =>
+        import xyz.cofe.lima.docker.model.ImagePullStatusEntry._
+        ev match {
+          case ev:ImagePullStatusEntry =>
             ev.statusInfo match {
               case Some(PullingFrom(str)) =>
+                //log("ss")
                 log(s"pulling from $str")
               case Some(PullingFsLayer) =>
                 log(s"pulling fs layer id=${ev.id}")
               case Some(Waiting) =>
                 log(s"waiting id=${ev.id}")
               case Some(Downloading) =>
-                log(s"downloading id=${ev.id} progress ${ev.progressDetail.map(d=>s"${d.current} / ${d.total}")}")
+                log(s"downloading id=${ev.id} progress ${ev.progressDetail.map(d => s"${d.current} / ${d.total}")}")
               case Some(VerifyingChecksum) =>
                 log(s"VerifyingChecksum id=${ev.id}")
               case Some(DownloadComplete) =>
                 log(s"DownloadComplete id=${ev.id}")
               case Some(Extracting) =>
-                log(s"Extracting id=${ev.id} progress ${ev.progressDetail.map(d=>s"${d.current} / ${d.total}")}")
+                log(s"Extracting id=${ev.id} progress ${ev.progressDetail.map(d => s"${d.current} / ${d.total}")}")
               case Some(s@PullComplete) =>
                 log(s"PullComplete id=${ev.id}")
               case Some(Digest(str)) =>
@@ -181,15 +202,13 @@ class PullImageController() {
               case None => log("undefined")
               case _ => log("???")
             }
-          }
+          case ImagePullHttpStatus(code, message) =>
+            log(s"http response $code $message")
         }
       }
-      th.setDaemon(true)
-      threads = th :: threads
-      th.start()
-
-      accordion.setExpandedPane(logsTitledPane)
     }
+
+    accordion.setExpandedPane(logsTitledPane)
   }
 
   private val messageQueue = new ConcurrentLinkedQueue[String]()
@@ -232,6 +251,30 @@ object PullImageController {
     stage.setOnCloseRequest { _ => controller.closing() }
 
     stage.setTitle("Pull image")
+
+    val scene = new Scene(parent)
+    stage.setScene(scene)
+    stage.show()
+  }
+
+  def show(imageCreate:Logger.ImageCreate): Unit = {
+    val loader = new FXMLLoader()
+    loader.setLocation(this.getClass.getResource("/xyz/cofe/lima/ui/pull-image.fxml"))
+
+    val parent = loader.load[Parent]()
+    val controller = loader.getController[PullImageController]
+
+    val stage = new Stage()
+    stage.setOnCloseRequest { _ => controller.closing() }
+
+    stage.setTitle("Pull image")
+
+    controller.fromImage = imageCreate.fromImage
+    controller.fromSrc = imageCreate.fromSrc
+    controller.repo = imageCreate.repo
+    controller.tag = imageCreate.tag
+    controller.message = imageCreate.message
+    controller.platform = imageCreate.platform
 
     val scene = new Scene(parent)
     stage.setScene(scene)

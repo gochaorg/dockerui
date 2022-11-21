@@ -101,10 +101,12 @@ class ImagesController {
     refresh()
   }
 
+  def search(): Unit = {
+    SearchImageController.show()
+  }
   def pullImage():Unit = {
     PullImageController.show
   }
-
   def deleteSelected():Unit={
     val tags = table.getSelectionModel.getSelectedItems.asScala.map(img => {
       img.RepoTags.map(_.mkString(",")).getOrElse("")

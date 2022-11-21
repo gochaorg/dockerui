@@ -2,13 +2,18 @@ package xyz.cofe.lima.docker.model
 
 import tethys.{JsonReader, JsonWriter}
 import tethys.derivation.semiauto.{jsonReader, jsonWriter}
+import tethys.writers.tokens.TokenWriter
+import xyz.cofe.lima.store.json._
+
+sealed trait ImagePullStatus
 
 case class ImagePullStatusEntry(
   status:String,
   id:Option[String],
   progressDetail:Option[ImagePullStatusEntryProgress],
   progress: Option[String],
-) {
+) extends ImagePullStatus
+{
   import ImagePullStatusEntry._
   lazy val statusInfo:Option[Status] = {
     if( status.startsWith("Pulling from ") ) {
@@ -39,7 +44,7 @@ case class ImagePullStatusEntry(
 
 object ImagePullStatusEntry {
   implicit val reader: JsonReader[ImagePullStatusEntry] = jsonReader[ImagePullStatusEntry]
-  implicit val writer: JsonWriter[ImagePullStatusEntry] = jsonWriter[ImagePullStatusEntry]
+  implicit val writer: JsonWriter[ImagePullStatusEntry] = classWriter[ImagePullStatusEntry] ++ jsonWriter[ImagePullStatusEntry]
 
   sealed trait Status
   case class PullingFrom(from:String) extends Status
@@ -60,6 +65,32 @@ case class ImagePullStatusEntryProgress(
 )
 object ImagePullStatusEntryProgress {
   implicit val reader: JsonReader[ImagePullStatusEntryProgress] = jsonReader[ImagePullStatusEntryProgress]
-  implicit val writer: JsonWriter[ImagePullStatusEntryProgress] = jsonWriter[ImagePullStatusEntryProgress]
+  implicit val writer: JsonWriter[ImagePullStatusEntryProgress] = classWriter[ImagePullStatusEntryProgress] ++ jsonWriter[ImagePullStatusEntryProgress]
 }
 
+case class ImagePullHttpStatus(
+  code: Int,
+  message: Option[String]
+) extends ImagePullStatus
+object ImagePullHttpStatus {
+  implicit val reader: JsonReader[ImagePullHttpStatus] = jsonReader[ImagePullHttpStatus]
+  implicit val writer: JsonWriter[ImagePullHttpStatus] = classWriter[ImagePullHttpStatus] ++ jsonWriter[ImagePullHttpStatus]
+}
+
+object ImagePullStatus {
+  implicit val writer : JsonWriter[ImagePullStatus] = new JsonWriter[ImagePullStatus] {
+    def write(value: ImagePullStatus, tokenWriter: TokenWriter): Unit = {
+      value match {
+        case e : ImagePullStatusEntry =>
+          ImagePullStatusEntry.writer.write(e, tokenWriter)
+        case e : ImagePullHttpStatus =>
+          ImagePullHttpStatus.writer.write(e, tokenWriter)
+      }
+    }
+  }
+  implicit val reader : JsonReader[ImagePullStatus] = JsonReader.builder.addField[String]("_type")
+    .selectReader[ImagePullStatus] {
+      case "ImagePullStatusEntry" => ImagePullStatusEntry.reader
+      case "ImagePullHttpStatus" => ImagePullHttpStatus.reader
+    }
+}

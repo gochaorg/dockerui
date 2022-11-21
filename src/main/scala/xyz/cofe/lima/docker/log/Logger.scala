@@ -8,7 +8,7 @@ import tethys.readers.tokens.TokenIterator
 import tethys.writers.tokens.TokenWriter
 import xyz.cofe.lima.docker.errors.DockerError
 import xyz.cofe.lima.docker.model
-import xyz.cofe.lima.docker.model.{CreateContainerRequest, Image}
+import xyz.cofe.lima.docker.model.{ContainerWaitCondition, CreateContainerRequest, Image}
 import xyz.cofe.lima.store.json._
 import xyz.cofe.lima.thread.ThreadID
 
@@ -358,6 +358,12 @@ object Logger {
     implicit val writer: JsonWriter[ContainerRename] = classWriter[ContainerRename] ++ jsonWriter[ContainerRename]
   }
 
+  case class ContainerWait(containerId:String, condition:Option[ContainerWaitCondition]) extends MethodWithParams[model.WaitResponse]
+  object ContainerWait {
+    implicit val reader: JsonReader[ContainerWait] = jsonReader[ContainerWait]
+    implicit val writer: JsonWriter[ContainerWait] = classWriter[ContainerWait] ++ jsonWriter[ContainerWait]
+  }
+
   /**
    * Вызов метода [[xyz.cofe.lima.docker.DockerClient.images]]
    */
@@ -415,10 +421,16 @@ object Logger {
                          repo: Option[String] = None,
                          tag: Option[String] = None,
                          message: Option[String] = None,
-                         platform: Option[String] = None) extends MethodWithParams[List[model.ImagePullStatusEntry]]
+                         platform: Option[String] = None) extends MethodWithParams[List[model.ImagePullStatus]]
   object ImageCreate {
     implicit val reader: JsonReader[ImageCreate] = jsonReader[ImageCreate]
     implicit val writer: JsonWriter[ImageCreate] = classWriter[ImageCreate] ++ jsonWriter[ImageCreate]
+  }
+
+  case class ImageSearch(term:String,limit:Option[Int]) extends MethodWithParams[List[model.ImageSearch]]
+  object ImageSearch {
+    implicit val reader: JsonReader[ImageSearch] = jsonReader[ImageSearch]
+    implicit val writer: JsonWriter[ImageSearch] = classWriter[ImageSearch] ++ jsonWriter[ImageSearch]
   }
   //#endregion
 }

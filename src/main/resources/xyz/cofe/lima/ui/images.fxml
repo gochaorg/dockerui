@@ -13,6 +13,7 @@
    <top>
       <ToolBar BorderPane.alignment="CENTER">
         <items>
+            <Button mnemonicParsing="false" onAction="#search" text="Search" />
             <Button mnemonicParsing="false" onAction="#pullImage" text="Pull" />
             <Button mnemonicParsing="false" onAction="#deleteSelected" text="Delete" textFill="#800000" />
             <Separator orientation="VERTICAL" />

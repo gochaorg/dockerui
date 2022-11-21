@@ -22,7 +22,7 @@
                   </AnchorPane>
                </bottom>
                <center>
-                  <TableView fx:id="paramsTable" editable="true" prefHeight="200.0" prefWidth="200.0" BorderPane.alignment="CENTER">
+                  <TableView fx:id="params1" editable="true" prefHeight="200.0" prefWidth="200.0" BorderPane.alignment="CENTER">
                     <columns>
                       <TableColumn prefWidth="75.0" text="C1" />
                       <TableColumn prefWidth="75.0" text="C2" />
