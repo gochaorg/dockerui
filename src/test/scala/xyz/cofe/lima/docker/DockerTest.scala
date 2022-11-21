@@ -157,31 +157,31 @@ class DockerTest extends AnyFunSuite {
         fromImage = Some("redis"),
         tag = Some("sha256:2bd864580926b790a22c8b96fd74496fe87b3c59c0774fe144bab2788e78e676")
       ) { ev =>
-        import xyz.cofe.lima.docker.model.ImagePullStatusEntry._
-        ev.statusInfo match {
-          case Some(PullingFrom(str)) =>
-            println(s"pulling from $str")
-          case Some(PullingFsLayer) =>
-            println(s"pulling fs layer id=${ev.id}")
-          case Some(Waiting) =>
-            println(s"waiting id=${ev.id}")
-          case Some(Downloading) =>
-            println(s"downloading id=${ev.id} progress ${ev.progressDetail.map(d=>s"${d.current} / ${d.total}")}")
-          case Some(VerifyingChecksum) =>
-            println(s"VerifyingChecksum id=${ev.id}")
-          case Some(DownloadComplete) =>
-            println(s"DownloadComplete id=${ev.id}")
-          case Some(Extracting) =>
-            println(s"Extracting id=${ev.id} progress ${ev.progressDetail.map(d=>s"${d.current} / ${d.total}")}")
-          case Some(s@PullComplete) =>
-            println(s"PullComplete id=${ev.id}")
-          case Some(Digest(str)) =>
-            println(s"Digest $str")
-          case Some(CommentedStatus(str)) =>
-            println(s"CommentedStatus $str")
-          case None => println("undefined")
-          case _ => println("???")
-        }
+//        import xyz.cofe.lima.docker.model.ImagePullStatusEntry._
+//        ev.statusInfo match {
+//          case Some(PullingFrom(str)) =>
+//            println(s"pulling from $str")
+//          case Some(PullingFsLayer) =>
+//            println(s"pulling fs layer id=${ev.id}")
+//          case Some(Waiting) =>
+//            println(s"waiting id=${ev.id}")
+//          case Some(Downloading) =>
+//            println(s"downloading id=${ev.id} progress ${ev.progressDetail.map(d=>s"${d.current} / ${d.total}")}")
+//          case Some(VerifyingChecksum) =>
+//            println(s"VerifyingChecksum id=${ev.id}")
+//          case Some(DownloadComplete) =>
+//            println(s"DownloadComplete id=${ev.id}")
+//          case Some(Extracting) =>
+//            println(s"Extracting id=${ev.id} progress ${ev.progressDetail.map(d=>s"${d.current} / ${d.total}")}")
+//          case Some(s@PullComplete) =>
+//            println(s"PullComplete id=${ev.id}")
+//          case Some(Digest(str)) =>
+//            println(s"Digest $str")
+//          case Some(CommentedStatus(str)) =>
+//            println(s"CommentedStatus $str")
+//          case None => println("undefined")
+//          case _ => println("???")
+//        }
       }
 
     println(response)

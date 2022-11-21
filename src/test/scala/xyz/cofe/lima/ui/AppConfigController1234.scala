@@ -4,6 +4,7 @@ import javafx.beans.property.SimpleStringProperty
 import javafx.beans.value.{ChangeListener, ObservableValue}
 import javafx.event.EventHandler
 import javafx.fxml.FXML
+import javafx.scene.Node
 import javafx.scene.control._
 import javafx.scene.input.KeyCode
 
@@ -43,7 +44,7 @@ class AppConfigController1234 {
     })
     valueCol.setOnEditCommit(new EventHandler[TreeTableColumn.CellEditEvent[Prop, String]]() {
       override def handle(event: TreeTableColumn.CellEditEvent[Prop, String]): Unit = {
-        println(event.getNewValue)
+        println("setOnEditCommit handle "+event.getNewValue)
         event.getRowValue.getValue match {
           case prop @ StringProp(name, value) =>
             prop.value = event.getNewValue
@@ -97,56 +98,91 @@ object AppConfigController1234 {
 
   case class StringProp(name: String, var value:String="some") extends Prop
 
-  class CF1() extends TreeTableCell[Prop,String]() {
-    var textField:Option[TextField] = None
-    override def startEdit(): Unit = {
-      println(s"startEdit")
-      super.startEdit()
+  trait Editor[V] {
+    def startEdit(value:V, commit:V=>Unit, cancel:()=>Unit):Node
+    def cancelEdit():Unit
+    def updateItem(value:V, empty:Boolean):Unit
+    def requireFocus():Unit = ()
+  }
 
-      val cell = this
+  class StringEditor extends Editor[String] {
+    var initial: Option[String] = None
+    var commit: Option[String=>Unit] = None
+    var cancel: Option[()=>Unit] = None
 
-      val txtField = textField match {
-        case Some(value) =>
-          println( "getText="+ getText )
-          value
-        case None =>
-          textField = Some({
-            val txtField = new TextField("")
-            txtField.setOnAction(ev => {
-              println("commit!")
-              cell.commitEdit(txtField.getText)
-              ev.consume()
-            })
-            txtField.setOnKeyReleased(ev => {
-              if (ev.getCode == KeyCode.ESCAPE) {
-                println("cancel")
-                cell.cancelEdit()
-                ev.consume()
-              }
-            })
-            txtField
-          })
-          textField.get
+    val textField : TextField = {
+      val field = new TextField()
+      field.setOnAction { ev =>
+        commit.foreach( f => f(field.getText) )
+        ev.consume()
       }
+      field.setOnKeyReleased { ev =>
+        if( ev.getCode == KeyCode.ESCAPE ){
+          println("editor cancelEdit")
+          cancel.foreach( f => f() )
+          ev.consume()
+        }
+      }
+      field
+    }
+    override def startEdit(value: String, commit: String => Unit, cancel: () => Unit): Node = {
+      this.initial = Some(value)
+      this.commit = Some(commit)
+      this.cancel = Some(cancel)
+      textField.setText(value)
+      textField
+    }
+
+    override def cancelEdit(): Unit = {
+    }
+
+    override def updateItem(value: String, empty: Boolean): Unit = {
+      if(empty){
+        textField.setText("")
+      }else{
+        textField.setText(value)
+      }
+    }
+
+    override def requireFocus():Unit = {
+      textField.selectAll()
+      textField.requestFocus()
+    }
+  }
+
+  class CF1() extends TreeTableCell[Prop,String]() {
+    var editor:Editor[String] = new StringEditor()
+//    var editor = new StringEditor()
+
+    override def startEdit(): Unit = {
+      super.startEdit()
 
       this.setText(null)
 
-      txtField.setText("")
+      val cell = this
 
-      cell.getTableRow.getTreeItem.getValue match {
-        case StringProp(name, propValue) =>
-          println(s"name=$name propValue=$propValue")
-          txtField.setText(propValue)
-      }
+      setGraphic(
+        editor.startEdit({
+          cell.getTableRow.getTreeItem.getValue match {
+            case StringProp(name, propValue) => propValue
+          }
+        }
+          , cell.commitEdit
+          , cell.cancelEdit
+      ))
 
-      setGraphic(txtField)
-      txtField.selectAll()
-      txtField.requestFocus()
+      editor.requireFocus()
     }
 
     override def cancelEdit(): Unit = {
       super.cancelEdit()
       setGraphic(null)
+      setText({
+        getTableRow.getTreeItem.getValue match {
+          case StringProp(name, propValue) => propValue
+        }
+      })
+      editor.cancelEdit()
     }
 
     override def updateItem(item: String, empty: Boolean): Unit = {
@@ -156,11 +192,8 @@ object AppConfigController1234 {
         setGraphic(null)
       } else {
         if (isEditing) {
-          textField.foreach(tf => tf.setText(item))
+          editor.updateItem(item,empty)
           setText(null)
-          if (getGraphic != null) {
-            setGraphic(textField.orNull)
-          }
         } else {
           setText(item)
           setGraphic(null)
