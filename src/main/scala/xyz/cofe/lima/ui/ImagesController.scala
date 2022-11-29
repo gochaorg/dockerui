@@ -4,6 +4,7 @@ import javafx.application.Platform
 import javafx.beans.property.SimpleStringProperty
 import javafx.fxml.FXML
 import javafx.scene.control.{SelectionMode, TableColumn, TableView}
+import javafx.scene.input.{Clipboard, ClipboardContent, KeyCode}
 import xyz.cofe.lima.docker.DockerClient
 import xyz.cofe.lima.docker.model.{ContainerStatus, Image}
 
@@ -82,10 +83,24 @@ class ImagesController {
       tc
     }
     table.getColumns.add(containersCol)
+
+    table.setOnKeyReleased(ev => {
+      if (ev.isControlDown && ev.getCode == KeyCode.C) {
+        copy2clipboard()
+      }
+    })
   }
 
   private lazy val syncTable = SyncTable[Image,String](table, im=>im.Id, (a,b)=>a==b)
     .trackFocused(imageController.onSelect)
+
+  private def selected:List[Image] = {
+    (if( table==null ){
+      List()
+    }else{
+      table.getSelectionModel.getSelectedItems.asScala.toList
+    })
+  }
 
   def refresh():Unit = {
     DockerClientPool.submit { dc =>
@@ -128,5 +143,29 @@ class ImagesController {
           })
         }
     }
+  }
+
+  def copy2clipboard(): Unit = {
+    val sb = new StringBuilder()
+    selected.foreach { c =>
+      if (sb.nonEmpty) {
+        sb ++= "\n"
+      }
+      sb ++= List[String](
+        c.RepoTags.map(_.mkString(",")).getOrElse(""),
+        c.Id,
+        c.ParentId,
+        c.RepoDigests.map(_.mkString(",")).getOrElse(""),
+        c.Created.toString,
+        c.Size.toString,
+        c.SharedSize.toString,
+        c.VirtualSize.toString,
+        c.Containers.toString
+      ).mkString("\t")
+    }
+    val cc = new ClipboardContent()
+    cc.putString(sb.toString())
+
+    Clipboard.getSystemClipboard.setContent(cc)
   }
 }

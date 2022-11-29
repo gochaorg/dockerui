@@ -7,6 +7,7 @@ import javafx.collections.ListChangeListener
 import javafx.fxml.{FXML, FXMLLoader}
 import javafx.scene.{Parent, Scene}
 import javafx.scene.control.{SelectionMode, TableColumn, TableView}
+import javafx.scene.input.{Clipboard, ClipboardContent, KeyCode}
 import javafx.stage.Stage
 import xyz.cofe.lima.docker.DockerClient
 import xyz.cofe.lima.docker.model.ContainerStatus
@@ -95,6 +96,14 @@ class ContainersController {
         })
       }
     }
+
+    if( table!=null ){
+      table.setOnKeyReleased( ev => {
+        if( ev.isControlDown && ev.getCode==KeyCode.C ){
+          copy2clipboard()
+        }
+      })
+    }
   }
 
   private def onSelectContainer(id:String):Unit = {
@@ -138,13 +147,15 @@ class ContainersController {
       }
     }
   }
-
-  private def selectedContainersId():Seq[String] = {
-    if( table==null ){
+  private def selectedContainers:Seq[ContainerStatus] = {
+    if (table == null) {
       List()
-    }else{
-      table.getSelectionModel.getSelectedItems.asScala.map(_.Id).toSeq
+    } else {
+      table.getSelectionModel.getSelectedItems.asScala.toSeq
     }
+  }
+  private def selectedContainersId():Seq[String] = {
+    selectedContainers.map(_.Id)
   }
   private def containersFromTable(ids:Seq[String]) = {
     if( table==null ){
@@ -235,5 +246,19 @@ class ContainersController {
             })
           }
         }
+  }
+
+  def copy2clipboard():Unit = {
+    val sb = new StringBuilder()
+    selectedContainers.foreach { c =>
+      if( sb.nonEmpty ){
+        sb ++= "\n"
+      }
+      sb ++= s"${c.Id}\t${c.Names.mkString("")}\t${c.Image}\t${c.Status}\t${c.Command}"
+    }
+    val cc = new ClipboardContent()
+    cc.putString(sb.toString())
+
+    Clipboard.getSystemClipboard.setContent(cc)
   }
 }
